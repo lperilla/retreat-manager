@@ -42,7 +42,9 @@ import { DEMO_PARTICIPANTS } from '../infrastructure/persistence/json/demo/demoD
 import { readParticipantsFile } from '../infrastructure/persistence/json/participantsFile.js';
 import { createMongoPersistence } from '../infrastructure/persistence/mongo/createMongoPersistence.js';
 import { FileExportStorage } from '../infrastructure/rendering/FileExportStorage.js';
+import { HtmlPacketRenderer } from '../infrastructure/rendering/HtmlPacketRenderer.js';
 import { JsonRenderer } from '../infrastructure/rendering/JsonRenderer.js';
+import { TxtRenderer } from '../infrastructure/rendering/TxtRenderer.js';
 import { loadConfig } from './config.js';
 
 /**
@@ -137,6 +139,15 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
   const clock = ClockPort.assert(overrides.clock ?? new SystemClock());
   const idGenerator = overrides.idGenerator ?? randomUUID;
 
+  // The mail source is created first: if it is not configured, no database connection is opened.
+  const mailSource = MailSourcePort.assert(overrides.mailSource ?? (await createMailSource({ config, clock, logger })));
+  const renderers = (overrides.renderers ?? [new HtmlPacketRenderer(), new TxtRenderer(), new JsonRenderer()]).map(
+    (renderer) => ExportRendererPort.assert(renderer),
+  );
+  const exportStorage = ExportStoragePort.assert(
+    overrides.exportStorage ?? new FileExportStorage({ exportDir: config.exportDir }),
+  );
+
   const persistence = overrides.persistence ?? (await createPersistence({ config, clock, logger }));
   const letterStore = LetterStoreRepositoryPort.assert(persistence.letterStore);
   const syncStateRepository = SyncStateRepositoryPort.assert(persistence.syncStateRepository);
@@ -144,13 +155,12 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
   const printStatusRepository = PrintStatusRepositoryPort.assert(persistence.printStatusRepository);
   const overrideRepository = AssignmentOverrideRepositoryPort.assert(persistence.overrideRepository);
 
-  const mailSource = MailSourcePort.assert(overrides.mailSource ?? (await createMailSource({ config, clock, logger })));
-  const renderers = (overrides.renderers ?? [new JsonRenderer()]).map((renderer) => ExportRendererPort.assert(renderer));
-  const exportStorage = ExportStoragePort.assert(
-    overrides.exportStorage ?? new FileExportStorage({ exportDir: config.exportDir }),
-  );
-
-  await seedParticipants({ config, overrides, participantRepository, logger });
+  try {
+    await seedParticipants({ config, overrides, participantRepository, logger });
+  } catch (error) {
+    await persistence.close().catch(() => {});
+    throw error;
+  }
 
   const assignmentStrategy = new ContentAssignmentStrategy({
     minConfidence: config.assignment.minConfidence,
@@ -246,6 +256,7 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
     clock,
     mailSource,
     assignmentStrategy,
+    exportStorage,
     repositories: Object.freeze({
       letterStore,
       syncStateRepository,
@@ -285,8 +296,7 @@ async function createMailSource({ config, clock, logger }) {
   const kind = config.demoMode ? 'demo' : 'gmail';
   const factory = mailSourceFactories.get(kind);
   if (!factory) {
-    throw new AppError('CONFIG_ERROR', 500, undefined, {
-      variable: 'DEMO_MODE',
+    throw new AppError('MAIL_SOURCE_NOT_CONFIGURED', 503, undefined, {
       reason: `no mail source registered for "${kind}" (available: ${[...mailSourceFactories.keys()].join(', ')})`,
     });
   }

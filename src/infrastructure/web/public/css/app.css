@@ -1,0 +1,102 @@
+/* Cartas del retiro: dashboard styles (no inline styles anywhere; strict CSP). */
+:root {
+  --app-primary: #1f3b57;
+  --app-primary-dark: #152a3f;
+  --app-accent: #ffd166;
+  --app-bg: #f5f6f8;
+}
+
+/* The hidden attribute must win over Bootstrap display utilities (d-flex, etc.). */
+[hidden] { display: none !important; }
+
+body { background: var(--app-bg); }
+body.has-batch-bar { padding-bottom: 4.5rem; }
+
+.skip-link { position: absolute; z-index: 2000; left: .5rem; top: .5rem; padding: .5rem 1rem; background: #fff; }
+
+.app-navbar { background: var(--app-primary); }
+.app-navbar .nav-link { color: rgba(255, 255, 255, .85); }
+.app-navbar .nav-link:hover, .app-navbar .nav-link.active, .app-navbar .nav-link[aria-current="page"] { color: #fff; }
+.app-navbar .nav-link[aria-current="page"] { text-decoration: underline; text-underline-offset: .35rem; }
+
+/* Visible keyboard focus everywhere. */
+:focus-visible { outline: 3px solid var(--app-accent) !important; outline-offset: 2px; }
+.btn:focus-visible, .form-control:focus-visible, .form-select:focus-visible, .form-check-input:focus-visible {
+  box-shadow: 0 0 0 .25rem rgba(31, 59, 87, .45);
+}
+main:focus { outline: none; }
+
+/* KPIs */
+.kpi { border: 0; box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+.kpi-link:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, .15); }
+.kpi-label { margin: 0 0 .25rem; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; color: #4a5560; }
+.kpi-value { margin: 0; font-size: 1.75rem; font-weight: 700; color: #16212b; line-height: 1.2; overflow-wrap: anywhere; }
+.kpi-value.kpi-names { font-size: 1.05rem; }
+.kpi-detail { margin: .25rem 0 0; font-size: .85rem; color: #4a5560; }
+.zero-letters { color: #a61b29; font-weight: 600; }
+
+/* Directory */
+.directory-table .col-check { width: 2.5rem; }
+.directory-table tr.is-selected { --bs-table-bg: #eef4fb; }
+.directory-table .participant-link { font-weight: 600; text-decoration: none; }
+.directory-table .participant-link:hover { text-decoration: underline; }
+.count-badge { min-width: 2.25rem; }
+.print-toggle { min-width: 6.5rem; }
+
+/* Novelties */
+.novelties .novelty-group + .novelty-group { border-top: 1px solid var(--bs-border-color); padding-top: .75rem; margin-top: .75rem; }
+.novelties ul { margin: .25rem 0 0; padding-left: 1.1rem; font-size: .9rem; }
+
+/* Letters */
+.letter-card .card-header { background: #fff; }
+.letter-subject { font-size: 1.05rem; font-weight: 700; margin: 0; overflow-wrap: anywhere; }
+.letter-meta { font-size: .85rem; color: #4a5560; margin: 0; }
+.letter-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", Cambria, serif;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  margin: 0;
+}
+.letter-body.is-empty { font-style: italic; color: #6c757d; font-family: inherit; }
+.letter-attachments { font-size: .9rem; margin: .75rem 0 0; padding-left: 1.1rem; }
+.badge-signal { cursor: help; }
+.letter-card.is-new { border-left: 4px solid #0d6efd; }
+
+/* Assign modal */
+.assign-options { max-height: 50vh; overflow-y: auto; }
+.assign-options .form-check { padding: .35rem .5rem .35rem 2rem; border-radius: .375rem; }
+.assign-options .form-check:hover { background: #f1f3f5; }
+.suggestion-buttons .btn { white-space: normal; text-align: left; }
+
+/* Batch bar */
+.batch-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1030;
+  background: var(--app-primary-dark); color: #fff; box-shadow: 0 -2px 8px rgba(0, 0, 0, .2);
+}
+
+/* Login */
+.login-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.login-card { width: 100%; max-width: 26rem; }
+
+/* Print: hide navigation, controls, checkboxes and the sync widget; clean serif layout. */
+@media print {
+  @page { margin: 18mm 16mm; }
+  body { background: #fff !important; font-family: Georgia, "Iowan Old Style", "Palatino Linotype", Cambria, serif; font-size: 11.5pt; line-height: 1.55; padding: 0 !important; }
+  .no-print, nav, .navbar, .sync-widget, .batch-bar, #banners, .toast-container, .modal,
+  .btn, button, input, select, .form-check-input, .col-check, .letter-actions, .participant-controls, .badge-new {
+    display: none !important;
+  }
+  main { padding: 0 !important; }
+  .card { border: 0 !important; box-shadow: none !important; }
+  .card-header, .card-body { padding-left: 0 !important; padding-right: 0 !important; background: #fff !important; }
+  .print-participant { break-after: page; page-break-after: always; }
+  .print-participant:last-child { break-after: auto; page-break-after: auto; }
+  .letter-card { break-inside: auto; margin-bottom: 1.25rem !important; border-left: 0 !important; }
+  .letter-card + .letter-card { border-top: 1px solid #bbb !important; padding-top: 1rem; }
+  .letter-card .card-header { break-inside: avoid; page-break-inside: avoid; break-after: avoid; page-break-after: avoid; }
+  .letter-body { font-size: 11.5pt; }
+  img { max-width: 100% !important; height: auto !important; }
+  a { color: inherit !important; text-decoration: none !important; }
+}

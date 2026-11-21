@@ -52,14 +52,15 @@ describe('createContainer', () => {
     await rm(directory, { recursive: true, force: true });
   });
 
-  it('fails with CONFIG_ERROR when MONGODB_URI is missing or no mail source is registered', async () => {
+  it('fails with CONFIG_ERROR without MONGODB_URI and with MAIL_SOURCE_NOT_CONFIGURED without a mail source', async () => {
     const logger = new NullLogger();
-    await assert.rejects(createContainer({ config: loadConfig({ PERSISTENCE: 'mongo' }), overrides: { logger } }), {
+    const mailSource = { fetchChanges: async () => ({ letters: [], deletedMessageIds: [], nextCursor: 'x' }) };
+    await assert.rejects(createContainer({ config: loadConfig({ PERSISTENCE: 'mongo' }), overrides: { logger, mailSource } }), {
       code: 'CONFIG_ERROR',
     });
     await assert.rejects(
       createContainer({ config: loadConfig({ PERSISTENCE: 'json', DATA_DIR: join(directory, 'data') }), overrides: { logger } }),
-      { code: 'CONFIG_ERROR' },
+      { code: 'MAIL_SOURCE_NOT_CONFIGURED', httpStatus: 503 },
     );
   });
 

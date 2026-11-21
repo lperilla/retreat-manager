@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Cartas del retiro</title>
+  <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/css/app.css">
+  <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js" defer></script>
+  <script type="module" src="/js/app.js"></script>
+</head>
+<body>
+  <a class="visually-hidden-focusable skip-link" href="#main">Saltar al contenido</a>
+
+  <nav class="navbar navbar-expand-lg navbar-dark app-navbar no-print" aria-label="Navegación principal">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-semibold" href="#/">Cartas del retiro</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#main-nav"
+        aria-controls="main-nav" aria-expanded="false" aria-label="Mostrar menú">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="main-nav">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item"><a class="nav-link" href="#/" data-nav="dashboard">Panel</a></li>
+          <li class="nav-item">
+            <a class="nav-link" href="#/revisar" data-nav="review">Por revisar
+              <span class="badge rounded-pill text-bg-warning ms-1" id="nav-review-count">0</span></a>
+          </li>
+          <li class="nav-item"><a class="nav-link" href="#/historial" data-nav="history">Historial de sincronizaciones</a></li>
+        </ul>
+
+        <div class="sync-widget d-flex flex-wrap align-items-center gap-2" id="sync-widget">
+          <span class="small text-white" id="sync-last" aria-live="polite">Última sincronización: nunca</span>
+          <span class="badge text-bg-secondary" id="sync-state" role="status">Sin sincronizar</span>
+          <div class="btn-group">
+            <button type="button" class="btn btn-light btn-sm" id="sync-now">Sincronizar ahora</button>
+            <button type="button" class="btn btn-light btn-sm dropdown-toggle dropdown-toggle-split" id="sync-menu"
+              data-bs-toggle="dropdown" aria-expanded="false">
+              <span class="visually-hidden">Más opciones</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="sync-menu">
+              <li><button class="dropdown-item" type="button" id="sync-full">Sincronización completa…</button></li>
+              <li><button class="dropdown-item" type="button" id="recompute">Reasignar cartas…</button></li>
+              <li id="logout-item" hidden>
+                <hr class="dropdown-divider">
+                <form method="post" action="/logout"><button class="dropdown-item" type="submit">Cerrar sesión</button></form>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid pt-3 no-print" id="banners">
+    <div class="alert alert-warning d-flex flex-column flex-md-row gap-2" role="alert" id="sync-warning" hidden>
+      <strong>La última sincronización falló; se muestran los últimos datos guardados.</strong>
+      <span id="sync-warning-detail" class="small"></span>
+    </div>
+    <div class="alert alert-info" role="status" id="demo-banner" hidden>
+      <strong>Modo demostración.</strong> Las cartas son ficticias y se guardan solo en memoria.
+      Cada «Sincronizar ahora» trae nuevas cartas de ejemplo.
+    </div>
+    <section class="card border-warning mb-3" id="setup-card" hidden aria-labelledby="setup-title">
+      <div class="card-body">
+        <h1 class="h4" id="setup-title">Falta configurar Gmail</h1>
+        <p class="mb-2">No hay credenciales de Gmail configuradas. Sigue los pasos del README
+          (<code>npm run auth</code>) y reinicia la aplicación, o prueba el panel con datos de ejemplo.</p>
+        <button type="button" class="btn btn-primary" id="enable-demo">Activar modo demostración</button>
+      </div>
+    </section>
+  </div>
+
+  <main id="main" class="container-fluid pb-5" tabindex="-1">
+    <!-- Dashboard -->
+    <section id="view-dashboard" class="app-view" hidden aria-labelledby="dashboard-title">
+      <h1 class="visually-hidden" id="dashboard-title">Panel de cartas</h1>
+
+      <div class="row g-3 kpis" id="kpis" aria-label="Indicadores">
+        <div class="col-6 col-md-4 col-xxl-2">
+          <div class="card kpi h-100"><div class="card-body">
+            <p class="kpi-label">Total de cartas recibidas</p>
+            <p class="kpi-value" id="kpi-total">—</p>
+          </div></div>
+        </div>
+        <div class="col-6 col-md-4 col-xxl-2">
+          <div class="card kpi h-100"><div class="card-body">
+            <p class="kpi-label">Participantes con cartas</p>
+            <p class="kpi-value" id="kpi-with-letters">—</p>
+            <p class="kpi-detail" id="kpi-with-letters-detail"></p>
+          </div></div>
+        </div>
+        <div class="col-6 col-md-4 col-xxl-2">
+          <div class="card kpi h-100"><div class="card-body">
+            <p class="kpi-label">Quién lleva más cartas</p>
+            <p class="kpi-value" id="kpi-most">—</p>
+            <p class="kpi-detail" id="kpi-most-detail"></p>
+          </div></div>
+        </div>
+        <div class="col-6 col-md-4 col-xxl-2">
+          <div class="card kpi h-100"><div class="card-body">
+            <p class="kpi-label">Quién lleva menos cartas</p>
+            <p class="kpi-value" id="kpi-fewest">—</p>
+            <p class="kpi-detail" id="kpi-fewest-detail"></p>
+          </div></div>
+        </div>
+        <div class="col-6 col-md-4 col-xxl-2">
+          <a class="card kpi kpi-link h-100 text-decoration-none" href="#/revisar"><div class="card-body">
+            <p class="kpi-label">Cartas por revisar</p>
+            <p class="kpi-value" id="kpi-review">—</p>
+            <p class="kpi-detail">Asignar a mano</p>
+          </div></a>
+        </div>
+        <div class="col-6 col-md-4 col-xxl-2">
+          <div class="card kpi h-100"><div class="card-body">
+            <p class="kpi-label">Cartas nuevas</p>
+            <p class="kpi-value" id="kpi-new">—</p>
+            <p class="kpi-detail">Sin ver por el equipo</p>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="row g-3 mt-1">
+        <div class="col-xl-8">
+          <section class="card h-100" aria-labelledby="directory-title">
+            <div class="card-header bg-body">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <h2 class="h5 mb-0" id="directory-title">Participantes</h2>
+                <span class="small text-body-secondary" id="directory-summary"></span>
+              </div>
+              <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-5">
+                  <label class="form-label small mb-1" for="directory-search">Buscar por nombre</label>
+                  <input type="search" class="form-control form-control-sm" id="directory-search" placeholder="Nombre o alias" autocomplete="off">
+                </div>
+                <div class="col-6 col-md-4">
+                  <label class="form-label small mb-1" for="directory-filter">Filtrar</label>
+                  <select class="form-select form-select-sm" id="directory-filter">
+                    <option value="all">Todos</option>
+                    <option value="with-letters">Con cartas</option>
+                    <option value="without-letters">Sin cartas</option>
+                    <option value="pending">Pendiente de imprimir</option>
+                    <option value="printed">Impresa</option>
+                    <option value="with-warnings">Con avisos</option>
+                    <option value="with-news">Con novedades</option>
+                  </select>
+                </div>
+                <div class="col-6 col-md-3">
+                  <label class="form-label small mb-1" for="directory-sort">Ordenar</label>
+                  <select class="form-select form-select-sm" id="directory-sort">
+                    <option value="name">Alfabético</option>
+                    <option value="count">Por número de cartas</option>
+                  </select>
+                </div>
+              </div>
+              <div class="d-flex flex-wrap gap-2 mt-2" role="toolbar" aria-label="Selección de participantes">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="select-all">Seleccionar todos</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="select-none">Deseleccionar todos</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="select-with-letters">Seleccionar con cartas</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="select-pending">Seleccionar pendientes de imprimir</button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0 directory-table">
+                <caption class="visually-hidden">Participantes del retiro con su número de cartas</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" class="col-check"><span class="visually-hidden">Seleccionar</span></th>
+                    <th scope="col">Participante</th>
+                    <th scope="col" class="text-end">Cartas</th>
+                    <th scope="col">Novedades y avisos</th>
+                    <th scope="col">Impresión</th>
+                  </tr>
+                </thead>
+                <tbody id="directory-body"></tbody>
+              </table>
+            </div>
+            <p class="text-center text-body-secondary py-4 mb-0" id="directory-empty" hidden>No hay participantes que coincidan con el filtro.</p>
+          </section>
+        </div>
+
+        <div class="col-xl-4 d-flex flex-column gap-3">
+          <section class="card" aria-labelledby="novelties-title">
+            <div class="card-header bg-body d-flex justify-content-between align-items-center gap-2">
+              <h2 class="h6 mb-0" id="novelties-title">Novedades desde la última sincronización</h2>
+              <button type="button" class="btn btn-outline-primary btn-sm" id="mark-all-seen">Marcar como vistas</button>
+            </div>
+            <div class="card-body novelties" id="novelties-list"></div>
+          </section>
+
+          <section class="card" aria-labelledby="review-summary-title">
+            <div class="card-header bg-body d-flex justify-content-between align-items-center">
+              <h2 class="h6 mb-0" id="review-summary-title">Por revisar</h2>
+              <a class="btn btn-outline-warning btn-sm" href="#/revisar">Ir a revisar</a>
+            </div>
+            <div class="card-body" id="review-summary"></div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- Participant detail -->
+    <section id="view-participant" class="app-view" hidden aria-live="polite"></section>
+
+    <!-- Review queue -->
+    <section id="view-review" class="app-view" hidden aria-labelledby="review-title">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 my-3">
+        <h1 class="h3 mb-0" id="review-title">Por revisar</h1>
+        <span class="text-body-secondary" id="review-count"></span>
+      </div>
+      <p class="text-body-secondary">Cartas que no se han podido asignar con seguridad. No cuentan para nadie hasta que las asignes; nunca se descartan.</p>
+      <div id="review-list" class="d-flex flex-column gap-3"></div>
+    </section>
+
+    <!-- Sync history -->
+    <section id="view-history" class="app-view" hidden aria-labelledby="history-title">
+      <h1 class="h3 my-3" id="history-title">Historial de sincronizaciones</h1>
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-striped align-middle mb-0">
+            <caption class="visually-hidden">Últimas sincronizaciones</caption>
+            <thead>
+              <tr>
+                <th scope="col">Fecha</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Resultado</th>
+                <th scope="col" class="text-end">Duración</th>
+                <th scope="col" class="text-end">Nuevas</th>
+                <th scope="col" class="text-end">Actualizadas</th>
+                <th scope="col" class="text-end">Eliminadas</th>
+                <th scope="col">Error</th>
+              </tr>
+            </thead>
+            <tbody id="history-body"></tbody>
+          </table>
+        </div>
+        <p class="text-center text-body-secondary py-4 mb-0" id="history-empty" hidden>Todavía no hay sincronizaciones.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Batch bar -->
+  <div class="batch-bar no-print" id="batch-bar" role="region" aria-label="Acciones con los participantes seleccionados" hidden>
+    <div class="container-fluid d-flex flex-wrap align-items-center gap-2 py-2">
+      <strong id="batch-count" aria-live="polite">0 seleccionados</strong>
+      <span class="vr d-none d-md-inline-block"></span>
+      <button type="button" class="btn btn-light btn-sm" data-export="html">Exportar .html</button>
+      <button type="button" class="btn btn-light btn-sm" data-export="txt">Exportar .txt</button>
+      <button type="button" class="btn btn-light btn-sm" data-export="json">Exportar .json</button>
+      <button type="button" class="btn btn-warning btn-sm" id="batch-print">Imprimir lote</button>
+      <button type="button" class="btn btn-link btn-sm text-white ms-auto" id="batch-clear">Deseleccionar</button>
+    </div>
+  </div>
+
+  <div class="toast-container position-fixed bottom-0 end-0 p-3 no-print" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- Confirmation modal -->
+  <div class="modal fade" id="confirm-modal" tabindex="-1" aria-labelledby="confirm-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title h5" id="confirm-title">Confirmar</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body" id="confirm-body"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="confirm-cancel">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="confirm-accept">Aceptar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assignment modal -->
+  <div class="modal fade" id="assign-modal" tabindex="-1" aria-labelledby="assign-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title h5" id="assign-title">Asignar carta</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-body-secondary mb-2" id="assign-letter"></p>
+          <label class="form-label small" for="assign-search">Buscar participante</label>
+          <input type="search" class="form-control form-control-sm mb-2" id="assign-search" autocomplete="off" placeholder="Nombre o alias">
+          <fieldset>
+            <legend class="visually-hidden">Participantes destinatarios</legend>
+            <div class="assign-options" id="assign-options"></div>
+          </fieldset>
+        </div>
+        <div class="modal-footer justify-content-between">
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary" id="assign-unassign">Dejar sin asignar</button>
+            <button type="button" class="btn btn-outline-secondary" id="assign-reset">Volver a automático</button>
+          </div>
+          <button type="button" class="btn btn-primary" id="assign-save">Asignar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary modal (recompute) -->
+  <div class="modal fade" id="summary-modal" tabindex="-1" aria-labelledby="summary-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title h5" id="summary-title">Resumen</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body" id="summary-body"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

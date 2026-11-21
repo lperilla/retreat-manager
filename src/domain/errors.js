@@ -28,6 +28,13 @@ export const ERROR_MESSAGES = Object.freeze({
   UNSUPPORTED_EXPORT_FORMAT: 'El formato de exportación no está disponible.',
   CONFIG_ERROR: 'La configuración de la aplicación no es válida.',
   DATABASE_UNAVAILABLE: 'No se puede conectar con la base de datos.',
+  MAIL_SOURCE_NOT_CONFIGURED: 'No hay credenciales de Gmail configuradas. Configúralas o activa el modo demostración.',
+  EXPORT_NOT_FOUND: 'El archivo exportado no existe.',
+  UNAUTHORIZED: 'Acceso no autorizado. Introduce el código de acceso.',
+  RATE_LIMITED: 'Demasiadas solicitudes. Espera un momento y vuelve a intentarlo.',
+  ROUTE_NOT_FOUND: 'Recurso no encontrado.',
+  UNSUPPORTED_MEDIA_TYPE: 'El formato de la petición no es válido.',
+  PAYLOAD_TOO_LARGE: 'La petición es demasiado grande.',
   INTERNAL_ERROR: 'Se ha producido un error interno.',
 });
 

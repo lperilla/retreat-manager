@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Acceso · Cartas del retiro</title>
+  <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/css/app.css">
+  <script type="module" src="/js/login.js"></script>
+</head>
+<body class="login-page">
+  <main class="login-card card shadow-sm">
+    <div class="card-body p-4">
+      <h1 class="h4 mb-3">Cartas del retiro</h1>
+      <p class="text-body-secondary">Este panel contiene cartas personales. Introduce el código de acceso que te ha facilitado la organización.</p>
+      <div class="alert alert-danger" role="alert" id="login-error" hidden>El código de acceso no es correcto.</div>
+      <form method="post" action="/login" autocomplete="off">
+        <label class="form-label" for="token">Código de acceso</label>
+        <input class="form-control mb-3" type="password" id="token" name="token" required autofocus>
+        <button class="btn btn-primary w-100" type="submit">Entrar</button>
+      </form>
+    </div>
+  </main>
+</body>
+</html>
