@@ -17,7 +17,7 @@ export async function createGmailMailSource({ config, logger }) {
     logger,
   });
   if (!config.gmail.query && !config.gmail.labelId) {
-    logger.warn('Neither GMAIL_QUERY nor GMAIL_LABEL_ID is set: every inbox message will be treated as a letter');
+    logger.warn('Neither GMAIL_QUERY nor GMAIL_LABEL_ID is set: every received message (except spam, trash, drafts and sent) will be treated as a letter');
   }
   return new GmailMailSource({
     gmail: /** @type {any} */ (createGmailClient(auth)),

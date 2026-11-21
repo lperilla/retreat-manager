@@ -10,3 +10,6 @@ token.json
 data/
 cache/
 exports/
+
+# Process manager state (PID file and web log)
+.run/

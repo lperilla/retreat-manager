@@ -16,22 +16,23 @@ El panel y el MCP **nunca leen Gmail directamente**: todo se lee de la base de d
 
 1. [Requisitos](#requisitos)
 2. [Prueba rápida (modo demostración)](#prueba-rápida-modo-demostración)
-3. [Instalación paso a paso](#instalación-paso-a-paso)
-4. [MongoDB con Docker](#mongodb-con-docker)
-5. [Configuración OAuth2 en Google Cloud](#configuración-oauth2-en-google-cloud)
-6. [Uso del panel](#uso-del-panel)
-7. [Cómo se asignan las cartas](#cómo-se-asignan-las-cartas)
-8. [Adjuntos](#adjuntos)
-9. [Exportación en lote](#exportación-en-lote)
-10. [Impresión](#impresión)
-11. [Sincronización incremental](#sincronización-incremental)
-12. [Panel en la red local](#panel-en-la-red-local)
-13. [Servidor MCP](#servidor-mcp)
-14. [Arquitectura hexagonal](#arquitectura-hexagonal)
-15. [Tests](#tests)
-16. [Privacidad, retención y borrado](#privacidad-retención-y-borrado)
-17. [Variables de entorno](#variables-de-entorno)
-18. [Solución de problemas](#solución-de-problemas)
+3. [Arrancar, parar y reiniciar](#arrancar-parar-y-reiniciar)
+4. [Instalación paso a paso](#instalación-paso-a-paso)
+5. [MongoDB con Docker](#mongodb-con-docker)
+6. [Configuración OAuth2 en Google Cloud](#configuración-oauth2-en-google-cloud)
+7. [Uso del panel](#uso-del-panel)
+8. [Cómo se asignan las cartas](#cómo-se-asignan-las-cartas)
+9. [Adjuntos](#adjuntos)
+10. [Exportación en lote](#exportación-en-lote)
+11. [Impresión](#impresión)
+12. [Sincronización incremental](#sincronización-incremental)
+13. [Panel en la red local](#panel-en-la-red-local)
+14. [Servidor MCP](#servidor-mcp)
+15. [Arquitectura hexagonal](#arquitectura-hexagonal)
+16. [Tests](#tests)
+17. [Privacidad, retención y borrado](#privacidad-retención-y-borrado)
+18. [Variables de entorno](#variables-de-entorno)
+19. [Solución de problemas](#solución-de-problemas)
 
 ---
 
@@ -44,36 +45,47 @@ El panel y el MCP **nunca leen Gmail directamente**: todo se lee de la base de d
 
 ## Prueba rápida (modo demostración)
 
-Sin Gmail ni base de datos: cartas ficticias en memoria que llegan en tres oleadas.
+Sin Gmail ni base de datos: cartas ficticias en memoria que llegan en tres oleadas. La primera vez instala las dependencias sola.
 
 ```powershell
-npm ci
-$env:DEMO_MODE = "true"; npm start
+.\start.cmd --demo
 ```
 
-Abre <http://localhost:3000>. La primera oleada (23 cartas, 18 participantes) se carga al arrancar. Cada «Sincronizar ahora» trae la siguiente: +4 cartas, y después +3 y una borrada. La demo incluye empates, participantes sin cartas, una carta para varios destinatarios, una respuesta automática, una carta ambigua («Querida María:» con dos Marías), cartas con adjuntos y una carta cuyo remitente se llama como un participante.
+En Linux, macOS o Git Bash: `./start.sh --demo`. Se abre <http://localhost:3000>. La primera oleada (23 cartas, 18 participantes) se carga al arrancar. Cada «Sincronizar ahora» trae la siguiente: +4 cartas, y después +3 y una borrada. La demo incluye empates, participantes sin cartas, una carta para varios destinatarios, una respuesta automática, una carta ambigua («Querida María:» con dos Marías), cartas con adjuntos y una carta cuyo remitente se llama como un participante.
 
 Si arrancas sin `DEMO_MODE` y sin credenciales de Gmail, el panel muestra el botón **«Activar modo demostración»**.
 
 También hay un recorrido por consola: `npm run demo:walkthrough`.
 
+## Arrancar, parar y reiniciar
+
+Todo se gestiona con un único comando: `start.cmd` en Windows (PowerShell o cmd) o `./start.sh` en Linux, macOS o Git Bash. Las acciones se pueden escribir como opción (`--stop`) o como palabra (`stop`).
+
+| Comando | Qué hace |
+|---|---|
+| `.\start.cmd` | Arranca el panel **en segundo plano**, espera a que responda, muestra las direcciones y abre el navegador. Si `PERSISTENCE=mongo`, arranca antes MongoDB con Docker o Podman. |
+| `.\start.cmd --install` | Comprueba Node.js, instala dependencias (`npm ci`), crea `.env` (con una contraseña de MongoDB aleatoria) y `data/participants.json`, y avisa de lo que falta. |
+| `.\start.cmd --stop` | Para el panel y el contenedor de MongoDB. Los datos se conservan. Con `--keep-mongo` deja MongoDB en marcha. |
+| `.\start.cmd --restart` | Reinicia el panel (MongoDB sigue en marcha). |
+| `.\start.cmd --status` | Muestra si está en marcha, PID, direcciones, modo (Gmail o demo), base de datos y avisos de configuración. |
+| `.\start.cmd --logs` | Últimas líneas del registro, legibles. `--follow` para seguirlo y `--lines 200` para ver más. |
+| `.\start.cmd --auth` | Autoriza el acceso de solo lectura a Gmail (equivale a `npm run auth`). |
+| `.\start.cmd --demo` | Arranca con datos de demostración. |
+| `.\start.cmd --help` | Todas las opciones. |
+
+Otras opciones: `--no-open` (no abrir el navegador), `--no-mongo` (no tocar MongoDB, por ejemplo si usas Atlas) y `--force` (con `--stop`, parar aunque el proceso no responda). El registro y el PID se guardan en `.run/`, que no se sube al repositorio. `npm start` sigue disponible para ejecutar el panel en primer plano.
+
 ## Instalación paso a paso
 
-1. **Dependencias**
+1. **Dependencias y archivos de configuración**
 
    ```powershell
-   npm ci
+   .\start.cmd --install
    ```
 
-2. **Configuración**: copia `.env.example` a `.env` y revisa cada valor (están comentados).
+2. **Configuración**: revisa `.env` (cada valor está comentado). `--install` lo crea a partir de `.env.example`. Las rutas relativas se resuelven desde la carpeta del proyecto, no desde donde ejecutes el comando.
 
-   ```powershell
-   Copy-Item .env.example .env
-   ```
-
-   Las rutas relativas se resuelven desde la carpeta del proyecto, no desde donde ejecutes el comando.
-
-3. **Participantes**: crea `data/participants.json` (la carpeta `data/` no se sube al repositorio). Puedes partir de `participants.example.json`:
+3. **Participantes**: edita `data/participants.json` (la carpeta `data/` no se sube al repositorio). `--install` lo crea a partir de `participants.example.json`:
 
    ```json
    [
@@ -92,18 +104,19 @@ También hay un recorrido por consola: `npm run demo:walkthrough`.
 5. **Gmail**: [crea las credenciales OAuth](#configuración-oauth2-en-google-cloud) y autoriza el acceso:
 
    ```powershell
-   npm run auth
+   .\start.cmd --auth
    ```
 
 6. **Arranca el panel** y pulsa «Sincronizar ahora»:
 
    ```powershell
-   npm start
+   .\start.cmd
    ```
 
 | Script | Para qué sirve |
 |---|---|
-| `npm start` | Panel web y API. |
+| `.\start.cmd` · `./start.sh` | Arrancar, parar, reiniciar, estado, registro, instalar ([ver tabla](#arrancar-parar-y-reiniciar)). |
+| `npm start` | Panel web y API en primer plano. |
 | `npm run dev` | Igual, reiniciando al cambiar el código. |
 | `npm run mcp` | Servidor MCP por stdio. |
 | `npm run auth` | Autoriza el acceso de solo lectura a Gmail y escribe `token.json`. |
@@ -162,12 +175,14 @@ La aplicación pide **un único permiso: `gmail.readonly`** (lectura). No puede 
 
 ### Qué correos son cartas
 
-Configura **uno** de estos:
+`GMAIL_QUERY` admite **cualquier búsqueda de Gmail**, la misma que escribirías en el buscador. Las familias solo necesitan **una dirección normal**: no hace falta usar «+», alias ni etiquetas.
 
-- **`GMAIL_QUERY`** (recomendado): cualquier búsqueda de Gmail. Lo más cómodo es crear en Gmail una **etiqueta** (por ejemplo `cartas-retiro`) y un **filtro** que la aplique automáticamente (por ejemplo, a lo que llega a `cartas.retiro@…`). Después pon `GMAIL_QUERY=label:cartas-retiro`. Otras opciones: `to:cartas.retiro@example.com`, `after:2026/11/01`.
-- **`GMAIL_LABEL_ID`**: el id interno de la etiqueta (`Label_123…`). Si se configura, se ignora `GMAIL_QUERY`.
+- **Recomendado: un buzón dedicado**. Crea una cuenta solo para el retiro, por ejemplo `cartas.retiro.2026@gmail.com`, y pon `GMAIL_QUERY=to:cartas.retiro.2026@gmail.com`. Así se recogen todos los correos que reciba, aunque alguien los archive. Es la opción más sencilla para las familias y la más segura para la privacidad, porque la aplicación no ve otro correo.
+- **Si comparte buzón con otros correos**, filtra por contenido o por fecha. Por ejemplo `subject:carta after:2026/11/01`, o `{subject:carta subject:"para"} after:2026/11/01`.
+- **Con etiqueta** (opcional): crea en Gmail un filtro que aplique una etiqueta (por ejemplo `cartas-retiro`) según el destinatario o el asunto, y pon `GMAIL_QUERY=label:cartas-retiro`. También puedes etiquetar a mano.
+- **`GMAIL_LABEL_ID`**: el id interno de una etiqueta (`Label_123…`). Si se configura, se ignora `GMAIL_QUERY`.
 
-En cualquier caso se descartan los borradores, el spam, la papelera y los mensajes enviados desde el propio buzón.
+En cualquier caso se descartan los borradores, el spam, la papelera y los mensajes enviados desde el propio buzón. Comprueba la búsqueda en Gmail antes de sincronizar: lo que devuelva el buscador es lo que se tratará como cartas.
 
 ## Uso del panel
 

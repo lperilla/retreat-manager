@@ -11,3 +11,7 @@
 *.docx binary
 *.mov binary
 *.heic binary
+
+# Shell scripts must keep LF; Windows batch files need CRLF
+*.sh text eol=lf
+*.cmd text eol=crlf
