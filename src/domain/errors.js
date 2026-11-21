@@ -24,6 +24,9 @@ export const ERROR_MESSAGES = Object.freeze({
   EMPTY_SELECTION: 'Selecciona al menos un participante.',
   SYNC_IN_PROGRESS: 'Ya hay una sincronización en curso.',
   SYNC_COOLDOWN: 'Espera unos segundos antes de volver a sincronizar.',
+  SYNC_FAILED: 'La sincronización ha fallado; se muestran los últimos datos guardados.',
+  UNSUPPORTED_EXPORT_FORMAT: 'El formato de exportación no está disponible.',
+  CONFIG_ERROR: 'La configuración de la aplicación no es válida.',
   INTERNAL_ERROR: 'Se ha producido un error interno.',
 });
 

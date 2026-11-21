@@ -1,0 +1,46 @@
+import { join } from 'node:path';
+
+import { JsonAssignmentOverrideRepository } from './JsonAssignmentOverrideRepository.js';
+import { JsonLetterStoreRepository } from './JsonLetterStoreRepository.js';
+import { JsonParticipantRepository } from './JsonParticipantRepository.js';
+import { JsonPrintStatusRepository } from './JsonPrintStatusRepository.js';
+import { JsonSyncStateRepository } from './JsonSyncStateRepository.js';
+
+/**
+ * @typedef {Object} PersistenceAdapters
+ * @property {string} kind  'json' | 'memory' | 'mongo'
+ * @property {import('../../../application/ports/LetterStoreRepositoryPort.js').LetterStoreRepositoryPort} letterStore
+ * @property {import('../../../application/ports/SyncStateRepositoryPort.js').SyncStateRepositoryPort} syncStateRepository
+ * @property {import('../../../application/ports/ParticipantRepositoryPort.js').ParticipantRepositoryPort} participantRepository
+ * @property {import('../../../application/ports/PrintStatusRepositoryPort.js').PrintStatusRepositoryPort} printStatusRepository
+ * @property {import('../../../application/ports/AssignmentOverrideRepositoryPort.js').AssignmentOverrideRepositoryPort} overrideRepository
+ * @property {() => Promise<void>} close
+ */
+
+/**
+ * JSON-file persistence under `directory`, or pure in-memory persistence when `directory`
+ * is null (demo mode and tests).
+ * @param {{
+ *   directory: string | null,
+ *   clock: import('../../../application/ports/ClockPort.js').ClockPort,
+ *   runsTtlDays?: number,
+ * }} options
+ * @returns {PersistenceAdapters}
+ */
+export function createJsonPersistence({ directory, clock, runsTtlDays = 90 }) {
+  const file = (/** @type {string} */ name) => (directory ? join(directory, name) : null);
+  return {
+    kind: directory ? 'json' : 'memory',
+    letterStore: new JsonLetterStoreRepository({ filePath: file('letters.json') }),
+    syncStateRepository: new JsonSyncStateRepository({
+      stateFilePath: file('sync_state.json'),
+      runsFilePath: file('sync_runs.json'),
+      clock,
+      runsTtlDays,
+    }),
+    participantRepository: new JsonParticipantRepository({ filePath: file('participants.json') }),
+    printStatusRepository: new JsonPrintStatusRepository({ filePath: file('print_status.json') }),
+    overrideRepository: new JsonAssignmentOverrideRepository({ filePath: file('assignment_overrides.json') }),
+    async close() {},
+  };
+}

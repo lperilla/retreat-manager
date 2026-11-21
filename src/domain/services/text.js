@@ -314,7 +314,7 @@ const CLOSING_LINE = new RegExp(
     '^(?:un |muchos |mil |muchisimos |un fuerte |un gran |un enorme )?(?:fuerte |gran |enorme )?' +
       '(?:abrazo|abrazos|abrazote|beso|besos|besito|besitos|besazo|besazos|saludo|saludos|carino|carinos)\\b',
     '^con (?:todo (?:mi|nuestro) |mucho )?(?:carino|amor)\\b',
-    '^(?:os|te) (?:quiero|queremos|adoro|adoramos)\\b',
+    '^(?:os|te) (?:quiero|quiere|queremos|quieren|adoro|adoramos)\\b',
     '^(?:atentamente|cordialmente|un saludo|recibe un)\\b',
     '^(?:tu|tus|vuestra|vuestro|vuestros) (?:madre|padre|mama|papa|abuela|abuelo|abuelos|hermana|hermano|hermanos|tia|tio|tios|familia|padres|amiga|amigo|prima|primo|madrina|padrino)\\b',
   ].join('|'),

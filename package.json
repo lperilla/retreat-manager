@@ -9,5 +9,8 @@
   },
   "scripts": {
     "test": "node --test \"test/**/*.test.js\""
+  },
+  "dependencies": {
+    "pino": "10.4.0"
   }
 }
