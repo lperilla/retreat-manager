@@ -4,6 +4,7 @@
  */
 import { AssignmentStatus, SignalType } from '../../domain/constants.js';
 import { isNewLetter } from '../../domain/entities/Letter.js';
+import { classifyAttachment, isInlineImage } from '../../domain/services/attachments.js';
 
 /**
  * @param {Date | null | undefined} date
@@ -36,12 +37,14 @@ export function presentLetter(letter, { participantsById, includeBody = true }) 
     to: letter.to,
     subject: letter.subject,
     receivedAt: toIso(letter.receivedAt),
-    attachments: letter.attachments.map((a) => ({
+    attachments: letter.attachments.map((a, index) => ({
+      index,
       filename: a.filename,
       mimeType: a.mimeType,
       size: a.size,
       contentId: a.contentId,
-      attachmentId: a.attachmentId,
+      kind: classifyAttachment(a),
+      inline: isInlineImage(a),
     })),
     assignment: {
       status: assignment.status,

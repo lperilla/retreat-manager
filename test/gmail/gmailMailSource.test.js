@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { CursorExpiredError } from '../../src/application/ports/MailSourcePort.js';
 import { GmailMailSource } from '../../src/infrastructure/gmail/GmailMailSource.js';
 import { NullLogger } from '../../src/infrastructure/logging/NullLogger.js';
-import { fakeGmail, gmailMessage, httpError } from '../helpers/gmailFakes.js';
+import { b64url, fakeGmail, gmailMessage, httpError } from '../helpers/gmailFakes.js';
 
 const fastRetry = { sleep: async () => {}, random: () => 0 };
 
@@ -13,6 +13,57 @@ const fastRetry = { sleep: async () => {}, random: () => 0 };
  * @param {Record<string, unknown>} [options]
  */
 const source = (gmail, options = {}) => new GmailMailSource({ gmail, logger: new NullLogger(), retry: fastRetry, ...options });
+
+describe('GmailMailSource attachments', () => {
+  const withAttachment = (/** @type {any} */ body) =>
+    gmailMessage('msg', {
+      text: 'Hola',
+      attachments: [
+        { mimeType: 'application/pdf', filename: 'carta.pdf', body },
+        { mimeType: 'image/png', filename: '', headers: [{ name: 'Content-ID', value: '<firma@x>' }], body: { data: b64url('PNGDATA') } },
+      ],
+    });
+
+  it('downloads with the stored attachment id', async () => {
+    const gmail = fakeGmail({ attachments: { 'att-1': b64url('%PDF-1.4 hola') } });
+    const bytes = await source(gmail).fetchAttachment({
+      messageId: 'msg',
+      attachment: { filename: 'carta.pdf', mimeType: 'application/pdf', size: 13, contentId: null, attachmentId: 'att-1' },
+    });
+    assert.equal(Buffer.from(bytes).toString('latin1'), '%PDF-1.4 hola');
+    assert.deepEqual(gmail.calls.map(([name]) => name), ['attachments.get']);
+  });
+
+  it('re-reads the message when the stored id is no longer valid, and supports inline part data', async () => {
+    const gmail = fakeGmail({
+      messages: { msg: withAttachment({ attachmentId: 'fresh-id', size: 13 }) },
+      attachments: { 'fresh-id': b64url('%PDF-1.4 nuevo') },
+    });
+    const pdf = await source(gmail).fetchAttachment({
+      messageId: 'msg',
+      attachment: { filename: 'carta.pdf', mimeType: 'application/pdf', size: 13, contentId: null, attachmentId: 'stale-id' },
+    });
+    assert.equal(Buffer.from(pdf).toString('latin1'), '%PDF-1.4 nuevo');
+    assert.deepEqual(gmail.calls.map(([name]) => name), ['attachments.get', 'messages.get', 'attachments.get']);
+
+    const inline = await source(gmail).fetchAttachment({
+      messageId: 'msg',
+      attachment: { filename: 'imagen-firma@x', mimeType: 'image/png', size: 7, contentId: 'firma@x', attachmentId: null },
+    });
+    assert.equal(Buffer.from(inline).toString('latin1'), 'PNGDATA');
+  });
+
+  it('reports ATTACHMENT_NOT_FOUND when the part cannot be located', async () => {
+    const gmail = fakeGmail({ messages: { msg: gmailMessage('msg', { text: 'Sin adjuntos' }) } });
+    await assert.rejects(
+      source(gmail).fetchAttachment({
+        messageId: 'msg',
+        attachment: { filename: 'otro.pdf', mimeType: 'application/pdf', size: 1, contentId: null, attachmentId: null },
+      }),
+      { code: 'ATTACHMENT_NOT_FOUND' },
+    );
+  });
+});
 
 describe('GmailMailSource full sync', () => {
   it('captures the historyId BEFORE listing, paginates and returns a complete listing', async () => {

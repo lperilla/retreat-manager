@@ -8,6 +8,8 @@ import { randomUUID } from 'node:crypto';
 
 import {
   AssignmentOverrideRepositoryPort,
+  AttachmentProcessorPort,
+  AttachmentSourcePort,
   ClockPort,
   ExportRendererPort,
   ExportStoragePort,
@@ -20,6 +22,7 @@ import {
 } from '../application/ports/index.js';
 import {
   ExportBatchLettersUseCase,
+  GetAttachmentUseCase,
   GetDashboardOverviewUseCase,
   GetNewLettersUseCase,
   GetSyncStatusUseCase,
@@ -34,6 +37,7 @@ import {
 } from '../application/use-cases/index.js';
 import { AppError } from '../domain/errors.js';
 import { ContentAssignmentStrategy } from '../domain/services/assignment.js';
+import { AttachmentProcessor } from '../infrastructure/attachments/AttachmentProcessor.js';
 import { SystemClock } from '../infrastructure/clock/SystemClock.js';
 import { PinoLogger } from '../infrastructure/logging/PinoLogger.js';
 import { DemoMailSource } from '../infrastructure/persistence/json/DemoMailSource.js';
@@ -128,6 +132,8 @@ export function registerMailSourceFactory(kind, factory) {
  * @property {import('../domain/entities/Participant.js').Participant[]} [participants]  Seeded at startup.
  * @property {import('../application/ports/ExportRendererPort.js').ExportRendererPort[]} [renderers]
  * @property {import('../application/ports/ExportStoragePort.js').ExportStoragePort} [exportStorage]
+ * @property {import('../application/ports/AttachmentProcessorPort.js').AttachmentProcessorPort | null} [attachmentProcessor]
+ *           null disables attachments; omitted = built from the mail source when it can fetch attachments.
  */
 
 /**
@@ -151,9 +157,24 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
 
   // The mail source is created first: if it is not configured, no database connection is opened.
   const mailSource = MailSourcePort.assert(overrides.mailSource ?? (await createMailSource({ config, clock, logger })));
-  const renderers = (overrides.renderers ?? [new HtmlPacketRenderer(), new TxtRenderer(), new JsonRenderer()]).map(
-    (renderer) => ExportRendererPort.assert(renderer),
-  );
+
+  // Attachments are downloaded on demand from the mail source when it supports it.
+  const attachmentProcessor =
+    overrides.attachmentProcessor !== undefined
+      ? overrides.attachmentProcessor && AttachmentProcessorPort.assert(overrides.attachmentProcessor)
+      : typeof (/** @type {any} */ (mailSource).fetchAttachment) === 'function'
+        ? new AttachmentProcessor({
+            source: AttachmentSourcePort.assert(/** @type {any} */ (mailSource)),
+            cacheDir: config.cacheDir,
+            maxBytes: config.maxAttachmentMb * 1024 * 1024,
+            logger,
+          })
+        : null;
+
+  const renderers = (
+    overrides.renderers ?? [new HtmlPacketRenderer({ attachments: attachmentProcessor }), new TxtRenderer(), new JsonRenderer()]
+  ).map((renderer) => ExportRendererPort.assert(renderer));
+  const htmlRenderer = renderers.find((renderer) => renderer.format === 'html') ?? new HtmlPacketRenderer({ attachments: attachmentProcessor });
   const exportStorage = ExportStoragePort.assert(
     overrides.exportStorage ?? new FileExportStorage({ exportDir: config.exportDir }),
   );
@@ -247,6 +268,7 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
       assignmentStrategy,
       logger,
     }),
+    getAttachment: new GetAttachmentUseCase({ letterStore, attachmentProcessor }),
   });
 
   logger.info(
@@ -267,6 +289,8 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
     mailSource,
     assignmentStrategy,
     exportStorage,
+    htmlRenderer,
+    attachmentProcessor,
     repositories: Object.freeze({
       letterStore,
       syncStateRepository,

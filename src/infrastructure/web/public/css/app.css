@@ -62,6 +62,19 @@ main:focus { outline: none; }
 .letter-body.is-empty { font-style: italic; color: #6c757d; font-family: inherit; }
 .letter-attachments { font-size: .9rem; margin: .75rem 0 0; padding-left: 1.1rem; }
 .badge-signal { cursor: help; }
+
+/* Attachments */
+.letter-attachments-list { display: flex; flex-direction: column; gap: .75rem; margin-top: 1rem; }
+.attachment-thumb, .letter-inline-image { margin: .5rem 0; }
+.attachment-thumb img, .letter-inline-image img {
+  display: block; max-width: 100%; max-height: 260px; height: auto;
+  border: 1px solid var(--bs-border-color); border-radius: .25rem; background: #fff;
+}
+.letter-body .letter-inline-image { white-space: normal; }
+.attachment-card { border: 1px solid; border-left-width: 4px; border-radius: .375rem; padding: .6rem .8rem; background: #fff; }
+.pdf-preview { width: 100%; height: 32rem; border: 1px solid var(--bs-border-color); border-radius: .25rem; margin-top: .5rem; }
+.docx-document { border-left: 3px solid #adb5bd; padding: .5rem .9rem; background: #f8f9fa; border-radius: .25rem; }
+.docx-text { font-size: 1rem; }
 .letter-card.is-new { border-left: 4px solid #0d6efd; }
 
 /* Assign modal */
@@ -98,5 +111,9 @@ main:focus { outline: none; }
   .letter-card .card-header { break-inside: avoid; page-break-inside: avoid; break-after: avoid; page-break-after: avoid; }
   .letter-body { font-size: 11.5pt; }
   img { max-width: 100% !important; height: auto !important; }
+  .attachment-thumb img, .letter-inline-image img { max-height: none !important; border: 0 !important; }
+  .attachment-thumb, .letter-inline-image { break-inside: avoid; page-break-inside: avoid; }
+  .pdf-preview-container, iframe { display: none !important; }
+  .docx-document { background: none !important; }
   a { color: inherit !important; text-decoration: none !important; }
 }

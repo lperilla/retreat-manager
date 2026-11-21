@@ -8,5 +8,6 @@ export { AssignmentOverrideRepositoryPort } from './AssignmentOverrideRepository
 export { ExportRendererPort } from './ExportRendererPort.js';
 export { ExportStoragePort } from './ExportStoragePort.js';
 export { AttachmentProcessorPort } from './AttachmentProcessorPort.js';
+export { AttachmentSourcePort } from './AttachmentSourcePort.js';
 export { LoggerPort } from './LoggerPort.js';
 export { ClockPort } from './ClockPort.js';

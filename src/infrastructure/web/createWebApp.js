@@ -18,6 +18,7 @@ export const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), 'public'
  * @property {{ windowMs: number, max: number }} sync
  * @property {{ windowMs: number, max: number }} exports
  * @property {{ windowMs: number, max: number }} login
+ * @property {{ windowMs: number, max: number }} [attachments]
  */
 
 /** @type {RateLimitSettings} */
@@ -25,6 +26,7 @@ export const DEFAULT_RATE_LIMITS = Object.freeze({
   sync: { windowMs: 60_000, max: 6 },
   exports: { windowMs: 60_000, max: 30 },
   login: { windowMs: 15 * 60_000, max: 10 },
+  attachments: { windowMs: 60_000, max: 600 },
 });
 
 /**
@@ -48,6 +50,7 @@ export function createWebApp({ runtime, logger, accessToken, rateLimits = DEFAUL
     sync: rateLimit({ ...rateLimits.sync, name: 'sync' }),
     exports: rateLimit({ ...rateLimits.exports, name: 'exports' }),
     login: rateLimit({ ...rateLimits.login, name: 'login' }),
+    attachments: rateLimit({ ...(rateLimits.attachments ?? DEFAULT_RATE_LIMITS.attachments), name: 'attachments' }),
   };
 
   app.use(securityHeaders());

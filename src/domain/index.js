@@ -23,3 +23,4 @@ export * from './services/counting.js';
 export * from './services/grouping.js';
 export * from './services/batchSelection.js';
 export * from './services/syncDiff.js';
+export * from './services/attachments.js';

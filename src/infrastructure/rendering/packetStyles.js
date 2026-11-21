@@ -42,6 +42,12 @@ body {
 .letter-attachments { margin: .75rem 0 0; padding-left: 1.25rem; color: #555; font-size: 10pt; }
 .letter-attachments img { display: block; max-width: 100%; height: auto; margin: .5rem 0; }
 .empty { color: #666; font-style: italic; }
+.letter-image, .letter-inline-image { margin: 1rem 0; text-align: center; }
+.letter-image img, .letter-inline-image img { max-width: 100%; height: auto; border: 1px solid #ddd6c8; }
+.letter-body .letter-inline-image { white-space: normal; }
+.letter-document { margin: 1rem 0 0; padding: .75rem 1rem; border-left: 3px solid #cfcac0; background: #faf8f3; }
+.letter-document h3 { margin: 0 0 .5rem; font-size: 10.5pt; color: #555; font-weight: 600; }
+.attachment-note { color: #7a2e2e; font-size: 10pt; }
 img { max-width: 100%; height: auto; }
 
 @page { margin: 18mm 16mm; }
@@ -56,7 +62,8 @@ img { max-width: 100%; height: auto; }
   }
   .participant:last-child { break-after: auto; page-break-after: auto; }
   .letter-header { break-inside: avoid; page-break-inside: avoid; break-after: avoid; page-break-after: avoid; }
-  .letter-attachments img { break-inside: avoid; page-break-inside: avoid; }
+  .letter-attachments img, .letter-image, .letter-inline-image { break-inside: avoid; page-break-inside: avoid; }
+  .letter-document { background: none; }
   a { color: inherit; text-decoration: none; }
 }
 `;

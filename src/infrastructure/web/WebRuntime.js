@@ -112,6 +112,8 @@ export class WebRuntime {
       exportFormats: container ? container.useCases.exportBatchLetters.formats : [],
       accessControl: Boolean(this.#config.accessToken),
       syncIntervalMinutes: this.#config.sync.intervalMinutes,
+      attachmentsAvailable: Boolean(container?.attachmentProcessor),
+      maxAttachmentMb: this.#config.maxAttachmentMb,
       persistence: container ? (container.config.demoMode ? 'memory' : this.#config.persistence) : null,
     };
   }

@@ -1,5 +1,6 @@
 import { CursorExpiredError } from '../../application/ports/MailSourcePort.js';
 import { describeError } from '../../application/services/errorDescription.js';
+import { AppError } from '../../domain/errors.js';
 import { extractMessageContent, headerMap } from './bodyExtractor.js';
 import { httpStatusOf, mapWithConcurrency, withRetry } from './retry.js';
 
@@ -13,6 +14,7 @@ const EXCLUDED_LABELS = new Set(['DRAFT', 'SPAM', 'TRASH']);
  *   messages: {
  *     list: (params: object) => Promise<{ data: { messages?: Array<{ id: string }>, nextPageToken?: string } }>,
  *     get: (params: object) => Promise<{ data: any }>,
+ *     attachments: { get: (params: object) => Promise<{ data: { data?: string, size?: number } }> },
  *   },
  *   history: {
  *     list: (params: object) => Promise<{ data: { history?: any[], nextPageToken?: string, historyId?: string } }>,
@@ -225,6 +227,48 @@ export class GmailMailSource {
   }
 
   /**
+   * AttachmentSourcePort: downloads one attachment on demand.
+   * Gmail attachment ids are not guaranteed to stay valid, so on 400/404 (or when the part had
+   * no attachmentId because its data was inline) the message is re-read and the part located
+   * again by Content-ID or filename + MIME type.
+   * @param {{ messageId: string, attachment: import('../../domain/entities/Letter.js').AttachmentMeta }} request
+   * @returns {Promise<Uint8Array>}
+   */
+  async fetchAttachment({ messageId, attachment }) {
+    if (attachment.attachmentId) {
+      try {
+        return await this.#downloadAttachment(messageId, attachment.attachmentId);
+      } catch (error) {
+        const status = httpStatusOf(error);
+        if (status !== 400 && status !== 404) throw error;
+      }
+    }
+    let message;
+    try {
+      message = await this.#call(() => this.#gmail.users.messages.get({ userId: 'me', id: messageId, format: 'full' }));
+    } catch (error) {
+      if (httpStatusOf(error) === 404) throw new AppError('ATTACHMENT_NOT_FOUND', 404, undefined, { messageId });
+      throw error;
+    }
+    const part = findAttachmentPart(message.data.payload, attachment);
+    if (!part) throw new AppError('ATTACHMENT_NOT_FOUND', 404, undefined, { messageId, filename: attachment.filename });
+    if (part.body?.data) return base64UrlToBytes(part.body.data);
+    if (!part.body?.attachmentId) throw new AppError('ATTACHMENT_NOT_FOUND', 404, undefined, { messageId, filename: attachment.filename });
+    return this.#downloadAttachment(messageId, part.body.attachmentId);
+  }
+
+  /**
+   * @param {string} messageId
+   * @param {string} attachmentId
+   */
+  async #downloadAttachment(messageId, attachmentId) {
+    const response = await this.#call(() =>
+      this.#gmail.users.messages.attachments.get({ userId: 'me', messageId, id: attachmentId }),
+    );
+    return base64UrlToBytes(response.data.data ?? '');
+  }
+
+  /**
    * Drafts, spam, trash and messages that are only "sent" are never letters.
    * @param {any} message
    * @returns {boolean}
@@ -236,6 +280,40 @@ export class GmailMailSource {
     if (this.#labelId && !labels.has(this.#labelId)) return false;
     return true;
   }
+}
+
+/**
+ * @param {string} data  base64url
+ * @returns {Uint8Array}
+ */
+function base64UrlToBytes(data) {
+  return Buffer.from(String(data).replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+}
+
+/**
+ * Finds the MIME part of an attachment by Content-ID, or by filename + MIME type.
+ * @param {any} payload
+ * @param {import('../../domain/entities/Letter.js').AttachmentMeta} attachment
+ * @returns {any | null}
+ */
+export function findAttachmentPart(payload, attachment) {
+  /** @type {any[]} */
+  const stack = payload ? [payload] : [];
+  /** @type {any | null} */
+  let byName = null;
+  while (stack.length > 0) {
+    const part = stack.shift();
+    if (part.parts) stack.push(...part.parts);
+    const contentId = (part.headers ?? [])
+      .find((/** @type {any} */ h) => h.name?.toLowerCase() === 'content-id')
+      ?.value?.replace(/^<|>$/g, '')
+      .trim();
+    if (attachment.contentId && contentId === attachment.contentId) return part;
+    if (!byName && part.filename && part.filename === attachment.filename && (part.mimeType ?? '').toLowerCase() === attachment.mimeType) {
+      byName = part;
+    }
+  }
+  return byName;
 }
 
 /**

@@ -68,10 +68,20 @@ export function httpError(status, headers = {}) {
  *   historyErrors?: unknown[],
  *   getErrors?: Record<string, unknown>,
  *   getDelayMs?: number,
+ *   attachments?: Record<string, string>,
  * }} setup
  */
 export function fakeGmail(setup) {
-  const { historyId = '900', listPages = {}, messages = {}, historyPages = [], historyErrors = [], getErrors = {}, getDelayMs = 0 } = setup;
+  const {
+    historyId = '900',
+    listPages = {},
+    messages = {},
+    historyPages = [],
+    historyErrors = [],
+    getErrors = {},
+    getDelayMs = 0,
+    attachments = {},
+  } = setup;
   /** @type {Array<[string, any]>} */
   const calls = [];
   const stats = { active: 0, maxActive: 0 };
@@ -105,6 +115,14 @@ export function fakeGmail(setup) {
           } finally {
             stats.active -= 1;
           }
+        },
+        attachments: {
+          async get(params) {
+            calls.push(['attachments.get', params]);
+            const data = attachments[params.id];
+            if (data === undefined) throw httpError(404);
+            return { data: { data, size: data.length } };
+          },
         },
       },
       history: {

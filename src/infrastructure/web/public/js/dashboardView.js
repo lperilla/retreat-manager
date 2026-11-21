@@ -297,5 +297,10 @@ export function initDashboard() {
     });
   }
   $('#batch-print').addEventListener('click', () => void printLetters([...state.selection]));
+  const includeAttachments = /** @type {HTMLInputElement} */ ($('#batch-include-attachments'));
+  includeAttachments.checked = state.includeAttachments;
+  includeAttachments.addEventListener('change', () => {
+    state.includeAttachments = includeAttachments.checked;
+  });
   $('#mark-all-seen').addEventListener('click', (event) => void markSeen({}, /** @type {HTMLButtonElement} */ (event.currentTarget)));
 }

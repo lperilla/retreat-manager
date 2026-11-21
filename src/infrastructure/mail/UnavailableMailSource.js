@@ -19,4 +19,8 @@ export class UnavailableMailSource {
   async fetchChanges() {
     throw new AppError('MAIL_SOURCE_NOT_CONFIGURED', 503, undefined, { reason: this.#reason });
   }
+
+  async fetchAttachment() {
+    throw new AppError('ATTACHMENTS_UNAVAILABLE', 503, undefined, { reason: this.#reason });
+  }
 }

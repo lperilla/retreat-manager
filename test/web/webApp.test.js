@@ -38,6 +38,7 @@ async function startApp({ env = {}, accessToken = null, rateLimits = DEFAULT_RAT
     PERSISTENCE: 'json',
     SYNC_MIN_INTERVAL_SECONDS: '0',
     EXPORT_DIR: exportDir,
+    CACHE_DIR: join(exportDir, 'cache'),
     DATA_DIR: join(exportDir, 'data'),
     TZ: 'Europe/Madrid',
     ...env,
@@ -273,6 +274,69 @@ describe('web API', () => {
     const empty = await app.fetch('/print');
     assert.equal(empty.status, 400);
     assert.match(await empty.text(), /Selecciona al menos un participante/);
+  });
+});
+
+describe('attachments', () => {
+  it('serves thumbnails, PDFs, DOCX text and downloads with safe headers', async () => {
+    const app = await startApp();
+    await app.post('/api/sync', { mode: 'incremental' });
+    await waitForSync(app);
+
+    const lucia = await (await app.fetch('/api/participants/javier-moreno/letters')).json();
+    const scan = lucia.letters[0].attachments[0];
+    assert.deepEqual({ kind: scan.kind, index: scan.index, inline: scan.inline }, { kind: 'image', index: 0, inline: false });
+    assert.equal('attachmentId' in scan, false);
+
+    const thumb = await app.fetch('/api/letters/demo-w1-12/attachments/0?variant=thumbnail');
+    assert.equal(thumb.status, 200);
+    assert.equal(thumb.headers.get('content-type'), 'image/jpeg');
+    assert.match(thumb.headers.get('content-disposition') ?? '', /^inline/);
+    assert.match(thumb.headers.get('content-security-policy') ?? '', /sandbox/);
+    assert.ok((await thumb.arrayBuffer()).byteLength > 1000);
+
+    const pdf = await app.fetch('/api/letters/demo-w1-13/attachments/0');
+    assert.equal(pdf.headers.get('content-type'), 'application/pdf');
+    assert.equal(pdf.headers.get('x-frame-options'), 'SAMEORIGIN');
+    assert.match(pdf.headers.get('content-security-policy') ?? '', /frame-ancestors 'self'/);
+
+    const text = await (await app.fetch('/api/letters/demo-w1-14/attachments/0/text')).json();
+    assert.match(text.text, /^Querido Diego:/);
+
+    const docx = await app.fetch('/api/letters/demo-w1-14/attachments/0');
+    assert.match(docx.headers.get('content-disposition') ?? '', /^attachment/);
+
+    const mov = await app.fetch('/api/letters/demo-w1-15/attachments/0');
+    assert.equal(mov.headers.get('content-type'), 'application/octet-stream');
+    assert.match(mov.headers.get('content-disposition') ?? '', /^attachment; filename="?video-familia\.mov"?/);
+
+    const missing = await app.fetch('/api/letters/demo-w1-15/attachments/7');
+    assert.equal(missing.status, 404);
+    assert.equal((await missing.json()).code, 'ATTACHMENT_NOT_FOUND');
+    assert.equal((await app.fetch('/api/letters/demo-w1-15/attachments/0?variant=huge')).status, 400);
+    assert.equal((await (await app.fetch('/api/letters/demo-w1-13/attachments/0?variant=display')).json()).code, 'ATTACHMENT_NOT_PROCESSABLE');
+  });
+
+  it('embeds attachments in HTML exports by default and links them in the print view', async () => {
+    const app = await startApp();
+    await app.post('/api/sync', { mode: 'incremental' });
+    await waitForSync(app);
+
+    const withAttachments = await (await app.post('/api/exports', { participantIds: ['javier-moreno', 'diego-navarro'], format: 'html' })).json();
+    const html = await (await app.fetch(withAttachments.downloadUrl)).text();
+    assert.match(html, /data:image\/jpeg;base64,/);
+    assert.match(html, /Documento adjunto: Carta Diego\.docx/);
+
+    const without = await (await app.post('/api/exports', { participantIds: ['javier-moreno'], format: 'html', includeAttachments: false })).json();
+    assert.equal((await (await app.fetch(without.downloadUrl)).text()).includes('data:image'), false);
+
+    const print = await (await app.fetch('/print?participantIds=maria-garcia')).text();
+    assert.ok(print.includes('<img src="/api/letters/demo-w1-23/attachments/0?variant=display"'));
+    assert.equal(print.includes('[cid:perro@demo]'), false);
+
+    const info = await (await app.fetch('/api/app-info')).json();
+    assert.equal(info.attachmentsAvailable, true);
+    assert.equal(info.maxAttachmentMb, 15);
   });
 });
 

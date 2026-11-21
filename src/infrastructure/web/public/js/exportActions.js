@@ -5,7 +5,7 @@
 import { api } from './api.js';
 import { h } from './dom.js';
 import { lettersLabel, plural } from './format.js';
-import { emit } from './state.js';
+import { emit, state } from './state.js';
 import { confirmDialog, toast, toastError } from './ui.js';
 
 /**
@@ -50,7 +50,7 @@ export async function exportLetters(participantIds, format, afterDate = null) {
     return;
   }
   try {
-    const result = await api.createExport({ participantIds, format, afterDate });
+    const result = await api.createExport({ participantIds, format, afterDate, includeAttachments: state.includeAttachments });
     triggerDownload(result.downloadUrl, result.filename);
     toast(`Exportación lista: ${plural(result.participantCount, 'participante', 'participantes')}, ${lettersLabel(result.letterCount)}.`);
     await offerMarkPrinted(result.participantIds);
@@ -71,6 +71,7 @@ export async function printLetters(participantIds, afterDate = null) {
   }
   const params = new URLSearchParams({ participantIds: participantIds.join(','), autoprint: '1' });
   if (afterDate) params.set('afterDate', afterDate);
+  if (!state.includeAttachments) params.set('includeAttachments', '0');
   window.open(`/print?${params.toString()}`, '_blank', 'noopener');
   await offerMarkPrinted(participantIds);
 }

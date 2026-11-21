@@ -72,6 +72,8 @@ export const api = {
   startSync: (/** @type {'incremental' | 'full'} */ mode) => request('/api/sync', { method: 'POST', body: { mode } }),
   syncStatus: () => request('/api/sync/status'),
   syncRuns: (limit = 50) => request(`/api/sync/runs${query({ limit })}`),
-  createExport: (/** @type {{ participantIds: string[], format: string, afterDate?: string | null }} */ body) =>
+  createExport: (/** @type {{ participantIds: string[], format: string, afterDate?: string | null, includeAttachments?: boolean }} */ body) =>
     request('/api/exports', { method: 'POST', body }),
+  attachmentText: (/** @type {string} */ messageId, /** @type {number} */ index) =>
+    request(`/api/letters/${encodeURIComponent(messageId)}/attachments/${index}/text`),
 };

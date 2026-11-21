@@ -21,16 +21,17 @@ El panel y el MCP **nunca leen Gmail directamente**: todo se lee de la base de d
 5. [Configuración OAuth2 en Google Cloud](#configuración-oauth2-en-google-cloud)
 6. [Uso del panel](#uso-del-panel)
 7. [Cómo se asignan las cartas](#cómo-se-asignan-las-cartas)
-8. [Exportación en lote](#exportación-en-lote)
-9. [Impresión](#impresión)
-10. [Sincronización incremental](#sincronización-incremental)
-11. [Panel en la red local](#panel-en-la-red-local)
-12. [Servidor MCP](#servidor-mcp)
-13. [Arquitectura hexagonal](#arquitectura-hexagonal)
-14. [Tests](#tests)
-15. [Privacidad, retención y borrado](#privacidad-retención-y-borrado)
-16. [Variables de entorno](#variables-de-entorno)
-17. [Solución de problemas](#solución-de-problemas)
+8. [Adjuntos](#adjuntos)
+9. [Exportación en lote](#exportación-en-lote)
+10. [Impresión](#impresión)
+11. [Sincronización incremental](#sincronización-incremental)
+12. [Panel en la red local](#panel-en-la-red-local)
+13. [Servidor MCP](#servidor-mcp)
+14. [Arquitectura hexagonal](#arquitectura-hexagonal)
+15. [Tests](#tests)
+16. [Privacidad, retención y borrado](#privacidad-retención-y-borrado)
+17. [Variables de entorno](#variables-de-entorno)
+18. [Solución de problemas](#solución-de-problemas)
 
 ---
 
@@ -109,6 +110,7 @@ También hay un recorrido por consola: `npm run demo:walkthrough`.
 | `npm test` | Tests unitarios, de aplicación y de adaptadores. |
 | `npm run db:purge` | Borra las cartas y los datos de sincronización (pide confirmación). |
 | `npm run demo:walkthrough` | Recorre la demo por consola, sin servidor. |
+| `node scripts/generate-demo-assets.js` | Regenera los adjuntos ficticios de la demo (ya incluidos en el repositorio). |
 
 ## MongoDB con Docker
 
@@ -213,6 +215,29 @@ Las escriben familiares, así que **el nombre del remitente y la firma nunca ind
 3. Se compara con el nombre y los alias de cada participante. **Un nombre de pila que comparten dos o más participantes es ambiguo** y nunca se asigna solo.
 4. Se asigna automáticamente si un único participante supera `ASSIGNMENT_MIN_CONFIDENCE` (0,75) y nadie más queda a menos de 0,15. Si hay varios nombrados explícitamente, la carta es para todos («Varios destinatarios»). En cualquier otro caso va a **Por revisar** con sugerencias ordenadas.
 5. Las **asignaciones manuales** siempre ganan: se guardan por mensaje y sobreviven a nuevas sincronizaciones y a «Reasignar cartas».
+
+## Adjuntos
+
+La mayoría de las cartas llegan como texto, pero algunas traen una foto o un escaneo, un PDF o un Word. Los adjuntos **no se descargan al sincronizar**: se guardan solo sus datos (nombre, tipo y tamaño) y el archivo se pide a Gmail **la primera vez que alguien lo abre**. Después queda en caché en `CACHE_DIR/attachments/`. Las cartas nunca se guardan en disco; solo los adjuntos.
+
+| Tipo | Qué se ve en el panel | Al imprimir o exportar en HTML |
+|---|---|---|
+| Imagen JPEG, PNG, WEBP, GIF o HEIC | Miniatura; al pulsarla, a tamaño completo. Se corrige la orientación EXIF y se eliminan los metadatos (GPS…). | La imagen se incrusta en la carta. |
+| Imagen incrustada (`cid:`) | Aparece **dentro del texto**, donde estaba el marcador `[cid:…]`. | Igual, en su sitio. |
+| PDF | Tarjeta con **«Abrir PDF»** y **«Vista previa»**. | Nota «PDF adjunto (imprímelo aparte)». |
+| Word (`.docx`) | Su **texto se muestra como parte de la carta** (convertido con mammoth, siempre como texto). | El texto se imprime con la carta. |
+| Otros (vídeo, zip, `.doc`…) | Tarjeta **«Adjunto no imprimible»** con botón de descarga. | Nota con el nombre. |
+| SVG, ejecutables, scripts, HTML, documentos con macros | **Bloqueados**: ni se procesan ni se descargan. | Nota «bloqueado por seguridad». |
+
+- **Seguridad**:
+  - Además del tipo declarado se comprueba el contenido real del archivo. Si no coincide (por ejemplo, un `.png` que en realidad es un ejecutable), solo se puede descargar como binario y nunca se procesa.
+  - Los adjuntos se sirven con cabeceras que impiden ejecutar nada.
+  - No se procesan archivos de más de `MAX_ATTACHMENT_MB` (15 MB por defecto).
+- **Exportar con adjuntos**: en la barra de lote y en la ficha del participante hay un interruptor **«Incluir adjuntos»**, activado por defecto. En el `.html` exportado las imágenes van incrustadas, así que el archivo funciona sin conexión.
+- **HEIC (fotos de iPhone)**:
+  - El `sharp` que se instala con npm no incluye el decodificador HEVC, por motivos de patentes. Las fotos HEIC muestran entonces «No se ha podido mostrar la imagen» con un botón para descargar el original.
+  - Para convertirlas hay que instalar libvips con libheif y soporte HEVC y compilar sharp contra ella (consulta la documentación de sharp). Otra opción es pedir a las familias que envíen las fotos en JPEG (en el iPhone: Ajustes → Cámara → Formatos → «Más compatible»).
+- **Sin conexión con Gmail** (por ejemplo, un MCP en otra máquina): los adjuntos se listan, pero no se pueden abrir.
 
 ## Exportación en lote
 

@@ -10,6 +10,8 @@ export const state = {
   selection: new Set(),
   /** @type {any} */
   sync: null,
+  /** "Incluir adjuntos" in exports and print views (default on). */
+  includeAttachments: true,
 };
 
 /** @type {Map<string, Set<(detail?: any) => void>>} */

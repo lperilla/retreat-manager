@@ -19,7 +19,7 @@ function queryString(value) {
  * POST /api/sync reaches the mail source (in the background).
  * @param {{
  *   runtime: import('../WebRuntime.js').WebRuntime,
- *   limiters: { sync: import('express').RequestHandler, exports: import('express').RequestHandler },
+ *   limiters: { sync: import('express').RequestHandler, exports: import('express').RequestHandler, attachments: import('express').RequestHandler },
  * }} options
  * @returns {import('express').Router}
  */
@@ -85,6 +85,33 @@ export function createApiRouter({ runtime, limiters }) {
         messageIds: req.body?.messageIds ?? null,
       }),
     );
+  });
+
+  // Attachments (downloaded on demand, cached on disk) --------------------------
+  router.get('/letters/:messageId/attachments/:index', limiters.attachments, async (req, res) => {
+    const content = await useCases().getAttachment.getContent({
+      messageId: req.params.messageId,
+      index: req.params.index,
+      variant: queryString(req.query.variant) ?? 'original',
+    });
+    const download = queryString(req.query.download) === '1' || content.mimeType === 'application/octet-stream' || content.kind === 'docx';
+    res.setHeader('Content-Type', content.mimeType);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'self'; sandbox");
+    if (content.mimeType === 'application/pdf') {
+      // Allow the in-app PDF preview (same-origin iframe); PDF viewers do not run in a sandbox.
+      res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'self'");
+      res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    }
+    if (download) res.attachment(content.filename);
+    else res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(content.filename)}`);
+    // Set last: res.attachment() would infer a type from the extension (never trust it).
+    res.setHeader('Content-Type', content.mimeType);
+    res.end(Buffer.from(content.data));
+  });
+
+  router.get('/letters/:messageId/attachments/:index/text', limiters.attachments, async (req, res) => {
+    res.json(await useCases().getAttachment.extractText({ messageId: req.params.messageId, index: req.params.index }));
   });
 
   // Review and manual assignment ------------------------------------------------

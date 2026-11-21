@@ -1,7 +1,11 @@
+import { readFile } from 'node:fs/promises';
+
 import { CursorExpiredError } from '../../../application/ports/MailSourcePort.js';
-import { DEMO_WAVES } from './demo/demoData.js';
+import { AppError } from '../../../domain/errors.js';
+import { DEMO_ATTACHMENT_ASSETS, DEMO_WAVES } from './demo/demoData.js';
 
 const CURSOR_PATTERN = /^demo:(\d+)$/;
+const ASSETS_DIR = new URL('./demo/assets/', import.meta.url);
 
 /**
  * MailSourcePort adapter for demo mode. Releases the demo letters in deterministic waves:
@@ -57,6 +61,17 @@ export class DemoMailSource {
       nextCursor: `demo:${next}`,
       isFullListing: false,
     };
+  }
+
+  /**
+   * AttachmentSourcePort: serves the bundled demo files.
+   * @param {{ messageId: string, attachment: import('../../../domain/entities/Letter.js').AttachmentMeta }} request
+   * @returns {Promise<Uint8Array>}
+   */
+  async fetchAttachment({ attachment }) {
+    const asset = attachment.attachmentId ? /** @type {Record<string, string>} */ (DEMO_ATTACHMENT_ASSETS)[attachment.attachmentId] : undefined;
+    if (!asset) throw new AppError('ATTACHMENT_NOT_FOUND', 404, undefined, { attachmentId: attachment.attachmentId });
+    return readFile(new URL(asset, ASSETS_DIR));
   }
 
   /**

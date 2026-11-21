@@ -8,7 +8,7 @@ import { $, enableTooltips, h, replaceChildren, withBusy } from './dom.js';
 import { formatDateTime, lettersLabel, plural } from './format.js';
 import { exportLetters, printLetters } from './exportActions.js';
 import { letterCard } from './letterCard.js';
-import { emit } from './state.js';
+import { emit, state } from './state.js';
 import { toast, toastError } from './ui.js';
 
 /** @type {string | null} */
@@ -83,6 +83,23 @@ export async function loadParticipant(participantId) {
           }
         }),
     }),
+    h(
+      'div',
+      { class: 'form-check form-switch align-self-center mb-0' },
+      h('input', {
+        class: 'form-check-input',
+        type: 'checkbox',
+        role: 'switch',
+        id: 'participant-include-attachments',
+        checked: state.includeAttachments,
+        onChange: (/** @type {Event} */ event) => {
+          state.includeAttachments = /** @type {HTMLInputElement} */ (event.target).checked;
+          const batchSwitch = /** @type {HTMLInputElement | null} */ (document.getElementById('batch-include-attachments'));
+          if (batchSwitch) batchSwitch.checked = state.includeAttachments;
+        },
+      }),
+      h('label', { class: 'form-check-label', for: 'participant-include-attachments', text: 'Incluir adjuntos' }),
+    ),
     h('button', {
       type: 'button',
       class: 'btn btn-outline-secondary',

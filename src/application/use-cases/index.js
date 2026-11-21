@@ -10,3 +10,4 @@ export { GetSyncStatusUseCase } from './GetSyncStatusUseCase.js';
 export { GetNewLettersUseCase } from './GetNewLettersUseCase.js';
 export { MarkLettersSeenUseCase } from './MarkLettersSeenUseCase.js';
 export { RecomputeAssignmentsUseCase } from './RecomputeAssignmentsUseCase.js';
+export { GetAttachmentUseCase, ATTACHMENT_VARIANTS } from './GetAttachmentUseCase.js';

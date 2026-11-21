@@ -49,9 +49,22 @@ const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingm
  * @property {string} from
  * @property {string} subject
  * @property {string[]} body      Lines (joined with "\n").
- * @property {Array<{ filename: string, mimeType: string, size: number }>} [attachments]
+ * @property {Array<{ filename: string, mimeType: string, size: number, contentId?: string }>} [attachments]
  * @property {Record<string, string>} [headers]
  */
+
+/**
+ * Demo attachment files (src/infrastructure/persistence/json/demo/assets/), by attachmentId.
+ * Regenerate them with `node scripts/generate-demo-assets.js`.
+ */
+export const DEMO_ATTACHMENT_ASSETS = Object.freeze({
+  'demo-w1-11-att-1': 'escaneo-raul.jpg',
+  'demo-w1-12-att-1': 'carta-abuela.jpg',
+  'demo-w1-13-att-1': 'carta-para-elena.pdf',
+  'demo-w1-14-att-1': 'carta-diego.docx',
+  'demo-w1-15-att-1': 'video-familia.mov',
+  'demo-w1-23-att-1': 'perro.png',
+});
 
 /**
  * @param {DemoMessageInput} input
@@ -67,7 +80,7 @@ function message({ id, receivedAt, from, subject, body, attachments = [], header
     receivedAt: new Date(receivedAt),
     body: body.join('\n'),
     attachments: attachments.map((attachment, index) =>
-      Object.freeze({ ...attachment, contentId: null, attachmentId: `${id}-att-${index + 1}` }),
+      Object.freeze({ ...attachment, contentId: attachment.contentId ?? null, attachmentId: `${id}-att-${index + 1}` }),
     ),
     headers: Object.freeze({ From: from, To: DEMO_MAILBOX, Subject: subject, ...headers }),
   });
@@ -239,7 +252,7 @@ const WAVE_1 = [
     from: 'Familia Domínguez <fam.dominguez@example.com>',
     subject: 'Escaneo',
     body: [''],
-    attachments: [{ filename: 'IMG_20261118_204512.jpg', mimeType: 'image/jpeg', size: 1843221 }],
+    attachments: [{ filename: 'IMG_20261118_204512.jpg', mimeType: 'image/jpeg', size: 130014 }],
   }),
   message({
     id: 'demo-w1-12',
@@ -256,7 +269,7 @@ const WAVE_1 = [
       'Besos,',
       'Mamá',
     ],
-    attachments: [{ filename: 'carta-abuela.jpg', mimeType: 'image/jpeg', size: 2311904 }],
+    attachments: [{ filename: 'carta-abuela.jpg', mimeType: 'image/jpeg', size: 162329 }],
   }),
   message({
     id: 'demo-w1-13',
@@ -272,7 +285,7 @@ const WAVE_1 = [
       '',
       'Papá y mamá',
     ],
-    attachments: [{ filename: 'carta-para-elena.pdf', mimeType: 'application/pdf', size: 486120 }],
+    attachments: [{ filename: 'carta-para-elena.pdf', mimeType: 'application/pdf', size: 1075 }],
   }),
   message({
     id: 'demo-w1-14',
@@ -288,7 +301,7 @@ const WAVE_1 = [
       '',
       'Tu hermana Begoña',
     ],
-    attachments: [{ filename: 'Carta Diego.docx', mimeType: DOCX_MIME, size: 28412 }],
+    attachments: [{ filename: 'Carta Diego.docx', mimeType: DOCX_MIME, size: 1934 }],
   }),
   message({
     id: 'demo-w1-15',
@@ -304,7 +317,7 @@ const WAVE_1 = [
       '',
       'Tus padres y tus hermanos',
     ],
-    attachments: [{ filename: 'video-familia.mov', mimeType: 'video/quicktime', size: 48220331 }],
+    attachments: [{ filename: 'video-familia.mov', mimeType: 'video/quicktime', size: 2068 }],
   }),
   message({
     id: 'demo-w1-16',
@@ -423,11 +436,14 @@ const WAVE_1 = [
       '',
       'Ya sé que odias que te llame hermanita, pero hoy te lo aguantas 😜',
       '',
-      'Te echo muchísimo de menos. La casa está demasiado tranquila sin tus canciones a todo volumen.',
+      'Te echo muchísimo de menos. La casa está demasiado tranquila sin tus canciones a todo volumen. Mira quién te espera:',
+      '',
+      '[cid:perro@demo]',
       '',
       'Te quiero,',
       'Clara',
     ],
+    attachments: [{ filename: 'perro.png', mimeType: 'image/png', size: 9334, contentId: 'perro@demo' }],
   }),
 ];
 

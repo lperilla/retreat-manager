@@ -2,8 +2,9 @@
  * Letter card: sender, date, subject, assignment badge (with the matched text as tooltip),
  * flags, full body (pre-wrap, never truncated) and attachments.
  */
+import { renderAttachments, renderBody } from './attachments.js';
 import { h } from './dom.js';
-import { formatBytes, formatLongDateTime, senderName } from './format.js';
+import { formatLongDateTime, senderName } from './format.js';
 import { ASSIGNMENT_STATUS_LABELS, FLAG_LABELS, INFO_FLAGS, SIGNAL_LABELS } from './labels.js';
 
 /**
@@ -58,18 +59,8 @@ export function letterCard(letter, { actions = [], showRecipients = false } = {}
       ? h('p', { class: 'letter-meta mb-0' }, 'Para: ', letter.assignment.participants.map((p) => p.displayName).join(', '))
       : null;
 
-  const body = letter.body?.trim()
-    ? h('div', { class: 'letter-body', text: letter.body })
-    : h('p', { class: 'letter-body is-empty', text: 'La carta no tiene texto.' });
-
-  const attachments =
-    letter.attachments.length > 0
-      ? h(
-          'ul',
-          { class: 'letter-attachments', 'aria-label': 'Adjuntos' },
-          letter.attachments.map((a) => h('li', {}, `Adjunto: ${a.filename} (${formatBytes(a.size)})`)),
-        )
-      : null;
+  const { body, usedInline } = renderBody(letter);
+  const attachments = renderAttachments(letter, usedInline);
 
   return h(
     'article',

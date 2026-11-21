@@ -1,6 +1,5 @@
 import { isAppError } from '../../../domain/errors.js';
 import { escapeHtml } from '../../rendering/format.js';
-import { HtmlPacketRenderer } from '../../rendering/HtmlPacketRenderer.js';
 
 /**
  * @param {unknown} value
@@ -29,24 +28,28 @@ function errorPage(message) {
 }
 
 /**
- * GET /print?participantIds=a,b[&afterDate=YYYY-MM-DD][&autoprint=1]
+ * GET /print?participantIds=a,b[&afterDate=YYYY-MM-DD][&includeAttachments=0][&autoprint=1]
  * Printable packet for the browser (one page per participant). Uses the same renderer as
- * the .html export, linking the stylesheet and the print script (CSP forbids inline code).
+ * the .html export, linking the stylesheet, the print script and the attachment images
+ * (CSP forbids inline code; images are served by the authenticated attachment route).
  * @param {{ runtime: import('../WebRuntime.js').WebRuntime, logger: import('../../../application/ports/LoggerPort.js').LoggerPort }} options
  * @returns {import('express').RequestHandler}
  */
 export function createPrintHandler({ runtime, logger }) {
-  const renderer = new HtmlPacketRenderer();
   return async (req, res) => {
     try {
-      const payload = await runtime.container.useCases.preparePrintView.execute({
+      const container = runtime.container;
+      const payload = await container.useCases.preparePrintView.execute({
         participantIds: parseIds(req.query.participantIds),
         afterDate: typeof req.query.afterDate === 'string' && req.query.afterDate ? req.query.afterDate : null,
       });
-      const html = await renderer.render(payload, {
+      const html = await container.htmlRenderer.render(payload, {
         stylesheetHref: '/css/packet.css',
         scriptHref: '/js/print-page.js',
         toolbar: true,
+        includeAttachments: req.query.includeAttachments !== '0',
+        attachmentUrl: (/** @type {string} */ messageId, /** @type {number} */ index, /** @type {string} */ variant) =>
+          `/api/letters/${encodeURIComponent(messageId)}/attachments/${index}?variant=${variant}`,
       });
       res.type('html').send(html);
     } catch (error) {

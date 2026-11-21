@@ -9,3 +9,5 @@
 *.webp binary
 *.pdf binary
 *.docx binary
+*.mov binary
+*.heic binary
