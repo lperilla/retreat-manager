@@ -1,7 +1,12 @@
+# Dependencies
 node_modules/
+
+# Secrets (never commit)
 .env
 credentials.json
 token.json
+
+# Personal data generated at runtime (letters, participants, exports, attachment cache)
 data/
 cache/
 exports/

@@ -10,9 +10,11 @@
   "scripts": {
     "start": "node src/entrypoints/web.js",
     "dev": "node --watch src/entrypoints/web.js",
-    "auth": "node src/entrypoints/auth.js",
     "mcp": "node src/entrypoints/mcp.js",
-    "test": "node --test \"test/**/*.test.js\""
+    "auth": "node src/entrypoints/auth.js",
+    "test": "node --test \"test/**/*.test.js\"",
+    "db:purge": "node src/entrypoints/purge.js",
+    "demo:walkthrough": "node scripts/demo-walkthrough.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",

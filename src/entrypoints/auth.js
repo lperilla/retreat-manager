@@ -4,15 +4,11 @@
  */
 import { spawn } from 'node:child_process';
 
-import dotenv from 'dotenv';
-
 import { describeError } from '../application/services/errorDescription.js';
-import { loadConfig } from '../composition/config.js';
 import { OAuth2, createGmailClient } from '../infrastructure/gmail/googleClient.js';
 import { GMAIL_SCOPES, readClientSecrets, writeTokenFile } from '../infrastructure/gmail/oauthClient.js';
 import { runLoopbackAuthorization } from '../infrastructure/gmail/oauthFlow.js';
-
-dotenv.config({ quiet: true });
+import { loadEnvironment } from './bootstrap.js';
 
 /**
  * Best-effort: open the consent page in the default browser.
@@ -35,7 +31,7 @@ function openBrowser(url) {
 }
 
 async function main() {
-  const config = loadConfig();
+  const config = loadEnvironment();
   const { credentialsPath, tokenPath } = config.gmail;
   const secrets = await readClientSecrets(credentialsPath);
   if (secrets.type !== 'installed') {

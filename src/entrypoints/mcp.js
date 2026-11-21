@@ -4,17 +4,14 @@
  */
 import { readFile } from 'node:fs/promises';
 
-import dotenv from 'dotenv';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
 import { describeError } from '../application/services/errorDescription.js';
-import { loadConfig } from '../composition/config.js';
 import { createContainer } from '../composition/container.js';
 import { PinoLogger } from '../infrastructure/logging/PinoLogger.js';
 import { UnavailableMailSource } from '../infrastructure/mail/UnavailableMailSource.js';
 import { createMcpServer } from '../infrastructure/mcp/createMcpServer.js';
-
-dotenv.config({ quiet: true });
+import { loadEnvironment } from './bootstrap.js';
 
 async function packageVersion() {
   try {
@@ -26,7 +23,7 @@ async function packageVersion() {
 }
 
 async function main() {
-  const config = loadConfig();
+  const config = loadEnvironment();
   const logger = PinoLogger.create({ level: config.logLevel, destination: 'stderr', bindings: { role: 'mcp' } });
 
   let container;

@@ -1,21 +1,17 @@
 /**
  * Web entrypoint: dashboard + JSON API. The only entrypoint that schedules automatic syncs.
  */
-import dotenv from 'dotenv';
-
 import { describeError } from '../application/services/errorDescription.js';
-import { loadConfig } from '../composition/config.js';
 import { createContainer } from '../composition/container.js';
 import { PinoLogger } from '../infrastructure/logging/PinoLogger.js';
 import { createWebApp } from '../infrastructure/web/createWebApp.js';
 import { assertWebSecurity, listAccessUrls } from '../infrastructure/web/security/networkSecurity.js';
 import { SyncScheduler } from '../infrastructure/web/SyncScheduler.js';
 import { WebRuntime } from '../infrastructure/web/WebRuntime.js';
-
-dotenv.config({ quiet: true });
+import { loadEnvironment } from './bootstrap.js';
 
 async function main() {
-  const config = loadConfig();
+  const config = loadEnvironment();
   assertWebSecurity(config);
   const logger = PinoLogger.create({ level: config.logLevel, destination: 'stdout', bindings: { role: 'web' } });
 

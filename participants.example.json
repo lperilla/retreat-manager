@@ -1,0 +1,7 @@
+[
+  { "displayName": "María García", "aliases": ["Mari"] },
+  { "displayName": "María López" },
+  { "displayName": "Juan Martínez", "aliases": ["Juanito"] },
+  { "displayName": "Ana Belén Torres", "aliases": ["Anabel"] },
+  { "id": "alvaro-herrera", "displayName": "Álvaro Herrera" }
+]

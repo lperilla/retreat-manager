@@ -158,7 +158,7 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
     overrides.exportStorage ?? new FileExportStorage({ exportDir: config.exportDir }),
   );
 
-  const persistence = overrides.persistence ?? (await createPersistence({ config, clock, logger }));
+  const persistence = overrides.persistence ?? (await createPersistenceAdapters({ config, clock, logger }));
   const letterStore = LetterStoreRepositoryPort.assert(persistence.letterStore);
   const syncStateRepository = SyncStateRepositoryPort.assert(persistence.syncStateRepository);
   const participantRepository = ParticipantRepositoryPort.assert(persistence.participantRepository);
@@ -282,10 +282,12 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
 }
 
 /**
+ * Persistence adapters for the configuration (in-memory in demo mode). Also used by
+ * maintenance scripts such as `npm run db:purge`, which do not need a mail source.
  * @param {PersistenceContext} context
  * @returns {Promise<PersistenceAdapters>}
  */
-async function createPersistence({ config, clock, logger }) {
+export async function createPersistenceAdapters({ config, clock, logger }) {
   if (config.demoMode) {
     return createJsonPersistence({ directory: null, clock, runsTtlDays: config.sync.runsTtlDays });
   }
