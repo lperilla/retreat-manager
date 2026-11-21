@@ -114,7 +114,7 @@ export class HtmlPacketRenderer {
    */
   async #renderSection(section, context) {
     const letters = [];
-    for (const letter of section.letters) letters.push(await this.#renderLetter(letter, context));
+    for (const letter of section.letters) letters.push(await this.#renderLetter(letter, context, section.participant.displayName));
     return [
       '<section class="participant">',
       '<header class="participant-header">',
@@ -127,10 +127,13 @@ export class HtmlPacketRenderer {
   }
 
   /**
+   * One letter = one sheet (or group of sheets): it starts on a new page when printed and
+   * carries its own recipient line, so it can be handed out on its own.
    * @param {import('../../domain/entities/Letter.js').Letter} letter
    * @param {RenderContext} context
+   * @param {string} recipient
    */
-  async #renderLetter(letter, context) {
+  async #renderLetter(letter, context, recipient) {
     const sender = parseSenderName(letter.from) || letter.from || 'Remitente desconocido';
     const usedInline = new Set();
     const body = await this.#renderBody(letter, context, usedInline);
@@ -138,6 +141,7 @@ export class HtmlPacketRenderer {
     return [
       '<article class="letter">',
       '<header class="letter-header">',
+      `<p class="letter-recipient">Para: ${escapeHtml(recipient)}</p>`,
       `<p class="letter-meta">De: ${escapeHtml(sender)} · <time datetime="${escapeHtml(letter.receivedAt.toISOString())}">${escapeHtml(formatDateTime(letter.receivedAt, context.timeZone))}</time></p>`,
       `<h2 class="letter-subject">${escapeHtml(letter.subject || '(Sin asunto)')}</h2>`,
       '</header>',

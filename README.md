@@ -5,7 +5,7 @@ Panel web, exportador por lotes, sistema de impresión y servidor MCP para gesti
 - Descarga las cartas de Gmail (solo lectura) y las guarda en una base de datos local con **sincronización incremental**.
 - Decide **para quién es cada carta** a partir del asunto y del cuerpo (nunca del remitente ni de la firma) y deja en «Por revisar» las dudosas.
 - Muestra cuántas cartas tiene cada participante, quién lleva más y quién menos (con empates) y qué ha llegado desde la última sincronización.
-- Exporta e **imprime por lotes**: una página por participante, cartas en orden cronológico, tipografía cuidada.
+- Exporta e **imprime por lotes**: cada carta en su propia hoja (con «Para: …»), agrupadas por participante y en orden cronológico, con tipografía cuidada.
 - Expone los mismos datos a asistentes de IA mediante un **servidor MCP**.
 
 El panel y el MCP **nunca leen Gmail directamente**: todo se lee de la base de datos local. Gmail solo se consulta al sincronizar, y solo para lo que ha cambiado.
@@ -259,7 +259,7 @@ La mayoría de las cartas llegan como texto, pero algunas traen una foto o un es
 
 1. En el directorio, **selecciona** participantes (por ejemplo, «Seleccionar pendientes de imprimir»).
 2. En la barra inferior elige el formato:
-   - **Exportar .html**: paquete listo para imprimir, **una página por participante**, cartas en orden cronológico y estilos incluidos en el propio archivo.
+   - **Exportar .html**: paquete listo para imprimir. **Cada carta va en su propia hoja** (o grupo de hojas, si es larga), con «Para: Nombre» arriba para poder entregarla suelta. Las cartas se agrupan por participante en orden cronológico, y los estilos van incluidos en el propio archivo.
    - **Exportar .txt**: texto plano UTF-8, con un salto de página (`\f`) entre participantes.
    - **Exportar .json**: datos estructurados (para otros programas).
 3. El archivo se descarga y además queda guardado en `EXPORT_DIR` con un nombre generado por el servidor, por ejemplo `cartas_lote-12_20261121-093000.html` o `cartas_maria-garcia_…`.
@@ -270,7 +270,9 @@ Desde la ficha de un participante, «Exportar» hace lo mismo solo para esa pers
 ## Impresión
 
 - **Imprimir lote** (barra inferior) o **Imprimir** (ficha) abre una pestaña con el paquete y lanza el diálogo de impresión del navegador.
-- Cada participante empieza en una **página nueva**. La cabecera de cada carta nunca queda separada de su texto, se usa tipografía con serifa a 11–12 pt e interlineado amplio, y las imágenes se ajustan al ancho.
+- **Cada carta empieza en una hoja nueva** y nunca comparte página con otra; si es larga, ocupa las hojas que necesite. Cada participante también empieza en página nueva.
+- Cada carta lleva arriba «Para: Nombre», así que se puede entregar suelta.
+- La cabecera de cada carta nunca queda separada de su texto. Se usa tipografía con serifa a 11–12 pt e interlineado amplio, y las imágenes se ajustan al ancho.
 - Desactiva en el navegador «Encabezados y pies de página» y usa márgenes predeterminados y papel A4.
 - Al imprimir el panel directamente (Ctrl+P), se ocultan la navegación, los botones, las casillas y el widget de sincronización.
 

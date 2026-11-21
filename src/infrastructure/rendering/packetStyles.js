@@ -26,16 +26,20 @@ body {
   background: #fff; color: #1f3b57; cursor: pointer; font-weight: 600;
 }
 .packet-toolbar button:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
-.participant {
-  background: #fff; margin: 0 0 2rem; padding: 2.25rem 2.5rem;
-  border-radius: .5rem; box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
-}
-.participant-header { border-bottom: 2px solid #1d1d1b; margin-bottom: 1.5rem; padding-bottom: .5rem; }
+.participant { margin: 0 0 3rem; }
+.participant-header { border-bottom: 2px solid #1d1d1b; margin: 0 0 1.25rem; padding: 0 .25rem .5rem; }
 .participant-header h1 { margin: 0; font-size: 20pt; font-weight: 700; letter-spacing: .01em; }
 .participant-header p { margin: .25rem 0 0; color: #555; font-size: 10.5pt; }
-.letter { margin: 0 0 2rem; }
-.letter + .letter { border-top: 1px solid #cfcac0; padding-top: 1.5rem; }
+/* Each letter is its own sheet: on screen a separate page, in print it starts on a new page. */
+.letter, .participant > .empty {
+  background: #fff; margin: 0 0 1.5rem; padding: 2.25rem 2.5rem;
+  border-radius: .5rem; box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+}
 .letter-header { margin-bottom: .75rem; }
+.letter-recipient {
+  margin: 0 0 .4rem; color: #7a5c2e; font-size: 9.5pt; letter-spacing: .08em; text-transform: uppercase;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
 .letter-meta { margin: 0; color: #555; font-size: 10pt; }
 .letter-subject { margin: .2rem 0 0; font-size: 13pt; font-weight: 700; }
 .letter-body { white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal; hyphens: manual; }
@@ -56,11 +60,12 @@ img { max-width: 100%; height: auto; }
   body { background: #fff; font-size: 11.5pt; line-height: 1.55; }
   .no-print, .packet-toolbar { display: none !important; }
   .packet { max-width: none; padding: 0; margin: 0; }
-  .participant {
-    box-shadow: none; border-radius: 0; padding: 0; margin: 0;
-    break-after: page; page-break-after: always;
-  }
+  .participant { margin: 0; break-after: page; page-break-after: always; }
   .participant:last-child { break-after: auto; page-break-after: auto; }
+  .participant-header { break-after: avoid; page-break-after: avoid; }
+  .letter, .participant > .empty { box-shadow: none; border-radius: 0; padding: 0; margin: 0; }
+  /* Never share a sheet with another letter: every letter after the first starts a new page. */
+  .letter + .letter { break-before: page; page-break-before: always; }
   .letter-header { break-inside: avoid; page-break-inside: avoid; break-after: avoid; page-break-after: avoid; }
   .letter-attachments img, .letter-image, .letter-inline-image { break-inside: avoid; page-break-inside: avoid; }
   .letter-document { background: none; }

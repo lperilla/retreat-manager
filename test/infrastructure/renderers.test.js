@@ -50,6 +50,22 @@ describe('HtmlPacketRenderer', () => {
     assert.ok(html.includes('No hay cartas para este participante.'));
   });
 
+  it('prints every letter on its own sheet with its own recipient line', async () => {
+    const letters = ['a', 'b', 'c'].map((id, i) =>
+      makeLetter({ messageId: id, receivedAt: `2026-11-1${i + 1}T10:00:00Z`, assignment: assignedTo(['juan-perez']) }),
+    );
+    const html = await new HtmlPacketRenderer().render(
+      createBatchExportPayload({
+        generatedAt: new Date('2026-11-21T10:00:00Z'),
+        timeZone: 'Europe/Madrid',
+        sections: [{ participant: { id: 'juan-perez', displayName: 'Juan Pérez' }, letters, letterCount: 3 }],
+      }),
+    );
+    assert.match(html, /\.letter \+ \.letter \{ break-before: page; page-break-before: always; \}/);
+    assert.equal((html.match(/<article class="letter">/g) ?? []).length, 3);
+    assert.equal((html.match(/<p class="letter-recipient">Para: Juan Pérez<\/p>/g) ?? []).length, 3);
+  });
+
   it('shows the sender name, the local date (Europe/Madrid) and attachments', async () => {
     const html = await new HtmlPacketRenderer().render(payload());
     assert.ok(html.includes('De: Rosa Martín'));
