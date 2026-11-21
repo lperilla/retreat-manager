@@ -124,6 +124,7 @@ Otras opciones: `--no-open` (no abrir el navegador), `--no-mongo` (no tocar Mong
 | `npm run db:purge` | Borra las cartas y los datos de sincronización (pide confirmación). |
 | `npm run demo:walkthrough` | Recorre la demo por consola, sin servidor. |
 | `node scripts/generate-demo-assets.js` | Regenera los adjuntos ficticios de la demo (ya incluidos en el repositorio). |
+| `npm run seed:gmail` | Crea en tu buzón de Gmail un juego de 48 cartas de prueba ([ver Tests](#tests)). |
 
 ## MongoDB con Docker
 
@@ -402,6 +403,34 @@ $env:MONGODB_URI_TEST = "mongodb://usuario:clave@127.0.0.1:27017"; npm test
 ```
 
 Sin `MONGODB_URI_TEST`, esos tests se saltan.
+
+### Cartas de prueba en Gmail
+
+`npm run seed:gmail` crea **directamente en el buzón autorizado** 48 cartas de prueba, sin enviar nada a nadie (`users.messages.insert`). Cubren muchos formatos:
+
+- texto, HTML, texto + HTML, tablas, ISO-8859-1 y emojis;
+- todas las formas de saludo y nombres ambiguos;
+- respuestas citadas, reenvíos, respuestas automáticas, boletines, rebotes y «solo firma»;
+- escaneos con EXIF, WEBP, GIF, imagen `cid:`, PDF, Word, HEIC, vídeo, ZIP, SVG bloqueado y un tipo falso.
+
+Cada carta documenta su resultado esperado, y `test/project/seedCatalog.test.js` lo comprueba.
+
+```powershell
+npm run seed:gmail -- --dry-run
+```
+
+Genera los `.eml` en `.run/seed/` sin tocar Gmail.
+
+```powershell
+npm run seed:gmail -- --write-participants
+```
+
+Los inserta en Gmail y escribe los 20 participantes de prueba en `data/participants.json`, con copia del anterior.
+
+- Pide un permiso **aparte y solo para insertar** (`gmail.insert`). En la pantalla de Google, marca la casilla «Insertar correo en tu buzón de Gmail». Ese permiso se guarda en `.run/seed-token.json`; la aplicación sigue siendo de solo lectura.
+- Comprueba que esa autorización es de la misma cuenta que `token.json` antes de insertar nada.
+- Todos los remitentes son `@familias-prueba.example`. Para usarlas, pon `GMAIL_QUERY=from:familias-prueba.example` y haz una «Sincronización completa». Para borrarlas, busca lo mismo en Gmail y elimina los resultados.
+- Si se ejecuta dos veces, las cartas se duplican.
 
 ## Privacidad, retención y borrado
 

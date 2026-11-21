@@ -14,7 +14,8 @@
     "auth": "node src/entrypoints/auth.js",
     "test": "node --test \"test/**/*.test.js\"",
     "db:purge": "node src/entrypoints/purge.js",
-    "demo:walkthrough": "node scripts/demo-walkthrough.js"
+    "demo:walkthrough": "node scripts/demo-walkthrough.js",
+    "seed:gmail": "node scripts/seed-gmail.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",

@@ -461,7 +461,13 @@ async function start(options) {
     return;
   }
   if (current) clearRunInfo();
-  if (await portInUse(config.host, config.port)) {
+  // Right after a stop/restart the OS may need a moment to release the port (notably on Windows).
+  let busy = await portInUse(config.host, config.port);
+  for (let attempt = 0; busy && attempt < 20; attempt += 1) {
+    await delay(500);
+    busy = await portInUse(config.host, config.port);
+  }
+  if (busy) {
     throw new Error(`El puerto ${config.port} ya está ocupado por otro programa. Cambia PORT en .env o para ese programa.`);
   }
 

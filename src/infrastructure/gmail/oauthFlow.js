@@ -28,10 +28,11 @@ function page(title, message) {
  *   onUrl: (url: string) => void,
  *   timeoutMs?: number,
  *   port?: number,
+ *   scopes?: readonly string[],
  * }} options
  * @returns {Promise<{ code: string, codeVerifier: string, redirectUri: string }>}
  */
-export async function runLoopbackAuthorization({ oauthClient, openUrl, onUrl, timeoutMs = 5 * 60_000, port = 0 }) {
+export async function runLoopbackAuthorization({ oauthClient, openUrl, onUrl, timeoutMs = 5 * 60_000, port = 0, scopes = GMAIL_SCOPES }) {
   const state = randomBytes(24).toString('hex');
   const { codeVerifier, codeChallenge } = await oauthClient.generateCodeVerifierAsync();
 
@@ -76,7 +77,7 @@ export async function runLoopbackAuthorization({ oauthClient, openUrl, onUrl, ti
       const authUrl = oauthClient.generateAuthUrl({
         access_type: 'offline',
         prompt: 'consent',
-        scope: [...GMAIL_SCOPES],
+        scope: [...scopes],
         state,
         redirect_uri: redirectUri,
         code_challenge_method: /** @type {any} */ ('S256'),
