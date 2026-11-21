@@ -1,0 +1,57 @@
+/**
+ * Typed application error shared by every layer.
+ *
+ * `code` is a stable English identifier; `message` is the Spanish text that may be
+ * shown to staff. `httpStatus` is a transport hint used by the web adapter; the MCP
+ * adapter ignores it and only forwards `{ code, message }`.
+ */
+
+/** Spanish user-facing messages, keyed by error code. */
+export const ERROR_MESSAGES = Object.freeze({
+  VALIDATION_ERROR: 'Los datos enviados no son válidos.',
+  INVALID_PARTICIPANT: 'Los datos del participante no son válidos.',
+  DUPLICATE_PARTICIPANT: 'Ya existe un participante con ese identificador.',
+  PARTICIPANT_NOT_FOUND: 'Participante no encontrado.',
+  INVALID_LETTER: 'Los datos de la carta no son válidos.',
+  LETTER_NOT_FOUND: 'Carta no encontrada.',
+  INVALID_ASSIGNMENT: 'La asignación de la carta no es válida.',
+  INVALID_FLAG: 'El aviso de la carta no es válido.',
+  INVALID_DATE: 'La fecha indicada no es válida.',
+  INVALID_TIMEZONE: 'La zona horaria configurada no es válida.',
+  INVALID_SYNC_MODE: 'El modo de sincronización no es válido.',
+  INVALID_SYNC_STATE: 'El estado de sincronización no es válido.',
+  INVALID_PRINT_STATUS: 'El estado de impresión no es válido.',
+  EMPTY_SELECTION: 'Selecciona al menos un participante.',
+  SYNC_IN_PROGRESS: 'Ya hay una sincronización en curso.',
+  SYNC_COOLDOWN: 'Espera unos segundos antes de volver a sincronizar.',
+  INTERNAL_ERROR: 'Se ha producido un error interno.',
+});
+
+export class AppError extends Error {
+  /**
+   * @param {string} code          Stable English error code, e.g. `PARTICIPANT_NOT_FOUND`.
+   * @param {number} [httpStatus]  Transport hint (defaults to 400).
+   * @param {string} [message]     Spanish message; defaults to the catalog entry for `code`.
+   * @param {Record<string, unknown>} [details] Diagnostic details for logs (never shown verbatim).
+   */
+  constructor(code, httpStatus = 400, message, details) {
+    super(message ?? ERROR_MESSAGES[code] ?? ERROR_MESSAGES.INTERNAL_ERROR);
+    this.name = 'AppError';
+    this.code = code;
+    this.httpStatus = httpStatus;
+    this.details = details ?? null;
+  }
+
+  /** @returns {{ code: string, message: string }} */
+  toJSON() {
+    return { code: this.code, message: this.message };
+  }
+}
+
+/**
+ * @param {unknown} error
+ * @returns {error is AppError}
+ */
+export function isAppError(error) {
+  return error instanceof AppError;
+}

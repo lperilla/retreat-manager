@@ -1,0 +1,13 @@
+{
+  "name": "retreat-mail-mcp",
+  "version": "0.1.0",
+  "description": "Dashboard, batch exporter, printing system and MCP server for retreat letters received in a shared Gmail inbox.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\""
+  }
+}
