@@ -40,6 +40,7 @@ import { DemoMailSource } from '../infrastructure/persistence/json/DemoMailSourc
 import { createJsonPersistence } from '../infrastructure/persistence/json/createJsonPersistence.js';
 import { DEMO_PARTICIPANTS } from '../infrastructure/persistence/json/demo/demoData.js';
 import { readParticipantsFile } from '../infrastructure/persistence/json/participantsFile.js';
+import { createMongoPersistence } from '../infrastructure/persistence/mongo/createMongoPersistence.js';
 import { FileExportStorage } from '../infrastructure/rendering/FileExportStorage.js';
 import { JsonRenderer } from '../infrastructure/rendering/JsonRenderer.js';
 import { loadConfig } from './config.js';
@@ -63,6 +64,17 @@ import { loadConfig } from './config.js';
  * @type {Map<string, (context: PersistenceContext) => Promise<PersistenceAdapters>>}
  */
 const persistenceFactories = new Map([
+  [
+    'mongo',
+    async ({ config, clock, logger }) =>
+      createMongoPersistence({
+        uri: config.mongo.uri,
+        dbName: config.mongo.db,
+        clock,
+        logger,
+        runsTtlDays: config.sync.runsTtlDays,
+      }),
+  ],
   [
     'json',
     async ({ config, clock }) =>

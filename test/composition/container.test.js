@@ -52,7 +52,7 @@ describe('createContainer', () => {
     await rm(directory, { recursive: true, force: true });
   });
 
-  it('fails with CONFIG_ERROR when no adapter is registered for the configured persistence or mail source', async () => {
+  it('fails with CONFIG_ERROR when MONGODB_URI is missing or no mail source is registered', async () => {
     const logger = new NullLogger();
     await assert.rejects(createContainer({ config: loadConfig({ PERSISTENCE: 'mongo' }), overrides: { logger } }), {
       code: 'CONFIG_ERROR',

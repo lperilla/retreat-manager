@@ -1,0 +1,35 @@
+# Local MongoDB for retreat-mail-mcp.
+#
+# - Bound to 127.0.0.1 only: the database is never reachable from the LAN.
+# - Authentication is always on: root credentials come from .env
+#   (MONGO_ROOT_USERNAME / MONGO_ROOT_PASSWORD) and docker compose refuses to start without them.
+# - Data lives in the named volume "retreat_mongo_data" (delete it with `docker compose down -v`).
+#
+# Matching MONGODB_URI for the app:
+#   mongodb://<MONGO_ROOT_USERNAME>:<MONGO_ROOT_PASSWORD>@127.0.0.1:27017
+#
+# Usage:
+#   docker compose up -d
+#   docker compose ps          # wait for "healthy"
+#   docker compose down        # stop (data is kept)
+services:
+  mongo:
+    image: mongo:7
+    container_name: retreat-mail-mongo
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MONGO_PORT:-27017}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}
+    volumes:
+      - retreat_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+volumes:
+  retreat_mongo_data:

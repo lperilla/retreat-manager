@@ -27,6 +27,7 @@ export const ERROR_MESSAGES = Object.freeze({
   SYNC_FAILED: 'La sincronización ha fallado; se muestran los últimos datos guardados.',
   UNSUPPORTED_EXPORT_FORMAT: 'El formato de exportación no está disponible.',
   CONFIG_ERROR: 'La configuración de la aplicación no es válida.',
+  DATABASE_UNAVAILABLE: 'No se puede conectar con la base de datos.',
   INTERNAL_ERROR: 'Se ha producido un error interno.',
 });
 
