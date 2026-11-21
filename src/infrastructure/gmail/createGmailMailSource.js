@@ -1,0 +1,29 @@
+import { GmailMailSource } from './GmailMailSource.js';
+import { createGmailClient } from './googleClient.js';
+import { loadAuthorizedClient } from './oauthClient.js';
+
+/**
+ * Builds the Gmail mail source from configuration. Missing credentials.json / token.json
+ * raise MAIL_SOURCE_NOT_CONFIGURED (the web dashboard then offers demo mode).
+ * @param {{
+ *   config: import('../../composition/config.js').AppConfig,
+ *   logger: import('../../application/ports/LoggerPort.js').LoggerPort,
+ * }} context
+ */
+export async function createGmailMailSource({ config, logger }) {
+  const auth = await loadAuthorizedClient({
+    credentialsPath: config.gmail.credentialsPath,
+    tokenPath: config.gmail.tokenPath,
+    logger,
+  });
+  if (!config.gmail.query && !config.gmail.labelId) {
+    logger.warn('Neither GMAIL_QUERY nor GMAIL_LABEL_ID is set: every inbox message will be treated as a letter');
+  }
+  return new GmailMailSource({
+    gmail: /** @type {any} */ (createGmailClient(auth)),
+    query: config.gmail.query,
+    labelId: config.gmail.labelId,
+    concurrency: config.gmail.concurrency,
+    logger,
+  });
+}

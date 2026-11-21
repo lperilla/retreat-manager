@@ -15,7 +15,7 @@ const PERSISTENCE_KINDS = Object.freeze(['mongo', 'json']);
  * @property {string|null} accessToken
  * @property {boolean} demoMode
  * @property {{ minConfidence: number, bodyScanChars: number }} assignment
- * @property {{ query: string }} gmail
+ * @property {{ query: string, labelId: string | null, credentialsPath: string, tokenPath: string, concurrency: number }} gmail
  * @property {string}  exportDir
  * @property {string}  cacheDir
  * @property {number}  maxAttachmentMb
@@ -115,7 +115,13 @@ export function loadConfig(env = process.env, { rootDir = process.cwd() } = {}) 
       }),
       bodyScanChars: number(env, 'BODY_SCAN_CHARS', DEFAULTS.BODY_SCAN_CHARS, { min: 0, max: 100000 }),
     }),
-    gmail: Object.freeze({ query: text(env, 'GMAIL_QUERY', '') }),
+    gmail: Object.freeze({
+      query: text(env, 'GMAIL_QUERY', ''),
+      labelId: text(env, 'GMAIL_LABEL_ID', '') || null,
+      credentialsPath: path('GOOGLE_CREDENTIALS_PATH', './credentials.json'),
+      tokenPath: path('GOOGLE_TOKEN_PATH', './token.json'),
+      concurrency: number(env, 'GMAIL_CONCURRENCY', 5, { min: 1, max: 20 }),
+    }),
     exportDir: path('EXPORT_DIR', './exports'),
     cacheDir: path('CACHE_DIR', './cache'),
     maxAttachmentMb: number(env, 'MAX_ATTACHMENT_MB', 15, { min: 1, max: 1024 }),

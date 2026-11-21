@@ -59,7 +59,14 @@ describe('createContainer', () => {
       code: 'CONFIG_ERROR',
     });
     await assert.rejects(
-      createContainer({ config: loadConfig({ PERSISTENCE: 'json', DATA_DIR: join(directory, 'data') }), overrides: { logger } }),
+      createContainer({
+        config: loadConfig({
+          PERSISTENCE: 'json',
+          DATA_DIR: join(directory, 'data'),
+          GOOGLE_CREDENTIALS_PATH: join(directory, 'missing-credentials.json'),
+        }),
+        overrides: { logger },
+      }),
       { code: 'MAIL_SOURCE_NOT_CONFIGURED', httpStatus: 503 },
     );
   });
@@ -77,6 +84,24 @@ describe('createContainer', () => {
     });
     const participants = await container.repositories.participantRepository.findAll();
     assert.deepEqual(participants.map((p) => p.id), ['ana-martin', 'juan-perez']);
+    await container.close();
+  });
+
+  it('builds the Gmail mail source from credentials.json + token.json without network access', async () => {
+    const credentialsPath = join(directory, 'gmail-credentials.json');
+    const tokenPath = join(directory, 'gmail-token.json');
+    await writeFile(credentialsPath, JSON.stringify({ installed: { client_id: 'id.apps.googleusercontent.com', client_secret: 'secret' } }));
+    await writeFile(tokenPath, JSON.stringify({ refresh_token: 'r', scope: 'https://www.googleapis.com/auth/gmail.readonly' }));
+    const config = loadConfig({
+      PERSISTENCE: 'json',
+      DATA_DIR: join(directory, 'gmail-data'),
+      GOOGLE_CREDENTIALS_PATH: credentialsPath,
+      GOOGLE_TOKEN_PATH: tokenPath,
+      GMAIL_QUERY: 'to:cartas@example.com',
+      PARTICIPANTS_FILE: join(directory, 'none.json'),
+    });
+    const container = await createContainer({ config, overrides: { logger: new NullLogger() } });
+    assert.equal(container.mailSource.constructor.name, 'GmailMailSource');
     await container.close();
   });
 

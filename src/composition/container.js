@@ -88,7 +88,17 @@ const persistenceFactories = new Map([
  * Mail source factories by kind ('demo' in demo mode, 'gmail' otherwise).
  * @type {Map<string, (context: MailSourceContext) => Promise<import('../application/ports/MailSourcePort.js').MailSourcePort>>}
  */
-const mailSourceFactories = new Map([['demo', async () => new DemoMailSource()]]);
+const mailSourceFactories = new Map([
+  ['demo', async () => new DemoMailSource()],
+  [
+    'gmail',
+    async ({ config, logger }) => {
+      // Loaded lazily: googleapis is large and not needed in demo mode or tests.
+      const { createGmailMailSource } = await import('../infrastructure/gmail/createGmailMailSource.js');
+      return createGmailMailSource({ config, logger });
+    },
+  ],
+]);
 
 /**
  * Registers (or replaces) a persistence adapter factory.
