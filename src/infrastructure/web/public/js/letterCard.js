@@ -9,7 +9,10 @@
  * before printing the page (Ctrl+P). Rows are meant to live inside a `.letter-list`.
  */
 import { renderAttachments, renderBody } from './attachments.js';
-import { enableTooltips, h } from './dom.js';
+import { api } from './api.js';
+import { enableTooltips, h, withBusy } from './dom.js';
+import { emit } from './state.js';
+import { toastError } from './ui.js';
 import { formatLongDateTime, formatShortDateTime, senderName } from './format.js';
 import { ASSIGNMENT_STATUS_LABELS, FLAG_LABELS, INFO_FLAGS } from './labels.js';
 
@@ -98,6 +101,43 @@ function printToggle({ printed, highlight, onToggle }) {
     })
   );
   button.addEventListener('click', () => onToggle(button));
+  return button;
+}
+
+/**
+ * Like Gmail: a closed envelope means unread (it becomes read when the letter is opened);
+ * an open envelope means read, and clicking it marks the letter as unread again.
+ * @param {any} letter
+ * @param {boolean} unread
+ * @returns {HTMLElement}
+ */
+function readIndicator(letter, unread) {
+  if (unread) {
+    return h(
+      'span',
+      { class: 'letter-seen is-unseen', role: 'img', 'aria-label': 'Sin leer', title: 'Sin leer: se marca como leída al abrirla' },
+      h('span', { class: 'envelope is-closed' }),
+    );
+  }
+  const button = /** @type {HTMLButtonElement} */ (
+    h(
+      'button',
+      { type: 'button', class: 'letter-seen', 'aria-label': 'Leída. Marcar como no leída', title: 'Leída. Pulsa para marcarla como no leída' },
+      h('span', { class: 'envelope is-open' }),
+    )
+  );
+  button.addEventListener('click', () =>
+    void withBusy(button, async () => {
+      try {
+        await api.markUnseen([letter.messageId]);
+        // Like Gmail: marking as unread closes the letter.
+        openLetters.delete(letter.messageId);
+        emit('data-changed');
+      } catch (error) {
+        toastError(error);
+      }
+    }),
+  );
   return button;
 }
 
@@ -201,7 +241,7 @@ export function letterCard(letter, { actions = [], actionsWhenOpen = false, show
       'aria-label': `${subject}. De ${sender}${letter.isNew ? '. Nueva' : ''}`,
     },
     h('span', { class: 'letter-toggle-icon', 'aria-hidden': 'true' }),
-    h('span', { class: 'letter-from', text: sender, title: letter.isNew ? 'Nueva: el equipo todavía no la ha visto («Marcar como vistas» la quita)' : null }),
+    h('span', { class: 'letter-from', text: sender }),
     h('span', { class: 'letter-line' }, h('span', { class: 'letter-subject', text: subject }), preview),
   );
 
@@ -221,7 +261,26 @@ export function letterCard(letter, { actions = [], actionsWhenOpen = false, show
     if (open) openLetters.add(letter.messageId);
     else openLetters.delete(letter.messageId);
   };
-  toggle.addEventListener('click', () => setOpen(content.hidden));
+  let indicator = readIndicator(letter, letter.isNew === true);
+  // Opening an unread letter marks it as read (only when a person opens it: not "Abrir
+  // todas", not printing, not restoring open letters after a refresh).
+  const markRead = () => {
+    if (letter.isNew !== true) return;
+    letter.isNew = false;
+    card.classList.remove('is-new');
+    const read = readIndicator(letter, false);
+    indicator.replaceWith(read);
+    indicator = read;
+    api
+      .markSeen({ messageIds: [letter.messageId] })
+      .then(() => emit('data-changed'))
+      .catch(toastError);
+  };
+  toggle.addEventListener('click', () => {
+    const opening = content.hidden;
+    setOpen(opening);
+    if (opening) markRead();
+  });
 
   const withdrawn = letter.assignment.participants.some((/** @type {any} */ p) => p.withdrawn);
   const card = h(
@@ -232,6 +291,7 @@ export function letterCard(letter, { actions = [], actionsWhenOpen = false, show
     h(
       'div',
       { class: 'letter-row' },
+      indicator,
       toggle,
       h(
         'div',

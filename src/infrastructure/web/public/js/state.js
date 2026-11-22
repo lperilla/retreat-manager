@@ -4,6 +4,8 @@
 export const state = {
   /** @type {any} */
   info: null,
+  /** Active retreat (name, dates), refreshed on every screen. @type {any} */
+  retreat: null,
   /** Directory rows from the last dashboard load (unfiltered). @type {any[]} */
   participants: [],
   /** Selected participant ids. @type {Set<string>} */

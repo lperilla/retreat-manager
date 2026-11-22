@@ -5,7 +5,7 @@ import { api } from './api.js';
 import { initAssignModal } from './assignModal.js';
 import { initDashboard, loadDashboard } from './dashboardView.js';
 import { $, h, replaceChildren, skeleton, withBusy } from './dom.js';
-import { plural } from './format.js';
+import { DEFAULT_RETREAT_NAME, formatRetreatDays, plural } from './format.js';
 import { loadHistory } from './historyView.js';
 import { loadParticipant } from './participantView.js';
 import { loadParticipants } from './participantsView.js';
@@ -100,22 +100,6 @@ async function route({ focus = true } = {}) {
 }
 
 const BANNER_DATE = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-/** Retreat days are calendar days (YYYY-MM-DD): format them in UTC so they never shift. */
-const RETREAT_DAYS = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
-/** Name given to the retreat when it is created automatically (not shown as a subtitle). */
-const DEFAULT_RETREAT_NAME = 'Retiro';
-
-/**
- * "11–13 dic 2026" (or a single day).
- * @param {string | null} start
- * @param {string | null} end
- * @returns {string | null}
- */
-function retreatDays(start, end) {
-  const day = (/** @type {string} */ value) => new Date(`${value}T00:00:00Z`);
-  if (start && end) return start === end ? RETREAT_DAYS.format(day(start)) : RETREAT_DAYS.formatRange(day(start), day(end));
-  return start || end ? RETREAT_DAYS.format(day(/** @type {string} */ (start || end))) : null;
-}
 
 /**
  * Active retreat name (and dates) under the app name in the top bar.
@@ -125,7 +109,7 @@ function showRetreatName(retreat) {
   const subtitle = document.getElementById('brand-retreat');
   if (!subtitle) return;
   const named = retreat?.name && retreat.name !== DEFAULT_RETREAT_NAME;
-  const days = named ? retreatDays(retreat.startDate, retreat.endDate) : null;
+  const days = named ? formatRetreatDays(retreat.startDate, retreat.endDate) : null;
   subtitle.textContent = named ? [retreat.name, days].filter(Boolean).join(' · ') : '';
   subtitle.title = subtitle.textContent;
   subtitle.hidden = !named;
@@ -140,6 +124,7 @@ async function refreshRetreatBanner() {
   if (!banner) return;
   try {
     const retreat = await api.retreat();
+    state.retreat = retreat;
     showRetreatName(retreat);
     if (!retreat.ended || !retreat.deletionDate) {
       banner.hidden = true;

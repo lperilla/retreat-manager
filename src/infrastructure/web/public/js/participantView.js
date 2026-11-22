@@ -15,6 +15,36 @@ import { toast, toastError } from './ui.js';
 let afterDate = null;
 /** @type {string | null} */
 let currentId = null;
+/** Sections the user collapsed ("unprinted", "printed"), kept while the page is open. */
+const collapsedSections = new Set();
+
+/**
+ * Collapsible group of letters with its title and count (Gmail-style sections).
+ * @param {string} key
+ * @param {string} title
+ * @param {HTMLElement[]} cards
+ * @returns {HTMLElement}
+ */
+function letterSection(key, title, cards) {
+  const bodyId = `letter-section-${key}`;
+  const collapsed = collapsedSections.has(key);
+  const body = h('div', { class: 'letter-list letter-section-body', id: bodyId, hidden: collapsed }, cards);
+  const toggle = h(
+    'button',
+    { type: 'button', class: 'letter-section-toggle', 'aria-expanded': collapsed ? 'false' : 'true', 'aria-controls': bodyId },
+    h('span', { class: 'letter-toggle-icon', 'aria-hidden': 'true' }),
+    h('span', { class: 'letter-section-title', text: title }),
+    h('span', { class: 'letter-section-count', text: String(cards.length) }),
+  );
+  toggle.addEventListener('click', () => {
+    const open = body.hidden;
+    body.hidden = !open;
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) collapsedSections.delete(key);
+    else collapsedSections.add(key);
+  });
+  return h('section', { class: `letter-section is-${key}`, 'aria-label': title }, toggle, body);
+}
 
 /**
  * @param {string} participantId
@@ -187,31 +217,44 @@ export async function loadParticipant(participantId) {
       'div',
       { class: 'd-flex flex-wrap gap-3 align-items-center ms-md-auto' },
       data.newCount > 0
-        ? h('button', {
-            type: 'button',
-            class: 'btn btn-sm btn-link px-0 text-decoration-none',
-            text: 'Marcar como vistas',
-            onClick: (/** @type {Event} */ event) =>
-              void withBusy(/** @type {HTMLButtonElement} */ (event.currentTarget), async () => {
-                try {
-                  await api.markSeen({ participantId: participant.id });
-                  toast('Cartas marcadas como vistas.');
-                  emit('data-changed');
-                } catch (error) {
-                  toastError(error);
-                }
-              }),
-          })
+        ? h(
+            'button',
+            {
+              type: 'button',
+              class: 'news-button',
+              title: 'Marca como leídas todas las cartas sin leer de este participante',
+              onClick: (/** @type {Event} */ event) =>
+                void withBusy(/** @type {HTMLButtonElement} */ (event.currentTarget), async () => {
+                  try {
+                    await api.markSeen({ participantId: participant.id });
+                    toast('Cartas marcadas como leídas.');
+                    emit('data-changed');
+                  } catch (error) {
+                    toastError(error);
+                  }
+                }),
+            },
+            h('span', { class: 'envelope is-closed', 'aria-hidden': 'true' }),
+            `Marcar ${data.newCount === 1 ? 'la nueva' : `las ${data.newCount} nuevas`} como leídas`,
+          )
         : null,
       dateFilter,
       data.letters.length > 1 ? letterToggleAllButtons(() => view) : null,
     ),
   );
 
+  // Like Gmail's "No leídos / Todo lo demás": letters not printed yet first, then the
+  // printed ones, each in its own collapsible section.
+  const card = (/** @type {any} */ letter) => lettersCardWithActions(letter, participant.id, everPrinted, reload);
+  const unprinted = data.letters.filter((/** @type {any} */ l) => !l.printed);
+  const printedLetters = data.letters.filter((/** @type {any} */ l) => l.printed);
   const letters =
     data.letters.length === 0
-      ? h('p', { class: 'letter-list-empty', text: afterDate ? 'No hay cartas posteriores a esa fecha.' : 'Este participante todavía no tiene cartas.' })
-      : data.letters.map((/** @type {any} */ letter) => lettersCardWithActions(letter, participant.id, everPrinted, reload));
+      ? h('div', { class: 'letter-list' }, h('p', { class: 'letter-list-empty', text: afterDate ? 'No hay cartas posteriores a esa fecha.' : 'Este participante todavía no tiene cartas.' }))
+      : [
+          unprinted.length > 0 ? letterSection('unprinted', 'Sin imprimir', unprinted.map(card)) : null,
+          printedLetters.length > 0 ? letterSection('printed', 'Impresas', printedLetters.map(card)) : null,
+        ];
 
   replaceChildren(
     view,
@@ -233,7 +276,7 @@ export async function loadParticipant(participantId) {
         ),
       ),
       controls,
-      h('div', { class: 'letter-list' }, letters),
+      letters,
     ),
   );
   enableTooltips(view);

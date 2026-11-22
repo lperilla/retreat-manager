@@ -62,6 +62,8 @@ export const api = {
   newLetters: () => request('/api/letters/new'),
   markSeen: (/** @type {{ participantId?: string, messageIds?: string[] }} */ body = {}) =>
     request('/api/letters/seen', { method: 'POST', body }),
+  /** "Marcar como no leída": the letters show up as new again. */
+  markUnseen: (/** @type {string[]} */ messageIds) => request('/api/letters/seen', { method: 'POST', body: { messageIds, seen: false } }),
   reviewQueue: () => request('/api/review'),
   assign: (/** @type {string} */ messageId, /** @type {string[]} */ participantIds) =>
     request(`/api/review/${encodeURIComponent(messageId)}/assign`, { method: 'POST', body: { participantIds } }),

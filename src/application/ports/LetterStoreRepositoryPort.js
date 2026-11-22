@@ -29,6 +29,8 @@ import { definePort } from './definePort.js';
  * @property {() => Promise<Letter[]>} findNeedingReview  Active NEEDS_REVIEW letters.
  * @property {(filter?: { participantId?: string | null, messageIds?: string[] | null }) => Promise<number>} markSeen
  *   Marks active letters as seen: all of them, those of one participant, or the given ids.
+ * @property {(filter: { messageIds: string[] }) => Promise<number>} markUnseen
+ *   Marks the given active letters as not seen again ("marcar como no leída").
  * @property {() => Promise<KnownLetterRef[]>} getKnownMessageIds  Includes soft-deleted letters.
  * @property {() => Promise<number>} deleteAll
  * @property {(retreatId: string) => Promise<number>} assignRetreat  Stamps letters stored without a retreat (older versions).
@@ -43,6 +45,7 @@ export const LetterStoreRepositoryPort = definePort('LetterStoreRepositoryPort',
   'findByParticipant',
   'findNeedingReview',
   'markSeen',
+  'markUnseen',
   'getKnownMessageIds',
   'deleteAll',
   'assignRetreat',

@@ -147,6 +147,21 @@ export class JsonLetterStoreRepository {
     });
   }
 
+  /** @param {{ messageIds: string[] }} filter */
+  markUnseen({ messageIds }) {
+    const ids = new Set(messageIds ?? []);
+    return this.#store.write((documents) => {
+      let count = 0;
+      for (const id of ids) {
+        const document = documents.get(id);
+        if (!document || document.deletedAt || document.seenByStaff !== true) continue;
+        documents.set(id, { ...document, seenByStaff: false });
+        count += 1;
+      }
+      return count;
+    });
+  }
+
   getKnownMessageIds() {
     return this.#store.read((documents) =>
       this.#all(documents).map((letter) => ({

@@ -195,7 +195,20 @@ function renderDirectory() {
           h(
             'div',
             { class: 'd-flex flex-wrap gap-1' },
-            row.newCount > 0 ? h('span', { class: 'badge text-bg-info', text: `+${row.newCount} ${row.newCount === 1 ? 'nueva' : 'nuevas'}` }) : null,
+            row.newCount > 0
+              ? h(
+                  'button',
+                  {
+                    type: 'button',
+                    class: 'news-button',
+                    title: `${plural(row.newCount, 'carta nueva', 'cartas nuevas')} sin leer. Pulsa para marcarlas como leídas`,
+                    'aria-label': `${plural(row.newCount, 'carta nueva', 'cartas nuevas')} de ${row.displayName}. Marcar como leídas`,
+                    onClick: (/** @type {Event} */ event) => void markSeen({ participantId: row.participantId }, /** @type {HTMLButtonElement} */ (event.currentTarget)),
+                  },
+                  h('span', { class: 'envelope is-closed', 'aria-hidden': 'true' }),
+                  `${row.newCount} ${row.newCount === 1 ? 'nueva' : 'nuevas'}`,
+                )
+              : null,
             row.warningCount > 0 ? h('span', { class: 'badge text-bg-warning', text: plural(row.warningCount, 'aviso', 'avisos') }) : null,
           ),
         ),

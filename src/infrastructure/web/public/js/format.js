@@ -31,6 +31,24 @@ export function formatDateTime(iso) {
   return formatter({ dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
 }
 
+/** Name given to the retreat when it is created automatically (not a name of its own). */
+export const DEFAULT_RETREAT_NAME = 'Retiro';
+
+/** Retreat days are calendar days (YYYY-MM-DD): format them in UTC so they never shift. */
+const RETREAT_DAYS = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+
+/**
+ * "11–13 dic 2026" (or a single day), null without dates.
+ * @param {string | null | undefined} start
+ * @param {string | null | undefined} end
+ * @returns {string | null}
+ */
+export function formatRetreatDays(start, end) {
+  const day = (/** @type {string} */ value) => new Date(`${value}T00:00:00Z`);
+  if (start && end) return start === end ? RETREAT_DAYS.format(day(start)) : RETREAT_DAYS.formatRange(day(start), day(end));
+  return start || end ? RETREAT_DAYS.format(day(/** @type {string} */ (start || end))) : null;
+}
+
 /**
  * "19 nov, 23:50" (compact, for letter rows).
  * @param {string | null | undefined} iso

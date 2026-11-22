@@ -124,6 +124,14 @@ export class MongoLetterStoreRepository {
     return result.modifiedCount;
   }
 
+  /** @param {{ messageIds: string[] }} filter */
+  async markUnseen({ messageIds }) {
+    const ids = [...new Set(messageIds ?? [])];
+    if (ids.length === 0) return 0;
+    const result = await this.#collection.updateMany({ _id: { $in: ids }, deletedAt: null, seenByStaff: true }, { $set: { seenByStaff: false } });
+    return result.modifiedCount;
+  }
+
   async getKnownMessageIds() {
     const documents = await this.#collection
       .find({}, { projection: { _id: 1, contentHash: 1, deletedAt: 1 } })

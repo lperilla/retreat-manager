@@ -150,6 +150,10 @@ export function definePersistenceContract(name, factory, { skip = false } = {}) 
         assert.equal(await letterStore.markSeen({ messageIds: ['a1', 'd1'] }), 1);
         assert.equal(await letterStore.markSeen({}), 1);
         assert.equal(await letterStore.markSeen({}), 0);
+        assert.equal(await letterStore.markUnseen({ messageIds: ['a1', 'missing'] }), 1);
+        assert.equal((await letterStore.findById('a1'))?.seenByStaff, false);
+        assert.equal(await letterStore.markUnseen({ messageIds: ['a1'] }), 0, 'already unseen');
+        assert.equal(await letterStore.markSeen({ messageIds: ['a1'] }), 1);
         assert.equal((await letterStore.findById('d1'))?.seenByStaff, false);
       });
 

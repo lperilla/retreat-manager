@@ -9,6 +9,7 @@ import { $, enableTooltips, h, replaceChildren, withBusy } from './dom.js';
 import { lettersLabel } from './format.js';
 import { letterCard, letterToggleAllButtons } from './letterCard.js';
 import { SIGNAL_LABELS } from './labels.js';
+import { askSenderButton } from './senderRequest.js';
 import { emit } from './state.js';
 import { toast, toastError } from './ui.js';
 
@@ -79,6 +80,8 @@ function reviewActions(letter) {
   return [
     detectedRecipient(letter),
     suggestions.length > 0 ? [h('span', { class: 'letter-actions-label', text: 'Asignar a' }), suggestions] : null,
+    // No match at all: ask the sender who the letter is for.
+    suggestions.length === 0 ? askSenderButton(letter) : null,
     h('span', { class: 'spacer' }),
     h('button', {
       type: 'button',
@@ -102,6 +105,7 @@ function reviewActions(letter) {
 function unassignedActions(letter) {
   return [
     detectedRecipient(letter),
+    askSenderButton(letter),
     h('span', { class: 'spacer' }),
     h('button', {
       type: 'button',

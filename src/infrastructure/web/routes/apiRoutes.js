@@ -83,6 +83,7 @@ export function createApiRouter({ runtime, limiters }) {
       await useCases().markLettersSeen.execute({
         participantId: req.body?.participantId ?? null,
         messageIds: req.body?.messageIds ?? null,
+        seen: req.body?.seen !== false,
       }),
     );
   });
