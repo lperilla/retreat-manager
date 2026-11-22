@@ -274,6 +274,8 @@ En **Participantes → Habitaciones / Mesas** se crean las habitaciones (nombre,
 
 - **Asignar**: desde la tarjeta de cada habitación o mesa («Añadir a…», con quien aún no tiene), o desde la ficha del participante (sección **Habitación y mesa**, con cama opcional). Cada participante tiene **una habitación y una mesa fija** para todo el retiro.
 - **Aforo**: una habitación o mesa completa no admite a nadie más. Una con personas no se puede eliminar.
+- **Disponibilidad de habitaciones**: cada tarjeta lleva un color según su estado. Verde es **vacía**, ámbar es **con camas libres** (por ejemplo «1 cama libre» en una doble con una persona), gris es **completa** y rojo es más personas que camas. Arriba hay un resumen con el total de camas libres.
+- **Filtros de habitaciones**: por **planta**, por **número de camas** y por disponibilidad (Todas, Vacías, Con camas libres, Completas). Se mantienen al asignar o editar.
 - **Avisos** (informan, no bloquean): si comparten habitación quien ronca y quien no, si alguien que necesita habitación accesible o evitar escaleras no la tiene, o si hay más personas que plazas.
 - **Líder y colíder de mesa**: son **servidores**, no participantes, así que no ocupan plaza ni salen en las listas de participantes. Se indican con nombre y teléfono opcional al crear o editar la mesa, y la tarjeta los muestra; si falta alguno, la mesa lo avisa. Se borran con el retiro.
 - **Cocina**: cada mesa resume las alergias, intolerancias y dietas de quienes se sientan en ella, con las graves en rojo.

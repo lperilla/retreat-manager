@@ -9,6 +9,23 @@ import { emit } from './state.js';
 import { confirmDialog, toast, toastError } from './ui.js';
 
 /**
+ * Availability: "empty" (nobody yet), "partial" (some free places), "full" or "over".
+ * @param {{ occupancy: number, capacity: number }} place
+ */
+function availability(place) {
+  if (place.occupancy > place.capacity) return 'over';
+  if (place.occupancy === 0) return 'empty';
+  return place.occupancy < place.capacity ? 'partial' : 'full';
+}
+
+/** Room filters kept while navigating. */
+const roomFilters = { floor: '', beds: '', availability: 'all' };
+const NO_FLOOR = '__none__';
+
+/** "1" → "Planta 1"; any other text is shown as written ("Planta baja", "Ático"). */
+const floorLabel = (/** @type {string} */ floor) => (/^-?\d+$/.test(floor.trim()) ? `Planta ${floor.trim()}` : floor);
+
+/**
  * Tabs shared by the participants, rooms and tables pages.
  * @param {'participants' | 'rooms' | 'tables'} active
  */
@@ -28,6 +45,8 @@ export async function loadAccommodation(kind) {
   const places = isRooms ? data.rooms : data.tables;
   const without = isRooms ? data.withoutRoom : data.withoutTable;
   const capacity = isRooms ? data.totals.beds : data.totals.seats;
+  const roomsToolbar = isRooms && places.length > 0 ? roomFiltersBar(places, () => void loadAccommodation(kind)) : null;
+  const shown = isRooms ? places.filter(matchesRoomFilters) : places;
 
   replaceChildren(
     $('#view-people'),
@@ -58,7 +77,12 @@ export async function loadAccommodation(kind) {
         : null,
     places.length === 0
       ? h('p', { class: 'text-body-secondary', text: isRooms ? 'Todavía no hay habitaciones. Créalas con el formulario de arriba.' : 'Todavía no hay mesas. Créalas con el formulario de arriba.' })
-      : h('div', { class: 'place-grid' }, places.map((/** @type {any} */ place) => placeCard(kind, place, without))),
+      : [
+          roomsToolbar,
+          shown.length === 0
+            ? h('p', { class: 'text-body-secondary', text: 'Ninguna habitación coincide con los filtros.' })
+            : h('div', { class: 'place-grid' }, shown.map((/** @type {any} */ place) => placeCard(kind, place, without))),
+        ],
   );
 }
 
@@ -86,6 +110,108 @@ function leaderFields(prefix, table) {
     element: h('div', { class: 'd-flex flex-column gap-2' }, leader.element, coLeader.element),
     value: () => ({ leader: leader.value(), coLeader: coLeader.value() }),
   };
+}
+
+/** @param {any} room */
+function matchesRoomFilters(room) {
+  if (roomFilters.floor === NO_FLOOR && room.floor) return false;
+  if (roomFilters.floor && roomFilters.floor !== NO_FLOOR && room.floor !== roomFilters.floor) return false;
+  if (roomFilters.beds && room.capacity !== Number(roomFilters.beds)) return false;
+  const state = availability(room);
+  if (roomFilters.availability === 'empty') return state === 'empty';
+  if (roomFilters.availability === 'free') return state === 'empty' || state === 'partial';
+  if (roomFilters.availability === 'full') return state === 'full' || state === 'over';
+  return true;
+}
+
+/**
+ * Filters by floor, number of beds and availability, with a summary of free beds.
+ * @param {any[]} rooms
+ * @param {() => void} rerender
+ */
+function roomFiltersBar(rooms, rerender) {
+  const floors = [...new Set(rooms.map((r) => r.floor).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+  const beds = [...new Set(rooms.map((r) => r.capacity))].sort((a, b) => a - b);
+  if (roomFilters.floor && roomFilters.floor !== NO_FLOOR && !floors.includes(roomFilters.floor)) roomFilters.floor = '';
+  if (roomFilters.beds && !beds.includes(Number(roomFilters.beds))) roomFilters.beds = '';
+
+  const floorSelect = /** @type {HTMLSelectElement} */ (
+    h(
+      'select',
+      { class: 'form-select', id: 'room-floor' },
+      h('option', { value: '', text: 'Todas las plantas' }),
+      floors.map((f) => h('option', { value: f, text: floorLabel(f), selected: roomFilters.floor === f })),
+      rooms.some((r) => !r.floor) ? h('option', { value: NO_FLOOR, text: 'Sin planta indicada', selected: roomFilters.floor === NO_FLOOR }) : null,
+    )
+  );
+  const bedsSelect = /** @type {HTMLSelectElement} */ (
+    h(
+      'select',
+      { class: 'form-select', id: 'room-beds' },
+      h('option', { value: '', text: 'Cualquier número de camas' }),
+      beds.map((n) => h('option', { value: String(n), text: plural(n, 'cama', 'camas'), selected: roomFilters.beds === String(n) })),
+    )
+  );
+  floorSelect.addEventListener('change', () => {
+    roomFilters.floor = floorSelect.value;
+    rerender();
+  });
+  bedsSelect.addEventListener('change', () => {
+    roomFilters.beds = bedsSelect.value;
+    rerender();
+  });
+
+  const counts = { empty: 0, partial: 0, full: 0 };
+  let freeBeds = 0;
+  for (const room of rooms) {
+    const state = availability(room);
+    if (state === 'empty') counts.empty += 1;
+    else if (state === 'partial') counts.partial += 1;
+    else counts.full += 1;
+    freeBeds += room.free;
+  }
+  const chip = (/** @type {string} */ value, /** @type {string} */ label) =>
+    h('button', {
+      type: 'button',
+      class: 'chip',
+      'aria-pressed': roomFilters.availability === value ? 'true' : 'false',
+      text: label,
+      onClick: () => {
+        roomFilters.availability = value;
+        rerender();
+      },
+    });
+
+  return h(
+    'section',
+    { class: 'card mb-3', 'aria-label': 'Filtrar habitaciones' },
+    h(
+      'div',
+      { class: 'card-body d-flex flex-column gap-2' },
+      h(
+        'p',
+        { class: 'availability-summary mb-1' },
+        h('span', { class: 'dot is-empty', 'aria-hidden': 'true' }), `${plural(counts.empty, 'vacía', 'vacías')}`,
+        h('span', { class: 'dot is-partial', 'aria-hidden': 'true' }), `${counts.partial} con camas libres`,
+        h('span', { class: 'dot is-full', 'aria-hidden': 'true' }), `${plural(counts.full, 'completa', 'completas')}`,
+        h('strong', { class: 'ms-2', text: `${plural(freeBeds, 'cama libre', 'camas libres')} en total` }),
+      ),
+      h(
+        'div',
+        { class: 'row g-2' },
+        h('div', { class: 'col-md-6' }, h('label', { class: 'form-label small mb-1', for: 'room-floor', text: 'Planta' }), floorSelect),
+        h('div', { class: 'col-md-6' }, h('label', { class: 'form-label small mb-1', for: 'room-beds', text: 'Número de camas' }), bedsSelect),
+      ),
+      h(
+        'div',
+        { class: 'filter-chips', role: 'group', 'aria-label': 'Disponibilidad' },
+        chip('all', 'Todas'),
+        chip('empty', `Vacías (${counts.empty})`),
+        chip('free', `Con camas libres (${counts.empty + counts.partial})`),
+        chip('full', `Completas (${counts.full})`),
+      ),
+    ),
+  );
 }
 
 /**
@@ -194,7 +320,15 @@ function newPlaceForm(kind) {
 function placeCard(kind, place, without) {
   const isRooms = kind === 'rooms';
   const full = place.occupancy >= place.capacity;
-  const badge = place.occupancy > place.capacity ? 'text-bg-danger' : full ? 'text-bg-secondary' : 'text-bg-success';
+  const state = availability(place);
+  const badge = { over: 'text-bg-danger', full: 'text-bg-secondary', partial: 'text-bg-warning', empty: 'text-bg-success' }[state];
+  const unit = isRooms ? ['cama', 'camas'] : ['plaza', 'plazas'];
+  const stateLabel = {
+    over: `${place.occupancy - place.capacity} de más`,
+    full: 'Completa',
+    partial: `${plural(place.free, `${unit[0]} libre`, `${unit[1]} libres`)}`,
+    empty: place.capacity > 1 ? `Vacía · ${plural(place.capacity, `${unit[0]} libre`, `${unit[1]} libres`)}` : 'Vacía',
+  }[state];
 
   const assign = async (/** @type {string} */ participantId, /** @type {string | null} */ targetId, /** @type {HTMLButtonElement} */ button) =>
     withBusy(button, async () => {
@@ -222,7 +356,7 @@ function placeCard(kind, place, without) {
 
   return h(
     'article',
-    { class: 'card place-card' },
+    { class: `card place-card is-${state}` },
     h(
       'div',
       { class: 'card-body d-flex flex-column gap-2' },
@@ -236,12 +370,17 @@ function placeCard(kind, place, without) {
           h(
             'div',
             { class: 'd-flex flex-wrap gap-1' },
-            isRooms && place.floor ? h('span', { class: 'badge text-bg-light border', text: place.floor }) : null,
+            isRooms && place.floor ? h('span', { class: 'badge text-bg-light border', text: floorLabel(place.floor) }) : null,
             isRooms && place.accessible ? h('span', { class: 'badge text-bg-info', text: 'Accesible' }) : null,
             isRooms && place.groundFloor ? h('span', { class: 'badge text-bg-info', text: 'Sin escaleras' }) : null,
           ),
         ),
-        h('span', { class: `badge ${badge}`, text: `${place.occupancy}/${place.capacity}`, title: `${place.occupancy} de ${place.capacity} plazas ocupadas` }),
+        h(
+          'div',
+          { class: 'text-end' },
+          h('span', { class: `badge availability-badge ${badge}`, text: stateLabel }),
+          h('div', { class: 'occupancy small text-body-secondary', text: `${place.occupancy}/${place.capacity} ocupadas` }),
+        ),
       ),
       place.occupants.length === 0
         ? h('p', { class: 'small text-body-secondary mb-0', text: 'Vacía.' })

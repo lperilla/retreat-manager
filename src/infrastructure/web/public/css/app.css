@@ -332,6 +332,22 @@ main:focus { outline: none; }
 
 /* Accommodation module */
 .place-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 1rem; }
+/* Availability: empty (green), free beds (amber), full (muted). */
+.place-card { border-top-width: 4px; }
+.place-card.is-empty { border-color: var(--ui-success-border); border-top-color: var(--ui-success); background: #fbfdfb; }
+.place-card.is-partial { border-top-color: #d9a42a; }
+.place-card.is-full { border-top-color: var(--ui-border-strong); background: var(--ui-bg); }
+.place-card.is-full h2 { color: var(--ui-muted); }
+.place-card.is-over { border-top-color: var(--ui-danger); }
+.availability-badge { font-size: .8rem; padding: .35em .7em; }
+.place-card.is-empty .availability-badge, .place-card.is-partial .availability-badge { font-weight: 600; }
+.place-card .occupancy { margin-top: .2rem; }
+.availability-summary { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; font-size: .875rem; color: #374151; }
+.availability-summary .dot { width: .6rem; height: .6rem; border-radius: 999px; display: inline-block; margin-left: .35rem; }
+.availability-summary .dot:first-child { margin-left: 0; }
+.dot.is-empty { background: var(--ui-success); }
+.dot.is-partial { background: #d9a42a; }
+.dot.is-full { background: var(--ui-border-strong); }
 .place-card .occupants li { padding: .3rem 0; border-bottom: 1px solid var(--ui-border); }
 .place-card .occupants li:last-child { border-bottom: 0; }
 
