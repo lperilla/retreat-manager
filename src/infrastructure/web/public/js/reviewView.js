@@ -7,7 +7,7 @@ import { api } from './api.js';
 import { openAssignModal } from './assignModal.js';
 import { $, enableTooltips, h, replaceChildren, withBusy } from './dom.js';
 import { lettersLabel } from './format.js';
-import { letterCard } from './letterCard.js';
+import { letterCard, letterToggleAllButtons } from './letterCard.js';
 import { SIGNAL_LABELS } from './labels.js';
 import { emit } from './state.js';
 import { toast, toastError } from './ui.js';
@@ -116,6 +116,10 @@ export async function loadReview() {
   $('#nav-review-count').textContent = String(queue.total);
   const list = $('#review-list');
   renderUnassigned(queue.unassigned);
+  replaceChildren(
+    $('#review-toggle-all'),
+    queue.total + (queue.unassigned?.total ?? 0) > 1 ? letterToggleAllButtons(() => $('#view-review')) : null,
+  );
   if (queue.total === 0) {
     replaceChildren(list, h('div', { class: 'alert alert-success mb-0', role: 'status', text: 'No hay cartas pendientes de revisar.' }));
     return;

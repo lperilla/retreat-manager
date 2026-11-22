@@ -212,6 +212,8 @@ En cualquier caso se descartan los borradores, el spam, la papelera y los mensaj
 
 **Ficha de participante**: cartas en orden cronológico con remitente, fecha, asunto, cuerpo completo (con párrafos, tildes, ñ y emojis), avisos y adjuntos.
 
+- **Cartas plegadas**: para que la pantalla sea más sencilla, cada carta aparece cerrada, con asunto, remitente, etiquetas y una línea de vista previa. Pulsa el asunto para abrirla o cerrarla, o usa **Abrir todas / Cerrar todas** (también en «Por revisar»). Las imágenes y los PDF solo se cargan al abrir la carta. Lo que abras sigue abierto al recargar la lista, y al imprimir el panel con Ctrl+P se imprimen todas completas.
+
 - Cada carta lleva una etiqueta que dice cómo se asignó: *Asunto*, *Cuerpo*, *Mención* o *Manual*. Al pasar el ratón se ve el texto que coincidió.
 - Botones *Imprimir*, *Exportar* y *Reasignar…*.
 - Filtro «Mostrar cartas posteriores al día…», exclusivo y en la zona horaria configurada.

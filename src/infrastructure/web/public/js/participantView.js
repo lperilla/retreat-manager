@@ -7,7 +7,7 @@ import { openAssignModal } from './assignModal.js';
 import { $, enableTooltips, h, replaceChildren, withBusy } from './dom.js';
 import { formatDateTime, lettersLabel, plural } from './format.js';
 import { exportLetters, printLetters } from './exportActions.js';
-import { letterCard } from './letterCard.js';
+import { letterCard, letterToggleAllButtons } from './letterCard.js';
 import { emit, state } from './state.js';
 import { toast, toastError } from './ui.js';
 
@@ -197,6 +197,9 @@ export async function loadParticipant(participantId) {
         ),
       ),
       controls,
+      data.letters.length > 1
+        ? h('div', { class: 'd-flex justify-content-end mb-2' }, letterToggleAllButtons(() => view))
+        : null,
       letters,
     ),
   );

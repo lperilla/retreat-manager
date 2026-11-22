@@ -207,7 +207,10 @@
     <section id="view-review" class="app-view" hidden aria-labelledby="review-title">
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 my-3">
         <h1 class="h3 mb-0" id="review-title">Por revisar</h1>
-        <span class="text-body-secondary" id="review-count"></span>
+        <div class="d-flex align-items-center gap-3">
+          <span class="text-body-secondary" id="review-count"></span>
+          <span id="review-toggle-all"></span>
+        </div>
       </div>
       <p class="text-body-secondary">Cartas que no se han podido asignar con seguridad. No cuentan para nadie hasta que las asignes; nunca se descartan.</p>
       <div id="review-list" class="d-flex flex-column gap-3"></div>
