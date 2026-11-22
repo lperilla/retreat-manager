@@ -13,7 +13,7 @@ async function setup() {
   const built = await buildTestContainer({ mailSource });
   await built.container.useCases.syncMailbox.execute();
   const { participants, accommodation } = built.container.useCases;
-  await participants.create({ givenNames: 'Ana', firstSurname: 'Ruiz', age: 40, ...COMPLETE, dietary: [{ type: 'allergy', code: 'nuts', severity: 'severe' }], identityDocument: { type: 'dni', number: '12345678Z' } });
+  await participants.create({ givenNames: 'Ana', firstSurname: 'Ruiz', age: 40, nationality: 'Colombia', ...COMPLETE, dietary: [{ type: 'allergy', code: 'nuts', severity: 'severe' }], identityDocument: { type: 'dni', number: '12345678Z' } });
   await participants.create({ givenNames: 'Eva', firstSurname: 'Gil', age: 25, ...COMPLETE });
   const mesa1 = await accommodation.createTable({ name: 'Mesa 1', capacity: 6 });
   const mesa2 = await accommodation.createTable({ name: 'Mesa 2', capacity: 6 });
@@ -32,6 +32,11 @@ describe('participants list: table filter and sorting', () => {
     assert.equal(withoutTable.participants.some((p) => p.table), false);
     assert.equal(withoutTable.participants.length, (await list({})).counts.noTable);
     assert.deepEqual((await list({ q: 'eva' })).participants[0].table, { id: mesa1.id, name: 'Mesa 1' });
+    assert.deepEqual((await list({ q: 'colombia' })).participants.map((p) => p.id), ['ana-ruiz']);
+    const ana = await container.useCases.participants.get({ id: 'ana-ruiz' });
+    assert.equal(ana.nationality, 'Colombia');
+    const edited = await container.useCases.participants.update('ana-ruiz', { nationality: 'Perú' });
+    assert.equal(edited.participant.nationality, 'Perú');
   });
 
   it('sorts by any column in both directions, empty values last', async () => {
@@ -59,11 +64,12 @@ describe('Excel export', () => {
     const sheet = /** @type {ExcelJS.Worksheet} */ (workbook.getWorksheet('Participantes'));
     assert.equal(sheet.rowCount - 1, (await container.useCases.participants.list({})).total);
     const header = /** @type {string[]} */ (sheet.getRow(1).values).slice(1);
-    assert.ok(header.includes('Mesa') && header.includes('Alimentación') && header.includes('Contacto de emergencia'));
+    assert.ok(header.includes('Mesa') && header.includes('Alimentación') && header.includes('Contacto de emergencia') && header.includes('Nacionalidad'));
     assert.equal(header.some((h) => /documento/i.test(String(h))), false);
     const ana = sheet.getRows(2, sheet.rowCount - 1)?.find((r) => r.getCell(1).value === 'Ana Ruiz');
     assert.equal(ana?.getCell(header.indexOf('Alimentación') + 1).value, 'Alergia: Frutos de cáscara (grave)');
     assert.equal(ana?.getCell(header.indexOf('Mesa') + 1).value, 'Mesa 2');
+    assert.equal(ana?.getCell(header.indexOf('Nacionalidad') + 1).value, 'Colombia');
     let text = '';
     sheet.eachRow((row) => { text += JSON.stringify(row.values); });
     assert.equal(text.includes('12345678Z'), false);

@@ -13,3 +13,6 @@ exports/
 
 # Process manager state (PID file and web log)
 .run/
+
+# Demo videos (recorded for sharing, not source)
+*.mp4

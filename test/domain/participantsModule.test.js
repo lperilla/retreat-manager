@@ -37,6 +37,10 @@ describe('createParticipantRecord', () => {
     assert.throws(invalid({ emergencyContacts: [{ name: 'Ana' }] }), /falta el teléfono/);
     assert.throws(invalid({ emergencyContacts: [{ name: 'A', phone: '600111222' }, { name: 'B', phone: '600111223' }, { name: 'C', phone: '600111224' }] }), /como máximo dos/);
     assert.throws(invalid({ age: 150 }), /Edad/);
+    assert.throws(invalid({ nationality: 'x'.repeat(61) }), /Nacionalidad/);
+    assert.equal(createParticipantRecord({ ...BASE, nationality: '  Colombia ' }).nationality, 'Colombia');
+    assert.equal(createParticipantRecord({ ...BASE, nationality: '' }).nationality, null);
+    assert.equal(createParticipantRecord(BASE).nationality, null);
     assert.throws(invalid({ dietary: [{ type: 'allergy', code: 'other' }] }), /indica cuál/);
     assert.throws(invalid({ accessibilityNeeds: [{ code: 'diagnosis' }] }), /opción desconocida/);
     const record = createParticipantRecord({

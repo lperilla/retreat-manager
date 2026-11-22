@@ -34,6 +34,7 @@ import {
  * @property {string[]} aliases          Nicknames / other names used in letters ("Pepe").
  * @property {string|null} birthDate     YYYY-MM-DD.
  * @property {number|null} age           When the birth date is unknown.
+ * @property {string|null} nationality   Country of nationality ("España", "Colombia"); free text.
  * @property {string|null} email         Optional; never used to deliver letters.
  * @property {string|null} phone         Participant's own phone (optional).
  * @property {IdentityDocument|null} identityDocument  DNI, NIE, passport or another document (optional).
@@ -52,7 +53,7 @@ import {
  * @property {Date}     updatedAt
  */
 
-const MAX = Object.freeze({ name: 80, alias: 80, aliases: 20, email: 200, phone: 40, contactName: 120, relationship: 60, detail: 300, supports: 1000, notes: 2000, dietary: 30, needs: 20 });
+const MAX = Object.freeze({ nationality: 60, name: 80, alias: 80, aliases: 20, email: 200, phone: 40, contactName: 120, relationship: 60, detail: 300, supports: 1000, notes: 2000, dietary: 30, needs: 20 });
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_CHARS = /^[0-9+()\-.\s]+$/;
 /** Words that belong to the following surname ("de la Fuente", "del Río", "San Juan"). */
@@ -77,6 +78,7 @@ export const FIELD_LABELS = Object.freeze({
   aliases: 'Apodos',
   birthDate: 'Fecha de nacimiento',
   age: 'Edad',
+  nationality: 'Nacionalidad',
   email: 'Correo electrónico',
   identityDocument: 'Documento de identidad',
   phone: 'Teléfono',
@@ -331,6 +333,9 @@ export function createParticipantRecord(props) {
     if (!Number.isInteger(age) || age < 0 || age > 120) throw invalid('age', 'debe ser un número entre 0 y 120');
   }
 
+  const nationality = clean(source.nationality) || null;
+  if (nationality && nationality.length > MAX.nationality) throw invalid('nationality', `máximo ${MAX.nationality} caracteres`);
+
   const email = clean(source.email).toLowerCase() || null;
   if (email && (email.length > MAX.email || !EMAIL.test(email))) throw invalid('email', 'no es un correo válido');
 
@@ -350,6 +355,7 @@ export function createParticipantRecord(props) {
     aliases: Object.freeze(aliases),
     birthDate,
     age,
+    nationality,
     email,
     phone: optionalPhone(source.phone, 'phone'),
     identityDocument: identityDocument(source.identityDocument),

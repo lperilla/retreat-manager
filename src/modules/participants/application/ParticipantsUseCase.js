@@ -10,7 +10,7 @@ import { getOrCreateActiveRetreat } from './activeRetreat.js';
 
 /** Fields a participant form may send (anything else is ignored). */
 const EDITABLE_FIELDS = Object.freeze([
-  'givenNames', 'firstSurname', 'secondSurname', 'aliases', 'birthDate', 'age', 'email', 'phone',
+  'givenNames', 'firstSurname', 'secondSurname', 'aliases', 'birthDate', 'age', 'nationality', 'email', 'phone',
   'emergencyContacts', 'snores', 'dietary', 'accessibilityNeeds', 'supports', 'notes', 'attendanceConfirmed', 'identityDocument',
 ]);
 
@@ -130,7 +130,7 @@ export class ParticipantsUseCase {
     const active = (/** @type {any} */ v) => v.status === ParticipantStatus.ACTIVE;
     const matches = views.filter((view) => {
       const documentNumber = byId.get(view.id)?.identityDocument?.number ?? '';
-      if (search && ![view.displayName, ...view.aliases, view.phone ?? '', view.email ?? '', documentNumber].some((v) => fold(v).includes(search))) return false;
+      if (search && ![view.displayName, ...view.aliases, view.phone ?? '', view.email ?? '', view.nationality ?? '', documentNumber].some((v) => fold(v).includes(search))) return false;
       if (tableId === 'none' && view.table) return false;
       if (tableId && tableId !== 'none' && view.table?.id !== tableId) return false;
       switch (filter) {
@@ -222,6 +222,7 @@ export class ParticipantsUseCase {
             secondSurname: record.secondSurname,
             aliases: [...record.aliases],
             birthDate: record.birthDate,
+            nationality: record.nationality,
             email: record.email,
             phone: record.phone,
             emergencyContacts: record.emergencyContacts.map((c) => ({ ...c })),
@@ -400,6 +401,7 @@ export class ParticipantsUseCase {
       secondSurname: record.secondSurname,
       aliases: [...record.aliases],
       age: ageOn(record, day),
+      nationality: record.nationality,
       phone: record.phone,
       email: record.email,
       emergencyContact: contact ? { name: contact.name, phone: contact.phone } : null,

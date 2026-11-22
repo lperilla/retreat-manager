@@ -544,6 +544,7 @@ async function renderDetail(p) {
           ['Segundo apellido', p.secondSurname],
           ['Fecha de nacimiento', formatDay(p.birthDate)],
           ['Edad', p.age],
+          ['Nacionalidad', p.nationality],
           ['Documento de identidad', documentLabel(p.identityDocument)],
         ]),
       ),
@@ -729,6 +730,7 @@ function renderForm(p) {
     aliases: input('aliases', { value: (p?.aliases ?? []).join(', '), maxlength: '400' }),
     birthDate: input('birthDate', { type: 'date', value: p?.birthDate ?? '' }),
     age: input('age', { type: 'number', min: '0', max: '120', inputmode: 'numeric', value: p?.ageInput ?? '' }),
+    nationality: input('nationality', { value: p?.nationality ?? '', maxlength: '60', list: 'country-list', autocomplete: 'off' }),
     phone: input('phone', { type: 'tel', value: p?.phone ?? '', maxlength: '40' }),
     email: input('email', { type: 'email', value: p?.email ?? '', maxlength: '200' }),
     docType: h(
@@ -775,6 +777,8 @@ function renderForm(p) {
         field('col-md-6', 'aliases', 'Apodos u otros nombres', fields.aliases, 'Separados por comas («Pepe, Josito»). Ayudan a reconocer las cartas.'),
         field('col-md-3', 'birthDate', 'Fecha de nacimiento', fields.birthDate),
         field('col-md-3', 'age', 'o edad', fields.age, 'Indica una de las dos.'),
+        field('col-md-6', 'nationality', 'Nacionalidad', fields.nationality, 'País. Elige de la lista o escríbelo.'),
+        h('datalist', { id: 'country-list' }, COUNTRIES.map((c) => h('option', { value: c }))),
       ),
     ),
     formSection(
@@ -786,7 +790,6 @@ function renderForm(p) {
         field('col-md-3', 'docNumber', 'Número', fields.docNumber),
         docOtherCol,
         docCountryCol,
-        h('datalist', { id: 'country-list' }, COUNTRIES.map((c) => h('option', { value: c }))),
       ),
     ),
     formSection(
@@ -873,6 +876,7 @@ function renderForm(p) {
       aliases: value(fields.aliases).split(',').map((a) => a.trim()).filter(Boolean),
       birthDate: value(fields.birthDate) || null,
       age: value(fields.age) === '' ? null : Number(value(fields.age)),
+      nationality: value(fields.nationality),
       phone: value(fields.phone),
       email: value(fields.email),
       identityDocument: /** @type {HTMLSelectElement} */ (fields.docType).value
