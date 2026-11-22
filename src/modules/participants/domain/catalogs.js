@@ -78,6 +78,14 @@ export const Snoring = Object.freeze({
   UNKNOWN: 'unknown',
 });
 
+/** Identity documents: Spanish ID (DNI), foreigner ID in Spain (NIE), passport or any other. */
+export const DOCUMENT_TYPES = Object.freeze({
+  dni: 'DNI',
+  nie: 'NIE',
+  passport: 'Pasaporte',
+  other: 'Otro documento',
+});
+
 export const ParticipantStatus = Object.freeze({
   ACTIVE: 'active',
   WITHDRAWN: 'withdrawn',
@@ -104,6 +112,7 @@ export function catalogsView() {
       { code: DietarySeverity.SEVERE, label: 'Grave (puede requerir medicación de urgencia)' },
     ],
     accessibilityNeeds: list(ACCESSIBILITY_NEEDS),
+    documentTypes: Object.entries(DOCUMENT_TYPES).map(([code, label]) => ({ code, label })),
     snoring: [
       { code: Snoring.UNKNOWN, label: 'No consta' },
       { code: Snoring.NO, label: 'No' },

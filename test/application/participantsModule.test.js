@@ -96,6 +96,20 @@ describe('ParticipantsUseCase (participants module)', () => {
     await assert.rejects(participants.list({ filter: 'nope' }), { code: 'VALIDATION_ERROR' });
   });
 
+  it('stores the identity document, finds participants by its number and refuses duplicates', async () => {
+    const { container } = await seeded();
+    const participants = container.useCases.participants;
+    const created = await participants.create({ givenNames: 'Ana', firstSurname: 'Ruiz', ...COMPLETE, identityDocument: { type: 'passport', number: 'ab123456', country: 'Colombia' } });
+    assert.deepEqual(created.participant.identityDocument, { type: 'passport', number: 'AB123456', country: 'Colombia', otherType: null });
+    assert.deepEqual((await participants.list({ q: 'ab1234' })).participants.map((p) => p.id), ['ana-ruiz']);
+    await assert.rejects(
+      participants.create({ givenNames: 'Eva', firstSurname: 'Gil', ...COMPLETE, identityDocument: { type: 'passport', number: 'AB-123456', country: 'Perú' } }),
+      { code: 'DUPLICATE_DOCUMENT', httpStatus: 409 },
+    );
+    const updated = await participants.update('ana-ruiz', { givenNames: 'Ana', firstSurname: 'Ruiz', ...COMPLETE, identityDocument: { type: 'nie', number: 'Y1234567X' } });
+    assert.equal(updated.participant.identityDocument.number, 'Y1234567X');
+  });
+
   it('confirms attendance (with date), filters by it and does not allow it for withdrawn participants', async () => {
     const { container, clock } = await seeded();
     const participants = container.useCases.participants;

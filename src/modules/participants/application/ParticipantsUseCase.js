@@ -11,10 +11,27 @@ import { getOrCreateActiveRetreat } from './activeRetreat.js';
 /** Fields a participant form may send (anything else is ignored). */
 const EDITABLE_FIELDS = Object.freeze([
   'givenNames', 'firstSurname', 'secondSurname', 'aliases', 'birthDate', 'age', 'email', 'phone',
-  'emergencyContacts', 'snores', 'dietary', 'accessibilityNeeds', 'supports', 'notes', 'attendanceConfirmed',
+  'emergencyContacts', 'snores', 'dietary', 'accessibilityNeeds', 'supports', 'notes', 'attendanceConfirmed', 'identityDocument',
 ]);
 
-export const PARTICIPANT_FILTERS = Object.freeze(['all', 'active', 'withdrawn', 'incomplete', 'dietary', 'accessibility', 'snores', 'confirmed', 'unconfirmed']);
+export const PARTICIPANT_FILTERS = Object.freeze(['all', 'active', 'withdrawn', 'incomplete', 'dietary', 'accessibility', 'snores', 'confirmed', 'unconfirmed', 'noRoom', 'noTable']);
+export const PARTICIPANT_SORTS = Object.freeze(['name', 'attendance', 'age', 'room', 'table', 'letters']);
+
+/** Human description of each filter (export "Información" sheet). */
+export const FILTER_LABELS = Object.freeze({
+  all: 'Todos',
+  active: 'Activos',
+  withdrawn: 'Dados de baja',
+  incomplete: 'Fichas incompletas',
+  dietary: 'Con alergias, intolerancias o dieta',
+  accessibility: 'Con necesidades de accesibilidad',
+  snores: 'Roncan',
+  confirmed: 'Asistencia confirmada',
+  unconfirmed: 'Asistencia sin confirmar',
+  noRoom: 'Sin habitación',
+  noTable: 'Sin mesa',
+});
+export const SORT_LABELS = Object.freeze({ name: 'Nombre', attendance: 'Asistencia', age: 'Edad', room: 'Habitación', table: 'Mesa', letters: 'Cartas' });
 
 /**
  * @param {string} value
@@ -50,6 +67,7 @@ export class ParticipantsUseCase {
   #idGenerator;
   #timeZone;
   #onParticipantLeft;
+  #placements;
 
   /**
    * @param {{
@@ -62,9 +80,10 @@ export class ParticipantsUseCase {
    *   timeZone: string,
    *   idGenerator?: () => string,
    *   onParticipantLeft?: (participantId: string) => Promise<void>,
-   * }} deps  onParticipantLeft: other modules release what the participant held (room, table).
+   *   placements?: { byParticipant: () => Promise<Record<string, { room: { id: string, name: string, bed: string | null } | null, table: { id: string, name: string } | null }>> },
+   * }} deps  placements: room and table of each participant (accommodation module).  onParticipantLeft: other modules release what the participant held (room, table).
    */
-  constructor({ participantRecords, retreats, letterUsage, recomputeAssignments, clock, logger, timeZone, idGenerator = randomUUID, onParticipantLeft = async () => {} }) {
+  constructor({ participantRecords, retreats, letterUsage, recomputeAssignments, clock, logger, timeZone, idGenerator = randomUUID, onParticipantLeft = async () => {}, placements = { byParticipant: async () => ({}) } }) {
     this.#records = participantRecords;
     this.#retreats = retreats;
     this.#letterUsage = letterUsage;
@@ -74,6 +93,7 @@ export class ParticipantsUseCase {
     this.#timeZone = timeZone;
     this.#idGenerator = idGenerator;
     this.#onParticipantLeft = onParticipantLeft;
+    this.#placements = placements;
   }
 
   #activeRetreat() {
@@ -81,40 +101,138 @@ export class ParticipantsUseCase {
   }
 
   /**
-   * @param {{ q?: string, filter?: string }} [input]
+   * @typedef {{ q?: string, filter?: string, tableId?: string, sort?: string, dir?: string }} ListQuery
+   *   tableId: a table id, "none" (without table) or empty (all); dir: "asc" | "desc".
    */
-  async list({ q = '', filter = 'all' } = {}) {
+
+  /**
+   * Search, filter (also by table) and sort the participants of the active retreat.
+   * @param {ListQuery} [input]
+   */
+  async #query({ q = '', filter = 'all', tableId = '', sort = 'name', dir = 'asc' } = {}) {
     if (!PARTICIPANT_FILTERS.includes(filter)) throw new AppError('VALIDATION_ERROR', 400, undefined, { field: 'filter' });
+    if (!PARTICIPANT_SORTS.includes(sort)) throw new AppError('VALIDATION_ERROR', 400, undefined, { field: 'sort' });
+    if (dir !== 'asc' && dir !== 'desc') throw new AppError('VALIDATION_ERROR', 400, undefined, { field: 'dir' });
     const retreat = await this.#activeRetreat();
-    const [records, counts] = await Promise.all([this.#records.findByRetreat(retreat.id), this.#letterUsage.countByParticipant()]);
+    const [records, counts, places] = await Promise.all([
+      this.#records.findByRetreat(retreat.id),
+      this.#letterUsage.countByParticipant(),
+      this.#placements.byParticipant(),
+    ]);
     const search = fold(typeof q === 'string' ? q.slice(0, 100) : '');
     const day = retreat.startDate ?? toZonedDateKey(this.#clock.now(), this.#timeZone);
-    const views = records.map((record) => this.#summary(record, counts.get(record.id) ?? 0, day));
+    const byId = new Map(records.map((r) => [r.id, r]));
+    const views = records.map((record) => ({
+      ...this.#summary(record, counts.get(record.id) ?? 0, day),
+      room: places[record.id]?.room ?? null,
+      table: places[record.id]?.table ?? null,
+    }));
+    const active = (/** @type {any} */ v) => v.status === ParticipantStatus.ACTIVE;
     const matches = views.filter((view) => {
-      if (search && ![view.displayName, ...view.aliases, view.phone ?? '', view.email ?? ''].some((v) => fold(v).includes(search))) return false;
+      const documentNumber = byId.get(view.id)?.identityDocument?.number ?? '';
+      if (search && ![view.displayName, ...view.aliases, view.phone ?? '', view.email ?? '', documentNumber].some((v) => fold(v).includes(search))) return false;
+      if (tableId === 'none' && view.table) return false;
+      if (tableId && tableId !== 'none' && view.table?.id !== tableId) return false;
       switch (filter) {
-        case 'active': return view.status === ParticipantStatus.ACTIVE;
+        case 'active': return active(view);
         case 'withdrawn': return view.status === ParticipantStatus.WITHDRAWN;
         case 'incomplete': return !view.complete;
         case 'dietary': return view.dietaryCount > 0;
         case 'accessibility': return view.accessibilityCount > 0;
         case 'snores': return view.snores === 'yes';
-        case 'confirmed': return view.status === ParticipantStatus.ACTIVE && view.attendanceConfirmed;
-        case 'unconfirmed': return view.status === ParticipantStatus.ACTIVE && !view.attendanceConfirmed;
+        case 'confirmed': return active(view) && view.attendanceConfirmed;
+        case 'unconfirmed': return active(view) && !view.attendanceConfirmed;
+        case 'noRoom': return active(view) && !view.room;
+        case 'noTable': return active(view) && !view.table;
         default: return true;
       }
     });
+    const text = (/** @type {string | null | undefined} */ a, /** @type {string | null | undefined} */ b) => {
+      // Empty values always last, whatever the direction.
+      if (!a && !b) return 0;
+      if (!a) return Number.POSITIVE_INFINITY;
+      if (!b) return Number.NEGATIVE_INFINITY;
+      return a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' });
+    };
+    const byName = (/** @type {any} */ a, /** @type {any} */ b) => a.displayName.localeCompare(b.displayName, 'es', { sensitivity: 'base' });
+    /** @type {Record<string, (a: any, b: any) => number>} */
+    const comparators = {
+      name: byName,
+      attendance: (a, b) => Number(b.attendanceConfirmed) - Number(a.attendanceConfirmed),
+      age: (a, b) => (a.age === null && b.age === null ? 0 : a.age === null ? Number.POSITIVE_INFINITY : b.age === null ? Number.NEGATIVE_INFINITY : a.age - b.age),
+      room: (a, b) => text(a.room?.name, b.room?.name),
+      table: (a, b) => text(a.table?.name, b.table?.name),
+      letters: (a, b) => a.letterCount - b.letterCount,
+    };
+    const sign = dir === 'desc' ? -1 : 1;
+    matches.sort((a, b) => {
+      const result = comparators[sort](a, b);
+      if (!Number.isFinite(result)) return result > 0 ? 1 : -1; // empty values last in both directions
+      return sign * result || byName(a, b);
+    });
     return {
-      retreat: { id: retreat.id, name: retreat.name },
-      total: views.length,
+      retreat,
+      byId,
+      views,
+      matches,
       counts: {
-        active: views.filter((v) => v.status === ParticipantStatus.ACTIVE).length,
+        active: views.filter(active).length,
         withdrawn: views.filter((v) => v.status === ParticipantStatus.WITHDRAWN).length,
         incomplete: views.filter((v) => !v.complete).length,
-        confirmed: views.filter((v) => v.status === ParticipantStatus.ACTIVE && v.attendanceConfirmed).length,
-        unconfirmed: views.filter((v) => v.status === ParticipantStatus.ACTIVE && !v.attendanceConfirmed).length,
+        confirmed: views.filter((v) => active(v) && v.attendanceConfirmed).length,
+        unconfirmed: views.filter((v) => active(v) && !v.attendanceConfirmed).length,
+        noRoom: views.filter((v) => active(v) && !v.room).length,
+        noTable: views.filter((v) => active(v) && !v.table).length,
       },
-      participants: matches,
+    };
+  }
+
+  /**
+   * @param {ListQuery} [input]
+   */
+  async list(input = {}) {
+    const { retreat, views, matches, counts } = await this.#query(input);
+    return { retreat: { id: retreat.id, name: retreat.name }, total: views.length, counts, participants: matches };
+  }
+
+  /**
+   * Everything the Excel export needs for the participants of the current view (same
+   * search, filter, table and order as the screen). The identity document is left out.
+   * @param {ListQuery} [input]
+   */
+  async exportData(input = {}) {
+    const { retreat, byId, views, matches } = await this.#query(input);
+    return {
+      retreat: { name: retreat.name, startDate: retreat.startDate, endDate: retreat.endDate },
+      generatedAt: this.#clock.now(),
+      total: views.length,
+      criteria: {
+        q: typeof input.q === 'string' ? input.q.trim() : '',
+        filter: FILTER_LABELS[/** @type {keyof typeof FILTER_LABELS} */ (input.filter ?? 'all')] ?? 'Todos',
+        table: input.tableId === 'none' ? 'Sin mesa' : input.tableId ? matches[0]?.table?.name ?? input.tableId : 'Todas',
+        sort: `${SORT_LABELS[/** @type {keyof typeof SORT_LABELS} */ (input.sort ?? 'name')] ?? 'Nombre'} (${input.dir === 'desc' ? 'descendente' : 'ascendente'})`,
+      },
+      rows: matches.map((view) => {
+        const record = /** @type {import('../domain/ParticipantRecord.js').ParticipantRecord} */ (byId.get(view.id));
+        return {
+          view,
+          record: {
+            givenNames: record.givenNames,
+            firstSurname: record.firstSurname,
+            secondSurname: record.secondSurname,
+            aliases: [...record.aliases],
+            birthDate: record.birthDate,
+            email: record.email,
+            phone: record.phone,
+            emergencyContacts: record.emergencyContacts.map((c) => ({ ...c })),
+            dietary: record.dietary.map((d) => ({ ...d })),
+            accessibilityNeeds: record.accessibilityNeeds.map((n) => ({ ...n })),
+            supports: record.supports,
+            notes: record.notes,
+            attendanceConfirmedAt: record.attendanceConfirmedAt,
+          },
+        };
+      }),
     };
   }
 
@@ -309,6 +427,7 @@ export class ParticipantsUseCase {
       birthDate: record.birthDate,
       ageInput: record.age,
       emergencyContacts: record.emergencyContacts.map((c) => ({ ...c })),
+      identityDocument: record.identityDocument ? { ...record.identityDocument } : null,
       dietary: record.dietary.map((d) => ({ ...d })),
       accessibilityNeeds: record.accessibilityNeeds.map((n) => ({ ...n })),
       supports: record.supports,
@@ -346,6 +465,11 @@ function assertComplete(record) {
  * @param {readonly import('../domain/ParticipantRecord.js').ParticipantRecord[]} others
  */
 function assertNoNameClash(record, others) {
+  const doc = record.identityDocument;
+  const sameDocument = doc ? others.find((o) => o.identityDocument?.type === doc.type && o.identityDocument.number === doc.number) : null;
+  if (sameDocument) {
+    throw new AppError('DUPLICATE_DOCUMENT', 409, `Ese documento ya está registrado para ${sameDocument.displayName}.`, { participantId: sameDocument.id });
+  }
   const taken = new Map();
   for (const other of others) for (const name of [other.displayName, ...other.aliases]) taken.set(slugify(name), other);
   for (const name of [record.displayName, ...record.aliases]) {

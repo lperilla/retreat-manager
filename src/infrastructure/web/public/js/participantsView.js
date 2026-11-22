@@ -23,8 +23,6 @@ const FILTERS = Object.freeze([
   ['confirmed', 'Asistencia confirmada'],
   ['unconfirmed', 'Sin confirmar'],
 ]);
-/** Filters resolved in the browser with the accommodation data. */
-const ACCOMMODATION_FILTERS = new Set(['noRoom', 'noTable']);
 
 const MISSING_LABELS = Object.freeze({
   firstSurname: 'el primer apellido',
@@ -45,21 +43,29 @@ const INSTANT_FORMAT = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month:
 /** Columns hidden on narrow screens (tablets in portrait): the card always shows everything. */
 const COL_LG = 'd-none d-lg-table-cell';
 const COL_XL = 'd-none d-xl-table-cell';
+/** [label, responsive classes, sort key or null] */
 const PEOPLE_COLUMNS = Object.freeze([
-  ['Nombre', ''],
-  ['Asistencia', ''],
-  ['Edad', ''],
-  ['Teléfono', COL_XL],
-  ['Contacto de emergencia', COL_XL],
-  ['Habitación', ''],
-  ['Mesa', ''],
-  ['Alimentación', COL_LG],
-  ['Accesibilidad', COL_LG],
-  ['Cartas', ''],
+  ['Nombre', '', 'name'],
+  ['Asistencia', '', 'attendance'],
+  ['Edad', '', 'age'],
+  ['Teléfono', COL_XL, null],
+  ['Contacto de emergencia', COL_XL, null],
+  ['Habitación', '', 'room'],
+  ['Mesa', '', 'table'],
+  ['Alimentación', COL_LG, null],
+  ['Accesibilidad', COL_LG, null],
+  ['Cartas', '', 'letters'],
 ]);
 
 /** List state kept while navigating. */
-const listState = { q: '', filter: 'all' };
+const listState = { q: '', filter: 'all', tableId: '', sort: 'name', dir: 'asc' };
+
+/** Query string of the current view (list and Excel export use the same one). */
+function listQuery() {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(listState)) if (value) params.set(key, value);
+  return params.toString();
+}
 /** @type {any} */
 let catalogs = null;
 
@@ -109,13 +115,28 @@ export async function loadParticipants(route) {
 async function renderList() {
   document.title = 'Participantes · Gestión del retiro';
   const view = $('#view-people');
-  const [data, retreat] = await Promise.all([fetchList(), api.retreat()]);
+  const [data, retreat, places] = await Promise.all([fetchList(), api.retreat(), api.accommodation()]);
+  if (listState.tableId && listState.tableId !== 'none' && !places.tables.some((/** @type {any} */ t) => t.id === listState.tableId)) listState.tableId = '';
+
+  const tableFilter = /** @type {HTMLSelectElement} */ (
+    h(
+      'select',
+      { class: 'form-select', id: 'people-table' },
+      h('option', { value: '', text: 'Todas las mesas' }),
+      h('option', { value: 'none', text: `Sin mesa (${data.counts.noTable})`, selected: listState.tableId === 'none' }),
+      places.tables.map((/** @type {any} */ t) => h('option', { value: t.id, text: `${t.name} (${t.occupancy}/${t.capacity})`, selected: listState.tableId === t.id })),
+    )
+  );
+  tableFilter.addEventListener('change', () => {
+    listState.tableId = tableFilter.value;
+    void refreshList();
+  });
 
   const search = h('input', {
     type: 'search',
     class: 'form-control',
     id: 'people-search',
-    placeholder: 'Nombre, apodo, teléfono o correo',
+    placeholder: 'Nombre, apodo, teléfono, correo o documento',
     autocomplete: 'off',
     value: listState.q,
   });
@@ -152,7 +173,12 @@ async function renderList() {
       'div',
       { class: 'd-flex flex-wrap justify-content-between align-items-center gap-2 mb-3' },
       h('div', {}, h('h1', { class: 'h3 mb-0', text: 'Participantes' }), h('p', { class: 'text-body-secondary mb-0', text: `${plural(data.total, 'participante', 'participantes')} en ${retreat.name} · ${data.counts.confirmed} de ${data.counts.active} con asistencia confirmada` })),
-      h('a', { class: 'btn btn-primary', href: '#/participantes/nuevo', text: '+ Nuevo participante' }),
+      h(
+        'div',
+        { class: 'd-flex flex-wrap gap-2' },
+        h('a', { class: 'btn btn-outline-secondary', id: 'people-export', href: `/api/participants/export.xlsx?${listQuery()}`, download: '', title: 'Descarga en Excel los participantes que se ven ahora (búsqueda, filtro, mesa y orden)', text: 'Exportar a Excel' }),
+        h('a', { class: 'btn btn-primary', href: '#/participantes/nuevo', text: '+ Nuevo participante' }),
+      ),
     ),
     retreatPanel(retreat),
     h(
@@ -161,8 +187,12 @@ async function renderList() {
       h(
         'div',
         { class: 'card-body d-flex flex-column gap-2' },
-        h('label', { class: 'form-label small mb-0', for: 'people-search', text: 'Buscar' }),
-        search,
+        h(
+          'div',
+          { class: 'row g-2' },
+          h('div', { class: 'col-md-8' }, h('label', { class: 'form-label small mb-1', for: 'people-search', text: 'Buscar' }), search),
+          h('div', { class: 'col-md-4' }, h('label', { class: 'form-label small mb-1', for: 'people-table', text: 'Mesa' }), tableFilter),
+        ),
         chips,
       ),
     ),
@@ -170,23 +200,17 @@ async function renderList() {
   );
 }
 
-/**
- * Participants of the list with their room and table ("Sin habitación" / "Sin mesa" are
- * filtered here, with the accommodation data).
- */
+/** Participants of the current view: the server searches, filters (also by table) and sorts. */
 async function fetchList() {
-  const local = ACCOMMODATION_FILTERS.has(listState.filter);
-  const [data, places] = await Promise.all([api.participants({ q: listState.q, filter: local ? 'active' : listState.filter }), api.accommodation()]);
-  const participants = data.participants
-    .map((/** @type {any} */ p) => ({ ...p, room: places.byParticipant[p.id]?.room ?? null, table: places.byParticipant[p.id]?.table ?? null }))
-    .filter((/** @type {any} */ p) => (listState.filter === 'noRoom' ? !p.room : listState.filter === 'noTable' ? !p.table : true));
-  return { ...data, participants, counts: { ...data.counts, noRoom: places.withoutRoom.length, noTable: places.withoutTable.length } };
+  return api.participants(listState);
 }
 
 async function refreshList() {
   try {
     const data = await fetchList();
     replaceChildren($('#people-list'), peopleTable(data));
+    const exportLink = document.getElementById('people-export');
+    if (exportLink) exportLink.setAttribute('href', `/api/participants/export.xlsx?${listQuery()}`);
   } catch (error) {
     toastError(error);
   }
@@ -197,7 +221,7 @@ async function refreshList() {
  */
 function peopleTable(data) {
   if (data.participants.length === 0) {
-    return h('p', { class: 'text-body-secondary', text: data.total === 0 ? 'Todavía no hay participantes. Pulsa «Nuevo participante».' : 'Ningún participante coincide con la búsqueda.' });
+    return h('p', { class: 'text-body-secondary', text: data.total === 0 ? 'Todavía no hay participantes. Pulsa «Nuevo participante».' : 'Ningún participante coincide con la búsqueda, el filtro o la mesa.' });
   }
   return h(
     'div',
@@ -211,7 +235,33 @@ function peopleTable(data) {
         h(
           'thead',
           {},
-          h('tr', {}, PEOPLE_COLUMNS.map(([label, cls]) => h('th', { scope: 'col', class: cls, text: label }))),
+          h(
+            'tr',
+            {},
+            PEOPLE_COLUMNS.map(([label, cls, key]) => {
+              if (!key) return h('th', { scope: 'col', class: cls, text: label });
+              const active = listState.sort === key;
+              return h(
+                'th',
+                { scope: 'col', class: cls, 'aria-sort': active ? (listState.dir === 'asc' ? 'ascending' : 'descending') : 'none' },
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    class: `sort-button${active ? ' is-active' : ''}`,
+                    title: `Ordenar por ${label.toLowerCase()}`,
+                    onClick: () => {
+                      listState.dir = active && listState.dir === 'asc' ? 'desc' : 'asc';
+                      listState.sort = key;
+                      void refreshList();
+                    },
+                  },
+                  label,
+                  h('span', { class: 'sort-icon', 'aria-hidden': 'true', text: active ? (listState.dir === 'asc' ? '▲' : '▼') : '↕' }),
+                ),
+              );
+            }),
+          ),
         ),
         h(
           'tbody',
@@ -232,8 +282,8 @@ function peopleTable(data) {
               h('td', { text: p.age ?? '—' }),
               h('td', { class: COL_XL, text: p.phone ?? '—' }),
               h('td', { class: COL_XL }, p.emergencyContact ? `${p.emergencyContact.name} · ${p.emergencyContact.phone}` : h('span', { class: 'text-danger', text: 'Falta' })),
-              h('td', { text: p.room ? `${p.room.name}${p.room.bed ? ` · ${p.room.bed}` : ''}` : '—' }),
-              h('td', { text: p.table?.name ?? '—' }),
+              h('td', { class: 'text-nowrap', text: p.room ? `${p.room.name}${p.room.bed ? ` · ${p.room.bed}` : ''}` : '—' }),
+              h('td', { class: 'text-nowrap', text: p.table?.name ?? '—' }),
               h(
                 'td',
                 { class: COL_LG },
@@ -250,6 +300,25 @@ function peopleTable(data) {
     ),
   );
 }
+
+/**
+ * "DNI 12345678Z", "Pasaporte AB123456 (Colombia)", "Cédula 1020304050 (Colombia)".
+ * @param {any} doc
+ * @returns {string | null}
+ */
+function documentLabel(doc) {
+  if (!doc) return null;
+  const type = doc.type === 'other' ? doc.otherType : catalogs?.documentTypes?.find((/** @type {any} */ t) => t.code === doc.type)?.label ?? doc.type;
+  const foreign = doc.country && doc.country !== 'España' ? ` (${doc.country})` : '';
+  return `${type} ${doc.number}${foreign}`;
+}
+
+/** Countries suggested for passports and other documents (free text is allowed). */
+const COUNTRIES = Object.freeze([
+  'España', 'Alemania', 'Argentina', 'Bolivia', 'Brasil', 'Chile', 'Colombia', 'Cuba', 'Ecuador', 'Estados Unidos', 'Filipinas',
+  'Francia', 'Guatemala', 'Honduras', 'Italia', 'Marruecos', 'México', 'Nicaragua', 'Paraguay', 'Perú', 'Polonia', 'Portugal',
+  'Reino Unido', 'República Dominicana', 'Rumanía', 'Ucrania', 'Uruguay', 'Venezuela',
+]);
 
 /**
  * One-click attendance toggle (active participants only).
@@ -475,6 +544,7 @@ async function renderDetail(p) {
           ['Segundo apellido', p.secondSurname],
           ['Fecha de nacimiento', formatDay(p.birthDate)],
           ['Edad', p.age],
+          ['Documento de identidad', documentLabel(p.identityDocument)],
         ]),
       ),
       section(
@@ -661,12 +731,30 @@ function renderForm(p) {
     age: input('age', { type: 'number', min: '0', max: '120', inputmode: 'numeric', value: p?.ageInput ?? '' }),
     phone: input('phone', { type: 'tel', value: p?.phone ?? '', maxlength: '40' }),
     email: input('email', { type: 'email', value: p?.email ?? '', maxlength: '200' }),
+    docType: h(
+      'select',
+      { class: 'form-select', id: 'docType' },
+      h('option', { value: '', text: 'Sin indicar' }),
+      catalogs.documentTypes.map((/** @type {any} */ t) => h('option', { value: t.code, text: t.label, selected: p?.identityDocument?.type === t.code })),
+    ),
+    docNumber: input('docNumber', { value: p?.identityDocument?.number ?? '', maxlength: '30', autocapitalize: 'characters' }),
+    docOther: input('docOther', { value: p?.identityDocument?.otherType ?? '', maxlength: '60', placeholder: 'Cédula, tarjeta de residencia…' }),
+    docCountry: input('docCountry', { value: p?.identityDocument?.country && p.identityDocument.country !== 'España' ? p.identityDocument.country : '', maxlength: '60', list: 'country-list' }),
     attendance: h('input', { class: 'form-check-input', type: 'checkbox', id: 'attendanceConfirmed', checked: p?.attendanceConfirmed === true }),
     snores: h('select', { class: 'form-select', id: 'snores' }, catalogs.snoring.map((/** @type {any} */ s) => h('option', { value: s.code, text: s.label, selected: (p?.snores ?? 'unknown') === s.code }))),
     supports: h('textarea', { class: 'form-control', id: 'supports', rows: '2', maxlength: '1000', text: p?.supports ?? '' }),
     notes: h('textarea', { class: 'form-control', id: 'notes', rows: '3', maxlength: '2000', text: p?.notes ?? '' }),
   };
   const value = (/** @type {HTMLElement} */ el) => /** @type {HTMLInputElement} */ (el).value.trim();
+  const docOtherCol = field('col-md-3', 'docOther', '¿Qué documento?', fields.docOther);
+  const docCountryCol = field('col-md-3', 'docCountry', 'País de expedición', fields.docCountry);
+  const syncDocFields = () => {
+    const type = /** @type {HTMLSelectElement} */ (fields.docType).value;
+    docOtherCol.hidden = type !== 'other';
+    docCountryCol.hidden = type !== 'passport' && type !== 'other';
+  };
+  fields.docType.addEventListener('change', syncDocFields);
+  syncDocFields();
   const errors = h('div', { class: 'alert alert-danger', role: 'alert', hidden: true });
 
   const form = h(
@@ -687,6 +775,18 @@ function renderForm(p) {
         field('col-md-6', 'aliases', 'Apodos u otros nombres', fields.aliases, 'Separados por comas («Pepe, Josito»). Ayudan a reconocer las cartas.'),
         field('col-md-3', 'birthDate', 'Fecha de nacimiento', fields.birthDate),
         field('col-md-3', 'age', 'o edad', fields.age, 'Indica una de las dos.'),
+      ),
+    ),
+    formSection(
+      'Documento de identidad',
+      h(
+        'div',
+        { class: 'row g-3' },
+        field('col-md-3', 'docType', 'Tipo', fields.docType, 'DNI, NIE (extranjeros residentes), pasaporte u otro.'),
+        field('col-md-3', 'docNumber', 'Número', fields.docNumber),
+        docOtherCol,
+        docCountryCol,
+        h('datalist', { id: 'country-list' }, COUNTRIES.map((c) => h('option', { value: c }))),
       ),
     ),
     formSection(
@@ -775,6 +875,16 @@ function renderForm(p) {
       age: value(fields.age) === '' ? null : Number(value(fields.age)),
       phone: value(fields.phone),
       email: value(fields.email),
+      identityDocument: /** @type {HTMLSelectElement} */ (fields.docType).value
+        ? {
+            type: /** @type {HTMLSelectElement} */ (fields.docType).value,
+            number: value(fields.docNumber),
+            otherType: value(fields.docOther),
+            country: value(fields.docCountry),
+          }
+        : value(fields.docNumber)
+          ? { type: '', number: value(fields.docNumber) }
+          : null,
       emergencyContacts: contacts.map((c) => ({ name: value(c.name), relationship: value(c.relationship), phone: value(c.phone) })),
       snores: /** @type {HTMLSelectElement} */ (fields.snores).value,
       attendanceConfirmed: /** @type {HTMLInputElement} */ (fields.attendance).checked,

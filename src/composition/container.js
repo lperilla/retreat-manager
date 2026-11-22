@@ -337,6 +337,7 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
       logger,
       timeZone: config.timeZone,
       onParticipantLeft: (participantId) => accommodation.releaseParticipant(participantId),
+      placements: { byParticipant: async () => (await accommodation.overview()).byParticipant },
     }),
     accommodation,
     retreat: new RetreatUseCase({

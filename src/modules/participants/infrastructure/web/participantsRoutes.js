@@ -1,6 +1,7 @@
 import express from 'express';
 
 import { catalogsView } from '../../domain/catalogs.js';
+import { ParticipantsXlsxExporter } from '../ParticipantsXlsxExporter.js';
 
 /**
  * @param {unknown} value
@@ -19,7 +20,8 @@ function queryString(value) {
  *   PUT    /retreat                     { name, startDate, endDate }
  *   POST   /retreat/close               { confirmName }  close now and delete its data
  *   GET    /catalogs                    allergens, intolerances, diets, accessibility needs
- *   GET    /participants?q=&filter=     list
+ *   GET    /participants?q=&filter=&tableId=&sort=&dir=   list (tableId: id or "none"; dir: asc | desc)
+ *   GET    /participants/export.xlsx?…same query…        Excel file of the current view (not stored)
  *   POST   /participants                full registration, or { quick: true, ... } from the letters screen
  *   GET    /participants/:id            detail
  *   PUT    /participants/:id            edit
@@ -49,8 +51,25 @@ export function createParticipantsRouter({ runtime }) {
     res.json(catalogsView());
   });
 
+  const listQuery = (/** @type {import('express').Request} */ req) => ({
+    q: queryString(req.query.q) ?? '',
+    filter: queryString(req.query.filter) || 'all',
+    tableId: queryString(req.query.tableId) ?? '',
+    sort: queryString(req.query.sort) || 'name',
+    dir: queryString(req.query.dir) || 'asc',
+  });
+
   router.get('/participants', async (req, res) => {
-    res.json(await participants().list({ q: queryString(req.query.q) ?? '', filter: queryString(req.query.filter) ?? 'all' }));
+    res.json(await participants().list(listQuery(req)));
+  });
+  // Before /participants/:id. Generated on the fly: personal data never lands on disk here.
+  router.get('/participants/export.xlsx', async (req, res) => {
+    const data = await participants().exportData(listQuery(req));
+    const { filename, buffer } = await new ParticipantsXlsxExporter({ timeZone: runtime.container.config.timeZone }).build(data);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(buffer);
   });
   router.post('/participants', async (req, res) => {
     const body = req.body ?? {};

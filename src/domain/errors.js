@@ -11,6 +11,7 @@ export const ERROR_MESSAGES = Object.freeze({
   INVALID_PARTICIPANT: 'Los datos del participante no son válidos.',
   DUPLICATE_PARTICIPANT: 'Ya existe un participante con ese identificador.',
   PARTICIPANT_NOT_FOUND: 'Participante no encontrado.',
+  DUPLICATE_DOCUMENT: 'Ese documento de identidad ya está registrado para otro participante.',
   PARTICIPANT_INCOMPLETE: 'Faltan datos obligatorios del participante.',
   PARTICIPANT_HAS_LETTERS: 'Este participante tiene cartas asignadas: no se puede eliminar. Dalo de baja en su lugar.',
   INVALID_RETREAT: 'Los datos del retiro no son válidos.',

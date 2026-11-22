@@ -3,6 +3,7 @@ import { optionalDateOnly } from './Retreat.js';
 import {
   ACCESSIBILITY_NEEDS,
   DIETARY_CODES,
+  DOCUMENT_TYPES,
   DietarySeverity,
   DietaryType,
   ParticipantStatus,
@@ -20,6 +21,8 @@ import {
  * @typedef {{ name: string, relationship: string | null, phone: string }} EmergencyContact
  * @typedef {{ type: string, code: string, severity: string | null, detail: string | null }} DietaryRestriction
  * @typedef {{ code: string, detail: string | null }} AccessibilityNeed
+ * @typedef {{ type: string, number: string, country: string | null, otherType: string | null }} IdentityDocument
+ *           number: upper case, without spaces or dashes; country: issuing country (passport / other).
  *
  * @typedef {Object} ParticipantRecord
  * @property {string}   id               Stable slug chosen at creation (never recomputed on rename).
@@ -33,6 +36,7 @@ import {
  * @property {number|null} age           When the birth date is unknown.
  * @property {string|null} email         Optional; never used to deliver letters.
  * @property {string|null} phone         Participant's own phone (optional).
+ * @property {IdentityDocument|null} identityDocument  DNI, NIE, passport or another document (optional).
  * @property {EmergencyContact[]} emergencyContacts  1-2 required for a complete profile.
  * @property {string}   snores           Snoring.*
  * @property {DietaryRestriction[]} dietary
@@ -74,6 +78,7 @@ export const FIELD_LABELS = Object.freeze({
   birthDate: 'Fecha de nacimiento',
   age: 'Edad',
   email: 'Correo electrónico',
+  identityDocument: 'Documento de identidad',
   phone: 'Teléfono',
   emergencyContacts: 'Contacto de emergencia',
   snores: 'Ronca',
@@ -166,6 +171,40 @@ export function splitFullName(fullName) {
  */
 export function buildDisplayName({ givenNames, firstSurname, secondSurname }) {
   return [givenNames, firstSurname, secondSurname].map(clean).filter(Boolean).join(' ');
+}
+
+const DNI_LETTERS = 'TRWAGMYFPDXBNJZSQVHLCKE';
+
+/**
+ * Validates an identity document. DNI and NIE are checked with their control letter;
+ * passports and other documents accept letters and digits (3-20). Returns null when empty.
+ * @param {unknown} value
+ * @returns {Readonly<IdentityDocument> | null}
+ */
+export function identityDocument(value) {
+  const source = /** @type {{ type?: unknown, number?: unknown, country?: unknown, otherType?: unknown } | null | undefined} */ (value);
+  const type = clean(source?.type);
+  const number = clean(source?.number).toUpperCase().replace(/[\s.-]/g, '');
+  if (!type && !number) return null;
+  if (!Object.hasOwn(DOCUMENT_TYPES, type)) throw invalid('identityDocument', 'elige el tipo de documento');
+  if (!number) throw invalid('identityDocument', 'falta el número');
+  if (type === 'dni') {
+    const match = /^(\d{8})([A-Z])$/.exec(number);
+    if (!match) throw invalid('identityDocument', 'el DNI son 8 números y una letra');
+    if (DNI_LETTERS[Number(match[1]) % 23] !== match[2]) throw invalid('identityDocument', 'la letra del DNI no corresponde al número');
+  } else if (type === 'nie') {
+    const match = /^([XYZ])(\d{7})([A-Z])$/.exec(number);
+    if (!match) throw invalid('identityDocument', 'el NIE es X, Y o Z, 7 números y una letra');
+    if (DNI_LETTERS[Number(`${'XYZ'.indexOf(match[1])}${match[2]}`) % 23] !== match[3]) throw invalid('identityDocument', 'la letra del NIE no corresponde al número');
+  } else if (!/^[A-Z0-9]{3,20}$/.test(number)) {
+    throw invalid('identityDocument', 'solo letras y números (de 3 a 20)');
+  }
+  const otherType = type === 'other' ? clean(source?.otherType) || null : null;
+  if (type === 'other' && !otherType) throw invalid('identityDocument', 'indica qué documento es');
+  if (otherType && otherType.length > 60) throw invalid('identityDocument', 'el nombre del documento es demasiado largo');
+  const country = type === 'dni' || type === 'nie' ? 'España' : clean(source?.country) || null;
+  if (country && country.length > 60) throw invalid('identityDocument', 'el país es demasiado largo');
+  return Object.freeze({ type, number, country, otherType });
 }
 
 /**
@@ -313,6 +352,7 @@ export function createParticipantRecord(props) {
     age,
     email,
     phone: optionalPhone(source.phone, 'phone'),
+    identityDocument: identityDocument(source.identityDocument),
     emergencyContacts: Object.freeze(emergencyContacts(source.emergencyContacts)),
     snores,
     dietary: Object.freeze(dietaryList(source.dietary)),

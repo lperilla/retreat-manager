@@ -218,6 +218,12 @@ main:focus { outline: none; }
 .chip .chip-count { color: inherit; opacity: .7; font-variant-numeric: tabular-nums; }
 .attendance-chip { white-space: nowrap; }
 .attendance-chip.is-confirmed, .attendance-chip.is-confirmed[aria-pressed="true"] { color: var(--ui-success); background: var(--ui-success-bg); border-color: var(--ui-success-border); }
+/* Sortable table headers */
+.sort-button { display: inline-flex; align-items: center; gap: .3rem; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
+.sort-button:hover { color: var(--ui-text); }
+.sort-button.is-active { color: var(--ui-text); font-weight: 600; }
+.sort-icon { font-size: .7em; opacity: .55; }
+.sort-button.is-active .sort-icon { opacity: 1; }
 .leaders { font-size: .8125rem; color: var(--ui-muted); margin: 0; }
 .leaders strong { color: var(--ui-text); font-weight: 500; }
 .filter-chips .btn { border-radius: 999px; }

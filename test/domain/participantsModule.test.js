@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { createParticipant } from '../../src/domain/entities/Participant.js';
 import { ContentAssignmentStrategy } from '../../src/domain/services/assignment.js';
 import { nameVariants } from '../../src/domain/services/nameVariants.js';
-import { ageOn, createParticipantRecord, missingFields, splitFullName } from '../../src/modules/participants/domain/ParticipantRecord.js';
+import { ageOn, createParticipantRecord, identityDocument, missingFields, splitFullName } from '../../src/modules/participants/domain/ParticipantRecord.js';
 import { createRetreat, deletionDate, hasEnded, isDeletionDue } from '../../src/modules/participants/domain/Retreat.js';
 
 const BASE = Object.freeze({ id: 'jose-garcia', retreatId: 'r1', givenNames: 'José', firstSurname: 'García', createdAt: '2026-11-21T10:00:00Z' });
@@ -51,6 +51,22 @@ describe('createParticipantRecord', () => {
       { type: 'allergy', code: 'nuts', severity: 'severe', detail: null },
       { type: 'diet', code: 'vegetarian', severity: null, detail: null },
     ]);
+  });
+});
+
+describe('identity documents', () => {
+  it('normalizes and checks DNI and NIE control letters, and accepts passports and other documents from any country', () => {
+    assert.deepEqual(identityDocument({ type: 'dni', number: '12345678-z' }), { type: 'dni', number: '12345678Z', country: 'España', otherType: null });
+    assert.deepEqual(identityDocument({ type: 'nie', number: 'x 1234567 l' }), { type: 'nie', number: 'X1234567L', country: 'España', otherType: null });
+    assert.deepEqual(identityDocument({ type: 'passport', number: 'ab123456', country: 'Colombia' }), { type: 'passport', number: 'AB123456', country: 'Colombia', otherType: null });
+    assert.deepEqual(identityDocument({ type: 'other', number: '1020304050', otherType: 'Cédula', country: 'Colombia' }), { type: 'other', number: '1020304050', country: 'Colombia', otherType: 'Cédula' });
+    assert.equal(identityDocument({ type: '', number: '' }), null);
+    assert.throws(() => identityDocument({ type: 'dni', number: '12345678A' }), /letra del DNI/);
+    assert.throws(() => identityDocument({ type: 'nie', number: 'X1234567A' }), /letra del NIE/);
+    assert.throws(() => identityDocument({ type: 'dni', number: '1234' }), /8 números/);
+    assert.throws(() => identityDocument({ type: 'other', number: '123' }), /qué documento/);
+    assert.throws(() => identityDocument({ type: '', number: '123' }), /tipo de documento/);
+    assert.throws(() => identityDocument({ type: 'passport', number: 'A$' }), /letras y números/);
   });
 });
 

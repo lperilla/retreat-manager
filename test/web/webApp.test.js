@@ -243,6 +243,12 @@ describe('web API', () => {
 
     const list = await (await app.fetch('/api/participants?filter=all&q=perilla')).json();
     assert.deepEqual(list.participants.map((/** @type {any} */ p) => p.id), ['luis-perilla']);
+    const excel = await app.fetch('/api/participants/export.xlsx?filter=all&sort=name&dir=asc');
+    assert.equal(excel.status, 200);
+    assert.match(excel.headers.get('content-type') ?? '', /spreadsheetml.sheet/);
+    assert.match(excel.headers.get('content-disposition') ?? '', /attachment; filename="participantes_.+.xlsx"/);
+    assert.equal(excel.headers.get('cache-control'), 'no-store');
+    assert.equal((await app.fetch('/api/participants?sort=nope')).status, 400);
     const catalogs = await (await app.fetch('/api/catalogs')).json();
     assert.equal(catalogs.dietary.allergy.length, 15);
 
