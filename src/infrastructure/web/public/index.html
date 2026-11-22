@@ -22,13 +22,12 @@
       </button>
       <div class="collapse navbar-collapse" id="main-nav">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-          <li class="nav-item"><a class="nav-link" href="#/" data-nav="dashboard">Panel</a></li>
+          <!-- One entry per module; each module groups its options in tabs. -->
           <li class="nav-item">
-            <a class="nav-link" href="#/revisar" data-nav="review">Por revisar
-              <span class="badge rounded-pill text-bg-warning ms-1" id="nav-review-count">0</span></a>
+            <a class="nav-link" href="#/" data-nav="letters">Cartas
+              <span class="badge rounded-pill text-bg-warning ms-1" id="nav-review-count" title="Cartas por revisar">0</span></a>
           </li>
           <li class="nav-item"><a class="nav-link" href="#/participantes" data-nav="people">Participantes</a></li>
-          <li class="nav-item"><a class="nav-link" href="#/historial" data-nav="history">Historial de sincronizaciones</a></li>
         </ul>
 
         <div class="sync-widget d-flex flex-wrap align-items-center gap-2" id="sync-widget">
@@ -78,6 +77,15 @@
   </div>
 
   <main id="main" class="container-fluid pb-5" tabindex="-1">
+    <!-- Letters module options -->
+    <ul class="nav nav-tabs mt-3 mb-3 no-print" id="letters-tabs" aria-label="Opciones de cartas" hidden>
+      <li class="nav-item"><a class="nav-link" href="#/" data-tab="dashboard">Panel</a></li>
+      <li class="nav-item">
+        <a class="nav-link" href="#/revisar" data-tab="review">Por revisar
+          <span class="badge rounded-pill text-bg-warning ms-1" id="tab-review-count">0</span></a>
+      </li>
+      <li class="nav-item"><a class="nav-link" href="#/historial" data-tab="history" title="Historial de sincronizaciones">Historial</a></li>
+    </ul>
     <!-- Dashboard -->
     <section id="view-dashboard" class="app-view" hidden aria-labelledby="dashboard-title">
       <h1 class="visually-hidden" id="dashboard-title">Panel de cartas</h1>
@@ -213,7 +221,7 @@
 
     <!-- Review queue -->
     <section id="view-review" class="app-view" hidden aria-labelledby="review-title">
-      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 my-3">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <h1 class="h3 mb-0" id="review-title">Por revisar</h1>
         <div class="d-flex align-items-center gap-3">
           <span class="text-body-secondary" id="review-count"></span>
@@ -244,7 +252,7 @@
 
     <!-- Sync history -->
     <section id="view-history" class="app-view" hidden aria-labelledby="history-title">
-      <h1 class="h3 my-3" id="history-title">Historial de sincronizaciones</h1>
+      <h1 class="h3 mb-3" id="history-title">Historial de sincronizaciones</h1>
       <div class="card">
         <div class="table-responsive">
           <table class="table table-striped align-middle mb-0">

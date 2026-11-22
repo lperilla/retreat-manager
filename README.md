@@ -188,6 +188,8 @@ En cualquier caso se descartan los borradores, el spam, la papelera y los mensaj
 
 ## Uso del panel
 
+**Menú**: arriba hay una entrada por módulo, **Cartas** (con el número de cartas por revisar) y **Participantes**. Cada módulo agrupa sus opciones en pestañas: *Cartas* → Panel, Por revisar e Historial; *Participantes* → Participantes, Habitaciones y Mesas.
+
 **Cabecera (widget de sincronización)**
 
 - «Última sincronización: hace 5 min» y su estado: *Sincronizando…*, *Correcta* o *Con error*.

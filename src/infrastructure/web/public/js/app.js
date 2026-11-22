@@ -39,8 +39,20 @@ function parseRoute() {
  */
 function showView(view) {
   for (const name of VIEWS) $(`#view-${name}`).hidden = name !== view;
+  // Top menu = modules (Cartas, Participantes); each module shows its options as tabs.
+  const module = view === 'people' ? 'people' : 'letters';
   for (const link of document.querySelectorAll('[data-nav]')) {
-    const active = /** @type {HTMLElement} */ (link).dataset.nav === view;
+    const active = /** @type {HTMLElement} */ (link).dataset.nav === module;
+    link.classList.toggle('active', active);
+    if (active) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  }
+  $('#letters-tabs').hidden = module !== 'letters';
+  // A participant's letters page is reached from the dashboard.
+  const tab = view === 'participant' ? 'dashboard' : view;
+  for (const link of document.querySelectorAll('#letters-tabs [data-tab]')) {
+    const active = /** @type {HTMLElement} */ (link).dataset.tab === tab;
+    link.classList.toggle('active', active);
     if (active) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   }

@@ -62,6 +62,7 @@ function renderKpis(kpis) {
   $('#kpi-review').textContent = String(kpis.reviewQueueSize);
   $('#kpi-new').textContent = String(kpis.newLettersCount);
   $('#nav-review-count').textContent = String(kpis.reviewQueueSize);
+  $('#tab-review-count').textContent = String(kpis.reviewQueueSize);
 }
 
 function currentRows() {

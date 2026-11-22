@@ -66,6 +66,9 @@ main:focus { outline: none; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60rem;
 }
 .letter-card:not(.is-open) .card-header { border-bottom: 0; }
+/* Let the subject block shrink so long dates and previews wrap or ellipsize on phones. */
+.letter-card .card-header > .d-flex > div:first-child { min-width: 0; flex: 1 1 16rem; }
+.letter-card .letter-meta { overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) { .letter-toggle-icon { transition: none; } }
 .letter-meta { font-size: .85rem; color: #4a5560; margin: 0; }
 .letter-body {
@@ -93,6 +96,10 @@ main:focus { outline: none; }
 .docx-document { border-left: 3px solid #adb5bd; padding: .5rem .9rem; background: #f8f9fa; border-radius: .25rem; }
 .docx-text { font-size: 1rem; }
 .letter-card.is-new { border-left: 4px solid #0d6efd; }
+
+/* Module tabs (letters, participants): one line, scrollable on narrow screens. */
+.nav-tabs { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.nav-tabs .nav-link { white-space: nowrap; }
 
 /* Participants module */
 .people-table tr.is-withdrawn td { color: #6c757d; }

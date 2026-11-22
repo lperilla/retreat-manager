@@ -135,6 +135,7 @@ export async function loadReview() {
   const queue = await api.reviewQueue();
   $('#review-count').textContent = queue.total === 0 ? '' : lettersLabel(queue.total);
   $('#nav-review-count').textContent = String(queue.total);
+  $('#tab-review-count').textContent = String(queue.total);
   const list = $('#review-list');
   renderUnassigned(queue.unassigned);
   renderWithdrawn(queue.withdrawn);
