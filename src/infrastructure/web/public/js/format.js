@@ -82,8 +82,8 @@ export function syncResultSummary(result) {
 
 /** Explains an automatic full sync (the ones the user did not ask for). */
 const FULL_SYNC_REASONS = /** @type {Record<string, string>} */ ({
-  'selection-changed': 'Sincronización completa automática: ha cambiado el filtro de Gmail (GMAIL_QUERY, GMAIL_LABEL_ID o GMAIL_START_DATE)',
-  'cursor-expired': 'Sincronización completa automática: Gmail ya no conservaba el historial desde la última vez',
+  'selection-changed': 'Se ha leído todo el buzón porque cambió el filtro de Gmail (GMAIL_QUERY, GMAIL_LABEL_ID o GMAIL_START_DATE)',
+  'cursor-expired': 'Se ha leído todo el buzón porque Gmail ya no conservaba el historial desde la última vez',
 });
 
 /**

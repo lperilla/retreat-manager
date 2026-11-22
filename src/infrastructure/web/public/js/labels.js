@@ -17,6 +17,7 @@ export const SIGNAL_LABELS = Object.freeze({
   SUBJECT_EXPLICIT: 'Asunto',
   BODY_EXPLICIT: 'Cuerpo',
   NAME_MENTION: 'Mención',
+  NAME_SIMILAR: 'Nombre parecido',
   MANUAL: 'Manual',
 });
 

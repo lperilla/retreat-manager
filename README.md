@@ -1,11 +1,18 @@
-# retreat-mail-mcp · Cartas del retiro
+# Gestión del retiro
 
-Panel web, exportador por lotes, sistema de impresión para gestionar las **cartas que las familias envían a los participantes de un retiro** a un buzón compartido de Gmail.
+Aplicación web para organizar un retiro: **cartas** que las familias envían a los participantes (a un buzón de Gmail), **participantes** (datos, contacto de emergencia, alimentación y accesibilidad), **habitaciones** y **mesas**. Antes se llamaba *retreat-mail-mcp · Cartas del retiro*; el repositorio y la carpeta conservan por ahora el nombre anterior.
+
+**Cartas**
 
 - Descarga las cartas de Gmail (solo lectura) y las guarda en una base de datos local con **sincronización incremental**.
 - Decide **para quién es cada carta** a partir del asunto y del cuerpo (nunca del remitente ni de la firma) y deja en «Por revisar» las dudosas.
 - Muestra cuántas cartas tiene cada participante, quién lleva más y quién menos (con empates) y qué ha llegado desde la última sincronización.
 - Exporta e **imprime por lotes**: cada carta en su propia hoja (con «Para: …»), agrupadas por participante y en orden cronológico, con tipografía cuidada.
+
+**Participantes, habitaciones y mesas**
+
+- Fichas de participantes con los datos que necesita la organización, sin diagnósticos médicos, y borrado automático al terminar el retiro.
+- Habitaciones y mesas con aforo, avisos (ronquidos, accesibilidad) y resumen de alergias por mesa para la cocina.
 
 El panel **nunca lee Gmail directamente**: todo se lee de la base de datos local. Gmail solo se consulta al sincronizar, y solo para lo que ha cambiado.
 
@@ -40,7 +47,7 @@ El panel **nunca lee Gmail directamente**: todo se lee de la base de datos local
 - **Node.js 22 o superior.**
 - **MongoDB 7** (recomendado). La forma más sencilla es Docker o Podman con el `docker-compose.yml` incluido. Alternativa sin base de datos: `PERSISTENCE=json`.
 - Una **cuenta de Gmail o Google Workspace** con el buzón que recibe las cartas, y acceso a Google Cloud Console para crear las credenciales OAuth.
-- Un navegador moderno. Bootstrap va incluido en el proyecto (`vendor/`), así que **el panel funciona sin internet**; solo la sincronización necesita conexión.
+- Un navegador moderno. Bootstrap y la fuente Inter (licencia SIL OFL) van incluidos en el proyecto (`vendor/`), así que **el panel funciona sin internet**; solo la sincronización necesita conexión.
 
 ## Prueba rápida (modo demostración)
 
@@ -50,7 +57,7 @@ Sin Gmail ni base de datos: cartas ficticias en memoria que llegan en tres olead
 .\start.cmd --demo
 ```
 
-En Linux, macOS o Git Bash: `./start.sh --demo`. Se abre <http://localhost:3000>. La primera oleada (23 cartas, 18 participantes) se carga al arrancar. Cada «Sincronizar ahora» trae la siguiente: +4 cartas, y después +3 y una borrada. La demo incluye empates, participantes sin cartas, una carta para varios destinatarios, una respuesta automática, una carta ambigua («Querida María:» con dos Marías), cartas con adjuntos y una carta cuyo remitente se llama como un participante.
+En Linux, macOS o Git Bash: `./start.sh --demo`. Se abre <http://localhost:3000>. La primera oleada (23 cartas, 18 participantes) se carga al arrancar. Cada «Buscar cartas nuevas» trae la siguiente: +4 cartas, y después +3 y una borrada. La demo incluye empates, participantes sin cartas, una carta para varios destinatarios, una respuesta automática, una carta ambigua («Querida María:» con dos Marías), cartas con adjuntos y una carta cuyo remitente se llama como un participante.
 
 Si arrancas sin `DEMO_MODE` y sin credenciales de Gmail, el panel muestra el botón **«Activar modo demostración»**.
 
@@ -96,7 +103,7 @@ Otras opciones: `--no-open` (no abrir el navegador), `--no-mongo` (no tocar Mong
 
    - `id` es opcional; si falta se genera a partir del nombre (`maria-garcia`).
    - Los **alias** (apodos, diminutivos) también sirven para reconocer al destinatario.
-   - La lista se carga al arrancar. Si la cambias, reinicia y pulsa **«Reasignar cartas»**.
+   - Esa lista solo se importa la primera vez; después los participantes se gestionan en **Participantes**.
 
 4. **Base de datos**: [MongoDB con Docker](#mongodb-con-docker), o `PERSISTENCE=json` para usar ficheros en `data/db/`.
 
@@ -106,7 +113,7 @@ Otras opciones: `--no-open` (no abrir el navegador), `--no-mongo` (no tocar Mong
    .\start.cmd --auth
    ```
 
-6. **Arranca el panel** y pulsa «Sincronizar ahora»:
+6. **Arranca el panel** y pulsa «Buscar cartas nuevas»:
 
    ```powershell
    .\start.cmd
@@ -190,25 +197,29 @@ En cualquier caso se descartan los borradores, el spam, la papelera y los mensaj
 
 **Menú**: arriba hay una entrada por módulo, **Cartas** (con el número de cartas por revisar) y **Participantes**. Cada módulo agrupa sus opciones en pestañas: *Cartas* → Panel, Por revisar e Historial; *Participantes* → Participantes, Habitaciones y Mesas.
 
-**Cabecera (widget de sincronización)**
+**Barra superior**
 
-- «Última sincronización: hace 5 min» y su estado: *Sincronizando…*, *Correcta* o *Con error*.
-- **Sincronizar ahora** trae solo lo nuevo. En el menú, **Sincronización completa** (con confirmación) vuelve a recorrer toda la búsqueda.
-- Los botones se desactivan durante una sincronización y durante la pausa mínima entre sincronizaciones (`SYNC_MIN_INTERVAL_SECONDS`). Al terminar aparece un aviso: «3 cartas nuevas · 1 actualizada · 0 eliminadas».
-- **Reasignar cartas** recalcula los destinatarios con la lista actual de participantes y muestra un resumen de los cambios. Respeta siempre las asignaciones manuales.
-- Si la última sincronización falló, aparece un aviso fijo: *«La última sincronización falló; se muestran los últimos datos guardados»*.
+- Estado del correo («Al día», «Buscando…», «Con error») y «Última búsqueda: hace 5 min».
+- **Buscar cartas nuevas** trae solo lo nuevo. En **Más opciones**: **Volver a leer todo el buzón…** (sincronización completa, con confirmación) y **Volver a repartir las cartas…** (recalcula los destinatarios con la lista actual de participantes; respeta siempre las asignaciones manuales y normalmente no hace falta, porque se hace solo al cambiar participantes).
+- Los botones se desactivan durante una búsqueda y durante la pausa mínima entre búsquedas (`SYNC_MIN_INTERVAL_SECONDS`). Al terminar aparece un aviso: «3 cartas nuevas · 1 actualizada · 0 eliminadas».
+- Si la última búsqueda falló, aparece un aviso fijo: *«La última sincronización falló; se muestran los últimos datos guardados»*.
 
-**Indicadores**: total de cartas, participantes con cartas, quién lleva más y quién menos (todos los empatados; los que tienen 0 cartas en rojo), cartas por revisar y cartas nuevas.
+**Panel: tres pasos**. Arriba, lo que hay que hacer y en qué orden:
 
-**Directorio de participantes**
+1. **Recibir**: cartas recibidas, cuándo fue la última búsqueda y el botón **Buscar cartas nuevas**.
+2. **Revisar**: cuántas cartas necesitan ayuda (o «Todo revisado») y el acceso a **Por revisar**.
+3. **Imprimir**: participantes pendientes y cartas por imprimir, con **Imprimir pendientes** (abre la impresión de todos los pendientes que tienen cartas).
 
-- Búsqueda por nombre o alias.
-- Filtros: con cartas, sin cartas, pendiente de imprimir, impresa, con avisos, con novedades.
-- Orden alfabético o por número de cartas.
+Debajo, una sola línea con quién lleva más cartas, quién no tiene ninguna (en rojo) y las cartas sin ver.
+
+**Cartas por participante**
+
+- Búsqueda por nombre o apodo y filtros de un clic: todos, pendientes de imprimir, impresas, con novedades, sin cartas y con avisos.
+- Orden alfabético o por número de cartas, y menú **Seleccionar** (pendientes de imprimir, con cartas, todos o ninguno).
 - Insignias: número de cartas, «+N nuevas», avisos y estado de impresión (pulsa para cambiar entre *Pendiente* e *Impresa*).
-- Selección: casillas, «Seleccionar todos», «Deseleccionar todos», «Seleccionar con cartas» y «Seleccionar pendientes de imprimir».
+- Al seleccionar aparece abajo la barra de acciones: **Imprimir** (acción principal), **Exportar** (paquete .html, PDF de adjuntos, .txt, .json) y **Opciones** (incluir adjuntos, formato original del correo).
 
-**Novedades desde la última sincronización**: lo que el equipo aún no ha visto, agrupado por participante, con **«Marcar como vistas»** global o por participante.
+**Novedades**: lo que el equipo aún no ha visto, agrupado por participante, con «Marcar todas como vistas» o por participante.
 
 **Ficha de participante**: cartas en orden cronológico con remitente, fecha, asunto, cuerpo completo (con párrafos, tildes, ñ y emojis), avisos y adjuntos.
 
@@ -282,9 +293,10 @@ Las escriben familiares, así que **el nombre del remitente y la firma nunca ind
    - **Mención** (0,30): el nombre completo o un alias en otra parte del texto.
 3. Se compara con los participantes del retiro: nombre completo, apodos, nombre de pila y **variantes** del nombre registrado. Para «José Antonio García López» valen «José García», «José Antonio García», «José A. García» y «José García López» (sin distinguir mayúsculas ni tildes, y con apellidos compuestos o con guion). **Un nombre o una variante que comparten dos o más participantes es ambiguo** y nunca se asigna solo.
    - **Contradicción de apellido**: si tras un nombre aparece un apellido que no es de ese participante («Carta para José Pérez» cuando el único José es José García), la carta va a **Por revisar** con la sugerencia, en vez de asignarse.
-   - Una errata («Garcai») no se asigna sola: la carta queda en revisión.
+   - **Nombres parecidos**: si el nombre escrito tiene una errata («José Garcai», «Luis Perila»), el participante más parecido aparece el primero entre las sugerencias, con la etiqueta *Nombre parecido*. Nunca se asigna solo por parecido.
+   - **Destinatario detectado**: en «Por revisar» se muestra el nombre escrito tras «Carta para…», «Querido…» o en el saludo, aunque no coincida con nadie. Si trae nombre y apellido y no existe, el botón **Crear participante «…»** abre el alta rápida ya rellena.
 4. Se asigna automáticamente si un único participante supera `ASSIGNMENT_MIN_CONFIDENCE` (0,75) y nadie más queda a menos de 0,15. Si hay varios nombrados explícitamente, la carta es para todos («Varios destinatarios»). En cualquier otro caso va a **Por revisar** con sugerencias ordenadas.
-5. Las **asignaciones manuales** siempre ganan: se guardan por mensaje y sobreviven a nuevas sincronizaciones y a «Reasignar cartas».
+5. Las **asignaciones manuales** siempre ganan: se guardan por mensaje y sobreviven a nuevas sincronizaciones y a «Volver a repartir las cartas».
 
 ## Adjuntos
 
@@ -339,7 +351,7 @@ Las cartas que llegan con un PDF adjunto no se pueden incrustar en el paquete HT
 - Cada carta lleva arriba «Para: Nombre», así que se puede entregar suelta.
 - **Formato original**: si el correo se escribió con colores, fuentes, tamaños, negritas o alineación (por ejemplo, desde Gmail web u Outlook), la carta se imprime **con ese mismo aspecto**, y las imágenes insertadas en el texto salen en su sitio. Si el correo es solo texto (habitual desde el móvil), se imprime con la tipografía del paquete. El interruptor **«Formato original»** (barra de lote y ficha del participante, activado por defecto) permite imprimir o exportar todas con el mismo formato. Afecta a la impresión y al `.html`; el `.txt` y el `.json` llevan siempre el texto.
   - **Seguridad**: el HTML del correo se filtra al sincronizar y otra vez al imprimir, con una lista cerrada de etiquetas y estilos. Solo quedan colores, fuentes, tamaños, énfasis, alineación, sangrías, listas, tablas e imágenes adjuntas (`cid:`). Se eliminan scripts, enlaces, imágenes remotas (que podrían rastrear a quien lee), `url()`, posicionamiento y hojas de estilo. Solo la página de impresión admite atributos `style` en línea; el resto del panel mantiene la política estricta.
-  - Las cartas ya descargadas obtienen su formato con una **Sincronización completa**. Los estilos definidos en hojas de estilo (`<style>`), que usan algunos programas, no se conservan.
+  - Las cartas ya descargadas obtienen su formato con **Volver a leer todo el buzón**. Los estilos definidos en hojas de estilo (`<style>`), que usan algunos programas, no se conservan.
 - La cabecera de cada carta nunca queda separada de su texto. Se usa tipografía con serifa a 11–12 pt e interlineado amplio, y las imágenes se ajustan al ancho.
 - Desactiva en el navegador «Encabezados y pies de página» y usa márgenes predeterminados y papel A4.
 - Al imprimir el panel directamente (Ctrl+P), se ocultan la navegación, los botones, las casillas y el widget de sincronización.

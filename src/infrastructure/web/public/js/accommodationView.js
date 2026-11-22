@@ -22,7 +22,7 @@ export function sectionTabs(active) {
  * @param {'rooms' | 'tables'} kind
  */
 export async function loadAccommodation(kind) {
-  document.title = `${kind === 'rooms' ? 'Habitaciones' : 'Mesas'} · Cartas del retiro`;
+  document.title = `${kind === 'rooms' ? 'Habitaciones' : 'Mesas'} · Gestión del retiro`;
   const data = await api.accommodation();
   const isRooms = kind === 'rooms';
   const places = isRooms ? data.rooms : data.tables;

@@ -1,6 +1,6 @@
 /**
- * Header sync widget: last sync, state, "Sincronizar ahora" (incremental) and
- * "Sincronización completa" (with confirmation). Polls every 2 s ONLY while a sync runs.
+ * Header sync widget: last search, state, "Buscar cartas nuevas" (incremental) and, under
+ * "Más opciones", "Volver a leer todo el buzón" (full sync, with confirmation). Polls every 2 s ONLY while a sync runs.
  */
 import { api, ApiError } from './api.js';
 import { $, h } from './dom.js';
@@ -26,7 +26,7 @@ function render() {
   const menu = /** @type {HTMLButtonElement} */ ($('#sync-menu'));
 
   if (!status) {
-    last.textContent = 'Última sincronización: —';
+    last.textContent = 'Última búsqueda: —';
     badge.className = 'badge text-bg-secondary';
     badge.textContent = 'Sin datos';
     now.disabled = true;
@@ -35,20 +35,20 @@ function render() {
     return;
   }
 
-  last.textContent = `Última sincronización: ${relativeTime(status.lastSuccessAt)}`;
+  last.textContent = `Última búsqueda: ${relativeTime(status.lastSuccessAt)}`;
   last.title = status.lastSuccessAt ? new Date(status.lastSuccessAt).toLocaleString('es-ES') : '';
   if (status.running) {
     badge.className = 'badge text-bg-info';
-    badge.textContent = 'Sincronizando…';
+    badge.textContent = 'Buscando…';
   } else if (status.lastSyncFailed) {
     badge.className = 'badge text-bg-danger';
     badge.textContent = 'Con error';
   } else if (status.lastSuccessAt) {
     badge.className = 'badge text-bg-success';
-    badge.textContent = 'Correcta';
+    badge.textContent = 'Al día';
   } else {
     badge.className = 'badge text-bg-secondary';
-    badge.textContent = 'Sin sincronizar';
+    badge.textContent = 'Sin buscar';
   }
 
   const cooldown = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
@@ -56,7 +56,7 @@ function render() {
   now.disabled = blocked;
   full.disabled = blocked;
   menu.disabled = false;
-  now.textContent = status.running ? 'Sincronizando…' : cooldown > 0 ? `Sincronizar ahora (${cooldown} s)` : 'Sincronizar ahora';
+  now.textContent = status.running ? 'Buscando…' : cooldown > 0 ? `Buscar cartas nuevas (${cooldown} s)` : 'Buscar cartas nuevas';
 
   const warning = $('#sync-warning');
   warning.hidden = !status.lastSyncFailed;
@@ -129,14 +129,14 @@ export function initSyncWidget() {
   $('#sync-now').addEventListener('click', () => void startSync('incremental'));
   $('#sync-full').addEventListener('click', async () => {
     const accepted = await confirmDialog({
-      title: 'Sincronización completa',
+      title: 'Volver a leer todo el buzón',
       body: h(
         'div',
         {},
-        h('p', { text: 'Se volverán a descargar todas las cartas que coinciden con la búsqueda configurada. Puede tardar varios minutos.' }),
+        h('p', { text: 'Se vuelven a descargar todas las cartas del buzón que cumplen el filtro configurado. Úsalo si algo no cuadra; puede tardar unos minutos.' }),
         h('p', { class: 'mb-0', text: 'No se pierden las asignaciones manuales, el estado de impresión ni las marcas de «vista».' }),
       ),
-      confirmLabel: 'Iniciar sincronización completa',
+      confirmLabel: 'Leer todo el buzón',
     });
     if (accepted) await startSync('full');
   });

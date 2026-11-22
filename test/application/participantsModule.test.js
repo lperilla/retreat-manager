@@ -119,6 +119,11 @@ describe('ParticipantsUseCase (participants module)', () => {
   it('keeps letters left "Sin asignar" reachable so they can be assigned to a new participant', async () => {
     const { container } = await seeded();
     const review = container.useCases.reviewAssignment;
+    // "Carta para Carmen Ruiz": nobody called that yet → offered as a new participant.
+    const before = await review.listQueue();
+    assert.deepEqual(before.letters.find((l) => l.messageId === 'c1')?.detectedRecipient, { name: 'Carmen Ruiz', known: false, canCreate: true });
+    // A first name alone is shown but not offered as a new participant.
+    assert.equal(before.letters.find((l) => l.messageId === 'c2')?.detectedRecipient?.canCreate, false);
     await review.leaveUnassigned({ messageId: 'c2' });
     assert.deepEqual((await review.listQueue()).unassigned.letters.map((l) => l.messageId), ['c2']);
 

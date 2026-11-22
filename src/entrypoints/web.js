@@ -86,7 +86,7 @@ main().catch((error) => {
   const code = /** @type {{ code?: string, details?: unknown }} */ (error)?.code;
   const details = /** @type {{ details?: unknown }} */ (error)?.details;
   process.stderr.write(
-    `retreat-mail-mcp web failed to start: ${describeError(error)}${details ? ` ${JSON.stringify(details)}` : ''}\n`,
+    `retreat-manager web failed to start: ${describeError(error)}${details ? ` ${JSON.stringify(details)}` : ''}\n`,
   );
   process.exit(code === 'CONFIG_ERROR' ? 78 : 1);
 });

@@ -14,6 +14,8 @@
  * Surname contradiction: a partial match (first name or variant) followed by a capitalized
  * word that is not one of the participant's names ("José Pérez" when the only José is José
  * García) is lowered to a suggestion, so the letter goes to review instead of being assigned.
+ * Similar names: the name written after "Carta para…" is compared with every participant;
+ * close ones (typos: "José Garcai") become NAME_SIMILAR suggestions (0.20), never assignments.
  */
 import { AssignmentStatus, DEFAULTS, EXPLICIT_SIGNALS, SIGNAL_CONFIDENCE, SignalType } from '../constants.js';
 import { createAssignment } from '../entities/Assignment.js';
@@ -27,6 +29,7 @@ import {
   stripSubjectPrefixes,
 } from './text.js';
 import { nameTokens, nameVariants } from './nameVariants.js';
+import { detectRecipientHints, similarParticipants } from './recipientHints.js';
 
 /**
  * @typedef {Object} AssignmentSignal
@@ -691,8 +694,21 @@ export class ContentAssignmentStrategy {
     });
     const salutations = extractSalutationLines({ ...context, limit });
     const mentions = extractMentions({ ...context, excluded: [...triggered.spans, ...salutations.spans] });
+    const similar = [];
+    for (const hint of detectRecipientHints({ subject, body: bodyText, bodyScanChars: limit })) {
+      for (const { participantId } of similarParticipants(hint, participants)) {
+        similar.push({
+          participantId,
+          signal: SignalType.NAME_SIMILAR,
+          confidence: SIGNAL_CONFIDENCE[SignalType.NAME_SIMILAR],
+          matchedText: hint,
+          ambiguous: false,
+          groupId: null,
+        });
+      }
+    }
 
-    return [...subjectSignals, ...triggered.signals, ...salutations.signals, ...mentions];
+    return [...subjectSignals, ...triggered.signals, ...salutations.signals, ...mentions, ...similar];
   }
 
   /**

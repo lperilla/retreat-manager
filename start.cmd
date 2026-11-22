@@ -1,5 +1,5 @@
 @echo off
-rem Cartas del retiro: arrancar, parar, reiniciar, instalar...
+rem Gestión del retiro: arrancar, parar, reiniciar, instalar...
 rem
 rem   start.cmd              arranca el panel en segundo plano (y MongoDB si hace falta)
 rem   start.cmd --install    instala dependencias y prepara .env y data\participants.json

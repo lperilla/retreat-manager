@@ -1,4 +1,5 @@
-# Local MongoDB for retreat-mail-mcp.
+# Local MongoDB for Gestión del retiro (retreat-manager). The container and volume keep their original
+# names (retreat-mail-mongo, retreat-mail-mcp_retreat_mongo_data) so existing data is kept.
 #
 # - Bound to 127.0.0.1 only: the database is never reachable from the LAN.
 # - Authentication is always on: root credentials come from .env

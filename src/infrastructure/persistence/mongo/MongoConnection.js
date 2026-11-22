@@ -42,7 +42,7 @@ export function inspectMongoUri(uri) {
  * }} options
  * @returns {Promise<{ client: MongoClient, db: import('mongodb').Db }>}
  */
-export async function connectMongo({ uri, dbName, logger, appName = 'retreat-mail-mcp', serverSelectionTimeoutMS = 5000 }) {
+export async function connectMongo({ uri, dbName, logger, appName = 'retreat-manager', serverSelectionTimeoutMS = 5000 }) {
   if (!uri) {
     throw new AppError('CONFIG_ERROR', 500, undefined, { variable: 'MONGODB_URI', reason: 'is required when PERSISTENCE=mongo' });
   }

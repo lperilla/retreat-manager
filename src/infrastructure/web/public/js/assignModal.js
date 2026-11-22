@@ -165,8 +165,9 @@ export function initAssignModal() {
 /**
  * @param {any} letter  Letter view from the API.
  * @param {() => void} done  Called after a successful change.
+ * @param {{ newParticipantName?: string }} [options]  Opens the quick registration prefilled.
  */
-export function openAssignModal(letter, done) {
+export function openAssignModal(letter, done, { newParticipantName } = {}) {
   current = {
     messageId: letter.messageId,
     selected: new Set(letter.assignment.participants.map((/** @type {any} */ p) => p.id)),
@@ -179,4 +180,5 @@ export function openAssignModal(letter, done) {
   /** @type {HTMLButtonElement} */ ($('#assign-reset')).hidden = !letter.assignment.manual;
   renderOptions();
   /** @type {any} */ (window).bootstrap.Modal.getOrCreateInstance($('#assign-modal')).show();
+  if (newParticipantName) showNewParticipantForm(newParticipantName);
 }

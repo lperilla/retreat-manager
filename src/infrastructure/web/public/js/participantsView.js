@@ -89,7 +89,7 @@ export async function loadParticipants(route) {
 // ---------------------------------------------------------------------------
 
 async function renderList() {
-  document.title = 'Participantes · Cartas del retiro';
+  document.title = 'Participantes · Gestión del retiro';
   const view = $('#view-people');
   const [data, retreat] = await Promise.all([fetchList(), api.retreat()]);
 
@@ -111,12 +111,12 @@ async function renderList() {
 
   const chips = h(
     'div',
-    { class: 'filter-chips d-flex flex-wrap gap-2', role: 'group', 'aria-label': 'Filtrar participantes' },
+    { class: 'filter-chips', role: 'group', 'aria-label': 'Filtrar participantes' },
     FILTERS.map(([value, label]) => {
       const count = ['active', 'withdrawn', 'incomplete', 'noRoom', 'noTable'].includes(value) ? data.counts[value] : null;
       return h('button', {
         type: 'button',
-        class: `btn btn-sm ${listState.filter === value ? 'btn-primary' : 'btn-outline-secondary'}`,
+        class: 'chip',
         'aria-pressed': listState.filter === value ? 'true' : 'false',
         text: count === null ? label : `${label} (${count})`,
         onClick: () => {
@@ -503,7 +503,7 @@ function field(col, id, label, control, help) {
  */
 function renderForm(p) {
   const editing = p !== null;
-  document.title = `${editing ? 'Editar' : 'Nuevo'} participante · Cartas del retiro`;
+  document.title = `${editing ? 'Editar' : 'Nuevo'} participante · Gestión del retiro`;
   const view = $('#view-people');
   const input = (/** @type {string} */ id, /** @type {Record<string, any>} */ props = {}) =>
     h('input', { class: 'form-control', id, name: id, autocomplete: 'off', ...props });

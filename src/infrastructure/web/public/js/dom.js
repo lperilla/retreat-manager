@@ -109,3 +109,17 @@ export async function withBusy(button, action) {
     if (button) button.disabled = false;
   }
 }
+
+/**
+ * Loading placeholder (shimmering lines) shown while a screen fetches its data.
+ * @param {number} [lines]
+ * @returns {HTMLElement}
+ */
+export function skeleton(lines = 4) {
+  return h(
+    'div',
+    { class: 'skeleton', role: 'status', 'aria-label': 'Cargando…' },
+    h('div', { class: 'skeleton-line is-title' }),
+    Array.from({ length: lines }, () => h('div', { class: 'skeleton-line' })),
+  );
+}

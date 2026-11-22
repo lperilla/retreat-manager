@@ -25,7 +25,7 @@ export async function loadParticipant(participantId) {
   const view = $('#view-participant');
   const data = await api.participantLetters(participantId, afterDate);
   const { participant } = data;
-  document.title = `${participant.displayName} · Cartas del retiro`;
+  document.title = `${participant.displayName} · Gestión del retiro`;
 
   const printed = data.printStatus.status === 'printed';
   const exportMenuId = `export-menu-${participant.id}`;

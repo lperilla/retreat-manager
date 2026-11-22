@@ -76,8 +76,8 @@ export class AttachmentsPdfRenderer {
         ? toWinAnsi(`Adjuntos PDF para ${payload.sections[0].participant.displayName}`)
         : `Adjuntos PDF del retiro (${payload.participantCount} participantes)`,
     );
-    merged.setCreator('Cartas del retiro');
-    merged.setProducer('Cartas del retiro');
+    merged.setCreator('Gestión del retiro');
+    merged.setProducer('Gestión del retiro');
     const font = await merged.embedFont(StandardFonts.Helvetica);
     const bold = await merged.embedFont(StandardFonts.HelveticaBold);
     let included = 0;

@@ -1,10 +1,11 @@
 /**
- * Dashboard: KPIs, participant directory (selection, search, filters, sort, badges),
- * novelties panel, review summary and the batch bar.
+ * Letters dashboard: the three steps (receive, review, print), one line of figures, the
+ * participant directory (selection, search, filter chips, sort, badges), novelties and the
+ * batch bar.
  */
 import { api } from './api.js';
 import { $, debounce, h, replaceChildren, withBusy } from './dom.js';
-import { compareNames, lettersLabel, normalize, plural } from './format.js';
+import { compareNames, lettersLabel, normalize, plural, relativeTime } from './format.js';
 import { exportLetters, printLetters } from './exportActions.js';
 import { emit, state } from './state.js';
 import { toast, toastError } from './ui.js';
@@ -20,54 +21,61 @@ const FILTERS = {
   'with-news': (row) => row.newCount > 0,
 };
 
+/** Directory filter chosen with the chips. */
+let directoryFilter = 'all';
+
 /**
- * @param {HTMLElement} element
  * @param {any[]} participants
- * @param {{ highlightZero?: boolean, count?: number }} [options]
  */
-function renderNames(element, participants, { highlightZero = false, count = 0 } = {}) {
-  if (participants.length === 0) {
-    replaceChildren(element, '—');
-    return;
-  }
-  const links = participants.map((p, index) => [
+function nameLinks(participants) {
+  return participants.slice(0, 4).map((/** @type {any} */ p, /** @type {number} */ index) => [
     index > 0 ? ', ' : null,
-    h('a', { href: `#/participante/${encodeURIComponent(p.id)}`, class: highlightZero && count === 0 ? 'zero-letters' : '', text: p.displayName }),
-  ]);
-  replaceChildren(element, links);
+    h('a', { href: `#/participante/${encodeURIComponent(p.id)}`, text: p.displayName }),
+  ]).concat(participants.length > 4 ? [` y ${participants.length - 4} más`] : []);
 }
 
 /**
+ * The three steps of the work and one discreet line with the other figures.
  * @param {any} kpis
+ * @param {any} sync
  */
-function renderKpis(kpis) {
-  $('#kpi-total').textContent = String(kpis.totalLetters);
-  $('#kpi-with-letters').textContent = `${kpis.participantsWithLetters} de ${kpis.participantCount}`;
-  $('#kpi-with-letters-detail').textContent =
-    kpis.participantsWithoutLetters > 0 ? `${plural(kpis.participantsWithoutLetters, 'participante', 'participantes')} sin cartas` : 'Todos tienen cartas';
+function renderSteps(kpis, sync) {
+  $('#step-receive-value').textContent = plural(kpis.totalLetters, 'carta recibida', 'cartas recibidas');
+  $('#step-receive-detail').textContent = sync?.lastSuccessAt ? `Última búsqueda ${relativeTime(sync.lastSuccessAt)}` : 'Todavía no se ha buscado en el correo';
 
-  const most = $('#kpi-most');
-  most.classList.add('kpi-names');
-  renderNames(most, kpis.mostLetters.participants);
-  $('#kpi-most-detail').textContent = kpis.mostLetters.participants.length > 0 ? lettersLabel(kpis.mostLetters.count) : 'Aún no hay cartas';
+  const review = kpis.reviewQueueSize;
+  $('#step-review').classList.toggle('is-done', review === 0);
+  $('#step-review-value').textContent = review === 0 ? 'Todo revisado' : `${plural(review, 'carta necesita', 'cartas necesitan')} tu ayuda`;
+  $('#step-review-detail').textContent = review === 0 ? 'Todas las cartas tienen destinatario.' : 'No se sabe con seguridad para quién son.';
+  /** @type {HTMLElement} */ ($('#step-review-link')).hidden = review === 0;
 
-  const fewest = $('#kpi-fewest');
-  fewest.classList.add('kpi-names');
-  renderNames(fewest, kpis.fewestLetters.participants, { highlightZero: true, count: kpis.fewestLetters.count });
-  const fewestDetail = $('#kpi-fewest-detail');
-  fewestDetail.className = `kpi-detail${kpis.fewestLetters.count === 0 && kpis.participantCount > 0 ? ' zero-letters' : ''}`;
-  fewestDetail.textContent =
-    kpis.participantCount === 0 ? '' : kpis.fewestLetters.count === 0 ? 'Sin ninguna carta' : lettersLabel(kpis.fewestLetters.count);
+  const pending = state.participants.filter((row) => row.printStatus === 'pending' && row.letterCount > 0);
+  $('#step-print').classList.toggle('is-done', pending.length === 0 && kpis.totalLetters > 0);
+  $('#step-print-value').textContent = pending.length === 0 ? 'Nada pendiente' : `${plural(pending.length, 'participante pendiente', 'participantes pendientes')}`;
+  $('#step-print-detail').textContent =
+    pending.length === 0 ? `${plural(kpis.printedCount, 'participante impreso', 'participantes impresos')}` : `${lettersLabel(pending.reduce((sum, row) => sum + row.letterCount, 0))} por imprimir`;
+  const printButton = /** @type {HTMLButtonElement} */ ($('#step-print-pending'));
+  printButton.disabled = pending.length === 0;
 
-  $('#kpi-review').textContent = String(kpis.reviewQueueSize);
-  $('#kpi-new').textContent = String(kpis.newLettersCount);
-  $('#nav-review-count').textContent = String(kpis.reviewQueueSize);
-  $('#tab-review-count').textContent = String(kpis.reviewQueueSize);
+  const line = [];
+  if (kpis.mostLetters.participants.length > 0) line.push(['Más cartas: ', h('strong', {}, nameLinks(kpis.mostLetters.participants)), ` (${kpis.mostLetters.count})`]);
+  if (kpis.participantCount > 0) {
+    line.push(
+      kpis.zeroLetterParticipants.length > 0
+        ? [h('span', { class: 'zero-letters', text: 'Sin cartas: ' }), h('strong', {}, nameLinks(kpis.zeroLetterParticipants))]
+        : ['Todos tienen cartas'],
+    );
+  }
+  if (kpis.newLettersCount > 0) line.push([h('strong', { text: String(kpis.newLettersCount) }), ' sin ver por el equipo']);
+  replaceChildren($('#stats-line'), line.flatMap((part, index) => (index > 0 ? [' · ', ...part] : part)));
+
+  $('#nav-review-count').textContent = String(review);
+  $('#tab-review-count').textContent = String(review);
 }
 
 function currentRows() {
   const search = normalize(/** @type {HTMLInputElement} */ ($('#directory-search')).value);
-  const filter = /** @type {HTMLSelectElement} */ ($('#directory-filter')).value;
+  const filter = directoryFilter;
   const sortBy = /** @type {HTMLSelectElement} */ ($('#directory-sort')).value;
   const rows = state.participants.filter(
     (row) =>
@@ -239,41 +247,34 @@ async function markSeen(body, button) {
   });
 }
 
-/**
- * @param {any} queue
- */
-function renderReviewSummary(queue) {
-  const container = $('#review-summary');
-  if (queue.total === 0) {
-    replaceChildren(container, h('p', { class: 'text-body-secondary mb-0', text: 'No hay cartas pendientes de revisar.' }));
-    return;
-  }
-  replaceChildren(
-    container,
-    h('p', { class: 'mb-2' }, h('strong', { text: lettersLabel(queue.total) }), ' sin asignar con seguridad.'),
-    h(
-      'ul',
-      { class: 'small mb-0 ps-3' },
-      queue.letters.slice(0, 4).map((/** @type {any} */ letter) => h('li', { text: letter.subject || '(Sin asunto)' })),
-    ),
-  );
-}
-
 export async function loadDashboard() {
-  const [overview, fresh, queue] = await Promise.all([api.dashboard(), api.newLetters(), api.reviewQueue()]);
+  const [overview, fresh] = await Promise.all([api.dashboard(), api.newLetters()]);
   state.participants = overview.directory.rows;
   const known = new Set(state.participants.map((p) => p.participantId));
   for (const id of [...state.selection]) if (!known.has(id)) state.selection.delete(id);
-  renderKpis(overview.kpis);
+  renderSteps(overview.kpis, overview.sync);
   renderDirectory();
   renderNovelties(fresh);
-  renderReviewSummary(queue);
   emit('sync-status', overview.sync);
 }
 
 export function initDashboard() {
   $('#directory-search').addEventListener('input', debounce(renderDirectory, 150));
-  $('#directory-filter').addEventListener('change', renderDirectory);
+  for (const chip of document.querySelectorAll('#directory-filters [data-filter]')) {
+    chip.addEventListener('click', () => {
+      directoryFilter = /** @type {HTMLElement} */ (chip).dataset.filter ?? 'all';
+      for (const other of document.querySelectorAll('#directory-filters [data-filter]')) {
+        other.setAttribute('aria-pressed', other === chip ? 'true' : 'false');
+      }
+      renderDirectory();
+    });
+  }
+  // Step 1 starts a search for new letters; step 3 prints everyone pending with letters.
+  $('#step-sync').addEventListener('click', () => /** @type {HTMLButtonElement} */ ($('#sync-now')).click());
+  $('#step-print-pending').addEventListener('click', () => {
+    const ids = state.participants.filter((row) => row.printStatus === 'pending' && row.letterCount > 0).map((row) => row.participantId);
+    if (ids.length > 0) void printLetters(ids);
+  });
   $('#directory-sort').addEventListener('change', renderDirectory);
 
   /** @param {(row: any) => boolean} predicate */

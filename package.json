@@ -1,5 +1,5 @@
 {
-  "name": "retreat-mail-mcp",
+  "name": "retreat-manager",
   "version": "0.1.0",
   "description": "Dashboard, batch exporter and printing system for retreat letters received in a shared Gmail inbox.",
   "private": true,

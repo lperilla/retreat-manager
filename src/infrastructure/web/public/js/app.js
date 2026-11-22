@@ -4,7 +4,7 @@
 import { api } from './api.js';
 import { initAssignModal } from './assignModal.js';
 import { initDashboard, loadDashboard } from './dashboardView.js';
-import { $, h, withBusy } from './dom.js';
+import { $, h, replaceChildren, skeleton, withBusy } from './dom.js';
 import { plural } from './format.js';
 import { loadHistory } from './historyView.js';
 import { loadParticipant } from './participantView.js';
@@ -71,7 +71,17 @@ async function route({ focus = true } = {}) {
   const { view, param, mode } = parseRoute();
   showView(view);
   void refreshRetreatBanner();
-  const titles = { dashboard: 'Cartas del retiro', review: 'Por revisar · Cartas del retiro', history: 'Historial · Cartas del retiro' };
+  // Placeholders while the screen loads (only when navigating: refreshes after an action
+  // keep the current content to avoid flicker).
+  if (focus) {
+    if (view === 'people') replaceChildren($('#view-people'), skeleton(6));
+    else if (view === 'participant') replaceChildren($('#view-participant'), skeleton(6));
+    else if (view === 'review' && $('#review-list').childElementCount === 0) replaceChildren($('#review-list'), skeleton(4));
+    else if (view === 'dashboard' && $('#directory-body').childElementCount === 0) {
+      replaceChildren($('#directory-body'), h('tr', {}, h('td', { colspan: '5' }, skeleton(5))));
+    }
+  }
+  const titles = { dashboard: 'Cartas · Gestión del retiro', review: 'Por revisar · Gestión del retiro', history: 'Historial · Gestión del retiro' };
   if (view !== 'participant' && view !== 'people') document.title = titles[/** @type {keyof typeof titles} */ (view)];
   try {
     if (view === 'dashboard') await loadDashboard();
@@ -82,7 +92,11 @@ async function route({ focus = true } = {}) {
   } catch (error) {
     if (token === routeToken) toastError(error);
   }
-  if (focus && token === routeToken) $('#main').focus({ preventScroll: false });
+  // New screen: start at the top (the top bar stays visible) and move keyboard focus to the content.
+  if (focus && token === routeToken) {
+    window.scrollTo({ top: 0 });
+    $('#main').focus({ preventScroll: true });
+  }
 }
 
 const BANNER_DATE = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -107,9 +121,9 @@ async function refreshRetreatBanner() {
 
 async function recompute(/** @type {HTMLButtonElement} */ button) {
   const accepted = await confirmDialog({
-    title: 'Reasignar cartas',
-    body: 'Se volverá a calcular a quién va cada carta usando la lista actual de participantes y alias. Las asignaciones manuales no se tocan. Úsalo después de cambiar la lista de participantes.',
-    confirmLabel: 'Reasignar cartas',
+    title: 'Volver a repartir las cartas',
+    body: 'Se vuelve a calcular para quién es cada carta con la lista actual de participantes y apodos. Las asignaciones hechas a mano no se tocan. Normalmente no hace falta: se hace solo al cambiar participantes.',
+    confirmLabel: 'Repartir de nuevo',
   });
   if (!accepted) return;
   await withBusy(button, async () => {
@@ -122,7 +136,7 @@ async function recompute(/** @type {HTMLButtonElement} */ button) {
         return h('li', {}, h('strong', { text: change.subject || '(Sin asunto)' }), `: ${describe(change.before)} → ${describe(change.after)}`);
       });
       showSummary(
-        'Resultado de la reasignación',
+        'Resultado del reparto',
         h(
           'div',
           {},

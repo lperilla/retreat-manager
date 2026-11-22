@@ -48,7 +48,24 @@ function reviewActions(letter) {
         ),
     }),
   );
+  const detected = letter.detectedRecipient;
   return [
+    detected
+      ? h(
+          'div',
+          { class: 'detected-recipient w-100 small' },
+          h('span', { class: 'text-body-secondary', text: 'Destinatario detectado: ' }),
+          h('strong', { text: detected.name }),
+          !detected.canCreate
+            ? null
+            : h('button', {
+                type: 'button',
+                class: 'btn btn-sm btn-link py-0',
+                text: `Crear participante «${detected.name}»`,
+                onClick: () => openAssignModal(letter, () => emit('data-changed'), { newParticipantName: detected.name }),
+              }),
+        )
+      : null,
     h(
       'div',
       { class: 'suggestion-buttons d-flex flex-wrap gap-2 me-auto' },
@@ -74,8 +91,17 @@ function reviewActions(letter) {
  * @param {any} letter
  */
 function unassignedActions(letter) {
+  const detected = letter.detectedRecipient;
   return [
-    h('span', { class: 'small text-body-secondary align-self-center me-auto', text: 'Dejada sin asignar. No cuenta para nadie.' }),
+    h('span', { class: 'small text-body-secondary align-self-center me-auto' }, 'Dejada sin asignar. No cuenta para nadie.', detected ? h('span', {}, ' Destinatario detectado: ', h('strong', { text: detected.name }), '.') : null),
+    detected?.canCreate
+      ? h('button', {
+          type: 'button',
+          class: 'btn btn-sm btn-outline-secondary',
+          text: `Crear «${detected.name}»`,
+          onClick: () => openAssignModal(letter, () => emit('data-changed'), { newParticipantName: detected.name }),
+        })
+      : null,
     h('button', {
       type: 'button',
       class: 'btn btn-sm btn-primary',

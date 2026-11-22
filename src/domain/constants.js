@@ -18,6 +18,8 @@ export const SignalType = Object.freeze({
   SUBJECT_EXPLICIT: 'SUBJECT_EXPLICIT',
   BODY_EXPLICIT: 'BODY_EXPLICIT',
   NAME_MENTION: 'NAME_MENTION',
+  /** Written name similar to a participant's (typo): a suggestion only, never assigns. */
+  NAME_SIMILAR: 'NAME_SIMILAR',
   MANUAL: 'MANUAL',
 });
 
@@ -26,6 +28,7 @@ export const SIGNAL_CONFIDENCE = Object.freeze({
   [SignalType.SUBJECT_EXPLICIT]: 0.95,
   [SignalType.BODY_EXPLICIT]: 0.85,
   [SignalType.NAME_MENTION]: 0.3,
+  [SignalType.NAME_SIMILAR]: 0.2,
   [SignalType.MANUAL]: 1,
 });
 

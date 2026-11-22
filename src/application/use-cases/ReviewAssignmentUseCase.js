@@ -5,6 +5,8 @@ import { AppError } from '../../domain/errors.js';
 import { applyAssignmentOverride } from '../../domain/services/assignment.js';
 import { resolveSelection } from '../../domain/services/batchSelection.js';
 import { withMultiRecipientFlag } from '../../domain/services/heuristics.js';
+import { detectRecipientHints } from '../../domain/services/recipientHints.js';
+import { cleanForAnalysis, normalizeText } from '../../domain/services/text.js';
 import { presentLetter } from '../services/presenters.js';
 import { requireString, requireStringArray } from '../services/validation.js';
 
@@ -57,10 +59,22 @@ export class ReviewAssignmentUseCase {
     const withdrawn = all
       .filter((letter) => !letter.deletedAt && letter.assignment.participantIds.some((id) => withdrawnIds.has(id)))
       .sort(byDate);
+    // "Destinatario detectado": the name written in the letter, and whether it is a known participant.
+    const knownNames = new Set(participants.flatMap((p) => [p.displayName, ...p.aliases].map((n) => normalizeText(n))));
+    const withHint = (/** @type {import('../../domain/entities/Letter.js').Letter} */ letter) => {
+      const [hint] = detectRecipientHints({ subject: letter.subject, body: cleanForAnalysis({ body: letter.cleanBody, from: letter.from }) });
+      return {
+        ...presentLetter(letter, { participantsById }),
+        // Creating a participant from the letter needs at least a name and a surname.
+        detectedRecipient: hint
+          ? { name: hint, known: knownNames.has(normalizeText(hint)), canCreate: !knownNames.has(normalizeText(hint)) && hint.trim().split(/\s+/).length >= 2 }
+          : null,
+      };
+    };
     return {
       total: letters.length,
-      letters: letters.map((letter) => presentLetter(letter, { participantsById })),
-      unassigned: { total: unassigned.length, letters: unassigned.map((letter) => presentLetter(letter, { participantsById })) },
+      letters: letters.map(withHint),
+      unassigned: { total: unassigned.length, letters: unassigned.map(withHint) },
       withdrawn: { total: withdrawn.length, letters: withdrawn.map((letter) => presentLetter(letter, { participantsById })) },
     };
   }

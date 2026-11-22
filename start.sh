@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cartas del retiro: arrancar, parar, reiniciar, instalar…
+# Gestión del retiro: arrancar, parar, reiniciar, instalar…
 #
 #   ./start.sh              arranca el panel en segundo plano (y MongoDB si hace falta)
 #   ./start.sh --install    instala dependencias y prepara .env y data/participants.json
