@@ -14,7 +14,7 @@ export const ERROR_MESSAGES = Object.freeze({
   PARTICIPANT_INCOMPLETE: 'Faltan datos obligatorios del participante.',
   PARTICIPANT_HAS_LETTERS: 'Este participante tiene cartas asignadas: no se puede eliminar. Dalo de baja en su lugar.',
   INVALID_RETREAT: 'Los datos del retiro no son válidos.',
-  PARTICIPANT_WITHDRAWN: 'El participante está dado de baja: no se le puede asignar habitación ni mesa.',
+  PARTICIPANT_WITHDRAWN: 'El participante está dado de baja: no se le puede asignar habitación ni mesa ni confirmar su asistencia.',
   INVALID_ROOM: 'Los datos de la habitación no son válidos.',
   ROOM_NOT_FOUND: 'Habitación no encontrada.',
   ROOM_NAME_TAKEN: 'Ya existe una habitación con ese nombre.',

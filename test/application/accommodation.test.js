@@ -89,6 +89,27 @@ describe('AccommodationUseCase (rooms and tables)', () => {
     assert.deepEqual(overview.tables[0].dietary, [{ type: 'allergy', code: 'nuts', label: 'Frutos de cáscara', count: 2, severe: true }]);
   });
 
+  it('stores the table leader and co-leader (servers, not participants) and warns when missing', async () => {
+    const { container } = await setup();
+    const { accommodation } = container.useCases;
+    const table = await accommodation.createTable({ name: 'Mesa 1', capacity: 8, leader: { name: 'Carlos Ruiz', phone: '600 111 222' }, coLeader: { name: '' } });
+    assert.deepEqual(table.leader, { name: 'Carlos Ruiz', phone: '600 111 222' });
+    assert.equal(table.coLeader, null);
+    let overview = await accommodation.overview();
+    assert.deepEqual(overview.tables[0].warnings, ['Falta el colíder de mesa.']);
+
+    const updated = await accommodation.updateTable(table.id, { coLeader: { name: 'Pablo Gil', phone: '' } });
+    assert.deepEqual(updated.coLeader, { name: 'Pablo Gil', phone: null });
+    assert.deepEqual(updated.leader, { name: 'Carlos Ruiz', phone: '600 111 222' });
+    overview = await accommodation.overview();
+    assert.deepEqual(overview.tables[0].warnings, []);
+    // Leaders are not participants: they are not offered as people to seat.
+    assert.equal(overview.withoutTable.some((p) => p.displayName === 'Carlos Ruiz'), false);
+
+    await assert.rejects(accommodation.createTable({ name: 'Mesa 2', capacity: 4, leader: { name: '', phone: '600000000' } }), { code: 'INVALID_TABLE' });
+    await assert.rejects(accommodation.createTable({ name: 'Mesa 3', capacity: 4, leader: { name: 'Ana', phone: 'abc' } }), { code: 'INVALID_TABLE' });
+  });
+
   it('is deleted with the retreat', async () => {
     const { container } = await setup();
     const { accommodation, retreat } = container.useCases;

@@ -11,10 +11,10 @@ import { getOrCreateActiveRetreat } from './activeRetreat.js';
 /** Fields a participant form may send (anything else is ignored). */
 const EDITABLE_FIELDS = Object.freeze([
   'givenNames', 'firstSurname', 'secondSurname', 'aliases', 'birthDate', 'age', 'email', 'phone',
-  'emergencyContacts', 'snores', 'dietary', 'accessibilityNeeds', 'supports', 'notes',
+  'emergencyContacts', 'snores', 'dietary', 'accessibilityNeeds', 'supports', 'notes', 'attendanceConfirmed',
 ]);
 
-export const PARTICIPANT_FILTERS = Object.freeze(['all', 'active', 'withdrawn', 'incomplete', 'dietary', 'accessibility', 'snores']);
+export const PARTICIPANT_FILTERS = Object.freeze(['all', 'active', 'withdrawn', 'incomplete', 'dietary', 'accessibility', 'snores', 'confirmed', 'unconfirmed']);
 
 /**
  * @param {string} value
@@ -99,6 +99,8 @@ export class ParticipantsUseCase {
         case 'dietary': return view.dietaryCount > 0;
         case 'accessibility': return view.accessibilityCount > 0;
         case 'snores': return view.snores === 'yes';
+        case 'confirmed': return view.status === ParticipantStatus.ACTIVE && view.attendanceConfirmed;
+        case 'unconfirmed': return view.status === ParticipantStatus.ACTIVE && !view.attendanceConfirmed;
         default: return true;
       }
     });
@@ -109,6 +111,8 @@ export class ParticipantsUseCase {
         active: views.filter((v) => v.status === ParticipantStatus.ACTIVE).length,
         withdrawn: views.filter((v) => v.status === ParticipantStatus.WITHDRAWN).length,
         incomplete: views.filter((v) => !v.complete).length,
+        confirmed: views.filter((v) => v.status === ParticipantStatus.ACTIVE && v.attendanceConfirmed).length,
+        unconfirmed: views.filter((v) => v.status === ParticipantStatus.ACTIVE && !v.attendanceConfirmed).length,
       },
       participants: matches,
     };
@@ -141,7 +145,7 @@ export class ParticipantsUseCase {
     const base = slugify(draft.displayName) || 'participante';
     let id = base;
     for (let n = 2; (await this.#records.findById(id)) !== null; n += 1) id = `${base}-${n}`;
-    const record = createParticipantRecord({ ...draft, id, createdAt: now, updatedAt: now });
+    const record = createParticipantRecord({ ...draft, id, createdAt: now, updatedAt: now, attendanceConfirmedAt: draft.attendanceConfirmed ? now : null });
     await this.#records.save(record);
     this.#logger.info({ participantId: record.id, quick }, 'Participant registered');
     return this.#afterNamesChanged(record);
@@ -156,7 +160,16 @@ export class ParticipantsUseCase {
     const now = this.#clock.now();
     const data = pickEditable(input);
     // Saving the form means a person has checked the name (old single-field names).
-    const record = createParticipantRecord({ ...current, ...data, id: current.id, nameNeedsReview: false, updatedAt: now });
+    const confirmed = data.attendanceConfirmed === undefined ? current.attendanceConfirmed : data.attendanceConfirmed === true;
+    const record = createParticipantRecord({
+      ...current,
+      ...data,
+      id: current.id,
+      nameNeedsReview: false,
+      attendanceConfirmed: confirmed,
+      attendanceConfirmedAt: confirmed ? (current.attendanceConfirmed ? current.attendanceConfirmedAt : now) : null,
+      updatedAt: now,
+    });
     assertComplete(record);
     const others = (await this.#records.findByRetreat(current.retreatId)).filter((r) => r.id !== current.id);
     assertNoNameClash(record, others);
@@ -180,6 +193,28 @@ export class ParticipantsUseCase {
     await this.#records.save(createParticipantRecord({ ...current, status: ParticipantStatus.WITHDRAWN, withdrawnAt: now, updatedAt: now }));
     this.#logger.info({ participantId: id }, 'Participant withdrawn');
     await this.#onParticipantLeft(id);
+    return { participant: await this.get({ id }) };
+  }
+
+  /**
+   * Confirms (or un-confirms) that the participant will attend the retreat.
+   * @param {string} id
+   * @param {{ confirmed: boolean }} input
+   */
+  async setAttendance(id, input) {
+    const current = await this.#require(id);
+    if (typeof input?.confirmed !== 'boolean') throw new AppError('VALIDATION_ERROR', 400, undefined, { field: 'confirmed' });
+    if (current.status === ParticipantStatus.WITHDRAWN && input.confirmed) throw new AppError('PARTICIPANT_WITHDRAWN', 409);
+    const now = this.#clock.now();
+    await this.#records.save(
+      createParticipantRecord({
+        ...current,
+        attendanceConfirmed: input.confirmed,
+        attendanceConfirmedAt: input.confirmed ? (current.attendanceConfirmed ? current.attendanceConfirmedAt : now) : null,
+        updatedAt: now,
+      }),
+    );
+    this.#logger.info({ participantId: id, confirmed: input.confirmed }, 'Participant attendance updated');
     return { participant: await this.get({ id }) };
   }
 
@@ -255,6 +290,8 @@ export class ParticipantsUseCase {
       severeAllergy: record.dietary.some((d) => d.severity === DietarySeverity.SEVERE),
       accessibilityCount: record.accessibilityNeeds.length,
       status: record.status,
+      attendanceConfirmed: record.attendanceConfirmed,
+      attendanceConfirmedAt: record.attendanceConfirmedAt?.toISOString() ?? null,
       missing,
       complete: missing.length === 0,
       letterCount,

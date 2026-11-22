@@ -20,6 +20,8 @@ const FILTERS = Object.freeze([
   ['withdrawn', 'Dados de baja'],
   ['noRoom', 'Sin habitación'],
   ['noTable', 'Sin mesa'],
+  ['confirmed', 'Asistencia confirmada'],
+  ['unconfirmed', 'Sin confirmar'],
 ]);
 /** Filters resolved in the browser with the accommodation data. */
 const ACCOMMODATION_FILTERS = new Set(['noRoom', 'noTable']);
@@ -113,7 +115,7 @@ async function renderList() {
     'div',
     { class: 'filter-chips', role: 'group', 'aria-label': 'Filtrar participantes' },
     FILTERS.map(([value, label]) => {
-      const count = ['active', 'withdrawn', 'incomplete', 'noRoom', 'noTable'].includes(value) ? data.counts[value] : null;
+      const count = ['active', 'withdrawn', 'incomplete', 'noRoom', 'noTable', 'confirmed', 'unconfirmed'].includes(value) ? data.counts[value] : null;
       return h('button', {
         type: 'button',
         class: 'chip',
@@ -133,7 +135,7 @@ async function renderList() {
     h(
       'div',
       { class: 'd-flex flex-wrap justify-content-between align-items-center gap-2 mb-3' },
-      h('div', {}, h('h1', { class: 'h3 mb-0', text: 'Participantes' }), h('p', { class: 'text-body-secondary mb-0', text: `${plural(data.total, 'participante', 'participantes')} en ${retreat.name}` })),
+      h('div', {}, h('h1', { class: 'h3 mb-0', text: 'Participantes' }), h('p', { class: 'text-body-secondary mb-0', text: `${plural(data.total, 'participante', 'participantes')} en ${retreat.name} · ${data.counts.confirmed} de ${data.counts.active} con asistencia confirmada` })),
       h('a', { class: 'btn btn-primary', href: '#/participantes/nuevo', text: '+ Nuevo participante' }),
     ),
     retreatPanel(retreat),
@@ -193,7 +195,7 @@ function peopleTable(data) {
         h(
           'thead',
           {},
-          h('tr', {}, ['Nombre', 'Edad', 'Teléfono', 'Contacto de emergencia', 'Habitación', 'Mesa', 'Alimentación', 'Accesibilidad', 'Cartas'].map((label) => h('th', { scope: 'col', text: label }))),
+          h('tr', {}, ['Nombre', 'Asistencia', 'Edad', 'Teléfono', 'Contacto de emergencia', 'Habitación', 'Mesa', 'Alimentación', 'Accesibilidad', 'Cartas'].map((label) => h('th', { scope: 'col', text: label }))),
         ),
         h(
           'tbody',
@@ -210,6 +212,7 @@ function peopleTable(data) {
                 p.complete ? null : h('span', { class: 'badge text-bg-warning ms-2', text: 'Ficha incompleta' }),
                 p.aliases.length > 0 ? h('div', { class: 'small text-body-secondary', text: `Apodos: ${p.aliases.join(', ')}` }) : null,
               ),
+              h('td', {}, attendanceToggle(p)),
               h('td', { text: p.age ?? '—' }),
               h('td', { text: p.phone ?? '—' }),
               h('td', {}, p.emergencyContact ? `${p.emergencyContact.name} · ${p.emergencyContact.phone}` : h('span', { class: 'text-danger', text: 'Falta' })),
@@ -230,6 +233,34 @@ function peopleTable(data) {
       ),
     ),
   );
+}
+
+/**
+ * One-click attendance toggle (active participants only).
+ * @param {any} p
+ */
+function attendanceToggle(p) {
+  if (p.status === 'withdrawn') return h('span', { class: 'text-body-secondary', text: '—' });
+  const button = /** @type {HTMLButtonElement} */ (
+    h('button', {
+      type: 'button',
+      class: `chip attendance-chip${p.attendanceConfirmed ? ' is-confirmed' : ''}`,
+      'aria-pressed': p.attendanceConfirmed ? 'true' : 'false',
+      title: p.attendanceConfirmed ? 'Pulsa para quitar la confirmación' : 'Pulsa para confirmar la asistencia',
+      text: p.attendanceConfirmed ? 'Confirmada' : 'Sin confirmar',
+    })
+  );
+  button.addEventListener('click', () =>
+    void withBusy(button, async () => {
+      try {
+        await api.setAttendance(p.id, !p.attendanceConfirmed);
+        emit('data-changed');
+      } catch (error) {
+        toastError(error);
+      }
+    }),
+  );
+  return button;
 }
 
 /**
@@ -328,6 +359,25 @@ async function renderDetail(p) {
   const actions = h(
     'div',
     { class: 'd-flex flex-wrap gap-2' },
+    p.status === 'withdrawn'
+      ? null
+      : h('button', {
+          type: 'button',
+          class: `btn ${p.attendanceConfirmed ? 'btn-success' : 'btn-outline-secondary'}`,
+          'aria-pressed': p.attendanceConfirmed ? 'true' : 'false',
+          text: p.attendanceConfirmed ? 'Asistencia confirmada' : 'Confirmar asistencia',
+          title: p.attendanceConfirmed ? 'Pulsa para quitar la confirmación' : 'Marcar que asistirá al retiro',
+          onClick: (/** @type {Event} */ e) =>
+            void withBusy(/** @type {HTMLButtonElement} */ (e.currentTarget), async () => {
+              try {
+                await api.setAttendance(p.id, !p.attendanceConfirmed);
+                toast(p.attendanceConfirmed ? 'Confirmación de asistencia retirada.' : 'Asistencia confirmada.');
+                emit('data-changed');
+              } catch (error) {
+                toastError(error);
+              }
+            }),
+        }),
     h('a', { class: 'btn btn-primary', href: `#/participantes/${encodeURIComponent(p.id)}/editar`, text: 'Editar' }),
     h('a', { class: 'btn btn-outline-primary', href: `#/participante/${encodeURIComponent(p.id)}`, text: `Ver cartas (${p.letterCount})` }),
     p.status === 'withdrawn'
@@ -390,6 +440,7 @@ async function renderDetail(p) {
           p.age !== null ? `${p.age} años` : 'Edad sin indicar',
           p.aliases.length > 0 ? ` · Apodos: ${p.aliases.join(', ')}` : '',
           p.status === 'withdrawn' ? ' · Dado de baja: no está en el retiro' : '',
+          p.status !== 'withdrawn' ? (p.attendanceConfirmed ? ` · Asistencia confirmada${p.attendanceConfirmedAt ? ` el ${INSTANT_FORMAT.format(new Date(p.attendanceConfirmedAt))}` : ''}` : ' · Asistencia sin confirmar') : '',
         ),
       ),
       actions,
@@ -594,6 +645,7 @@ function renderForm(p) {
     age: input('age', { type: 'number', min: '0', max: '120', inputmode: 'numeric', value: p?.ageInput ?? '' }),
     phone: input('phone', { type: 'tel', value: p?.phone ?? '', maxlength: '40' }),
     email: input('email', { type: 'email', value: p?.email ?? '', maxlength: '200' }),
+    attendance: h('input', { class: 'form-check-input', type: 'checkbox', id: 'attendanceConfirmed', checked: p?.attendanceConfirmed === true }),
     snores: h('select', { class: 'form-select', id: 'snores' }, catalogs.snoring.map((/** @type {any} */ s) => h('option', { value: s.code, text: s.label, selected: (p?.snores ?? 'unknown') === s.code }))),
     supports: h('textarea', { class: 'form-control', id: 'supports', rows: '2', maxlength: '1000', text: p?.supports ?? '' }),
     notes: h('textarea', { class: 'form-control', id: 'notes', rows: '3', maxlength: '2000', text: p?.notes ?? '' }),
@@ -666,7 +718,15 @@ function renderForm(p) {
         h('div', { class: 'mt-3' }, field('', 'supports', 'Apoyos necesarios durante el retiro', fields.supports, 'Por ejemplo: acompañarle en los desplazamientos largos, silla en las charlas.')),
       ),
     ),
-    formSection('Estancia', h('div', { class: 'row g-3' }, field('col-md-4', 'snores', 'Ronca', fields.snores, 'Ayuda a repartir las habitaciones.'))),
+    formSection(
+      'Asistencia y estancia',
+      h(
+        'div',
+        { class: 'row g-3 align-items-end' },
+        h('div', { class: 'col-md-5' }, h('div', { class: 'form-check form-switch mb-1' }, fields.attendance, h('label', { class: 'form-check-label', for: 'attendanceConfirmed', text: 'Asistencia al retiro confirmada' })), h('div', { class: 'form-text', text: 'Márcalo cuando el participante confirme que viene.' })),
+        field('col-md-4', 'snores', 'Ronca', fields.snores, 'Ayuda a repartir las habitaciones.'),
+      ),
+    ),
     formSection('Observaciones', field('', 'notes', 'Observaciones para su estancia y participación', fields.notes, 'Solo lo que necesiten saber los organizadores. Sin diagnósticos.')),
     h(
       'div',
@@ -701,6 +761,7 @@ function renderForm(p) {
       email: value(fields.email),
       emergencyContacts: contacts.map((c) => ({ name: value(c.name), relationship: value(c.relationship), phone: value(c.phone) })),
       snores: /** @type {HTMLSelectElement} */ (fields.snores).value,
+      attendanceConfirmed: /** @type {HTMLInputElement} */ (fields.attendance).checked,
       dietary: dietaryControls
         .filter((c) => c.box.checked)
         .map((c) => ({ type: c.type, code: c.code, severity: c.severity?.value || null, detail: c.detail?.value.trim() || null })),

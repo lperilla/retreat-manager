@@ -41,6 +41,8 @@ import {
  * @property {string|null} notes         Observations for the stay (no diagnoses).
  * @property {string}   status           ParticipantStatus.*
  * @property {Date|null} withdrawnAt
+ * @property {boolean}  attendanceConfirmed  The participant has confirmed they will attend.
+ * @property {Date|null} attendanceConfirmedAt
  * @property {boolean}  nameNeedsReview  Name split automatically from an old single-field name.
  * @property {Date}     createdAt
  * @property {Date}     updatedAt
@@ -320,6 +322,8 @@ export function createParticipantRecord(props) {
     status,
     withdrawnAt: status === ParticipantStatus.WITHDRAWN && source.withdrawnAt ? requiredInstant(source.withdrawnAt, 'withdrawnAt') : null,
     nameNeedsReview: source.nameNeedsReview === true,
+    attendanceConfirmed: source.attendanceConfirmed === true,
+    attendanceConfirmedAt: source.attendanceConfirmed === true && source.attendanceConfirmedAt ? requiredInstant(source.attendanceConfirmedAt, 'attendanceConfirmedAt') : null,
     createdAt,
     updatedAt: source.updatedAt ? requiredInstant(source.updatedAt, 'updatedAt') : createdAt,
   });

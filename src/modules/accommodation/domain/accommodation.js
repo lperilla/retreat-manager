@@ -22,7 +22,11 @@ import { AppError } from '../../../domain/errors.js';
  * @property {string}      retreatId
  * @property {string}      name        "Mesa 3"
  * @property {number}      capacity    Seats (1-50).
+ * @property {TableLeader|null} leader    Table leader: a server (servidor), not a participant.
+ * @property {TableLeader|null} coLeader  Co-leader: also a server.
  * @property {string|null} notes
+ *
+ * @typedef {{ name: string, phone: string | null }} TableLeader
  *
  * @typedef {Object} Assignment
  * @property {string}      retreatId
@@ -108,8 +112,32 @@ export function createTable(props) {
     retreatId: clean(props.retreatId),
     name,
     capacity: capacityOf(props.capacity ?? 1, 'INVALID_TABLE', 'Plazas'),
+    leader: leaderOf(props.leader, 'Líder de mesa'),
+    coLeader: leaderOf(props.coLeader, 'Colíder de mesa'),
     notes: optional(props.notes, 'INVALID_TABLE', 'Notas', 300),
   });
+}
+
+/**
+ * Table leaders are servers of the retreat (not participants): just a name and, optionally,
+ * a phone. An empty name means "not assigned yet".
+ * @param {unknown} value
+ * @param {string} label
+ * @returns {Readonly<TableLeader> | null}
+ */
+function leaderOf(value, label) {
+  const source = /** @type {{ name?: unknown, phone?: unknown } | null | undefined} */ (value);
+  const name = clean(source?.name);
+  const phone = clean(source?.phone);
+  if (!name) {
+    if (phone) throw invalid('INVALID_TABLE', label, 'falta el nombre');
+    return null;
+  }
+  if (name.length > 120) throw invalid('INVALID_TABLE', label, 'el nombre es demasiado largo');
+  if (phone && (phone.length > 40 || !/^[0-9+()\-.\s]+$/.test(phone) || phone.replace(/\D/g, '').length < 6)) {
+    throw invalid('INVALID_TABLE', label, 'el teléfono no es válido');
+  }
+  return Object.freeze({ name, phone: phone || null });
 }
 
 /**
@@ -160,10 +188,14 @@ export function roomWarnings(room, occupants) {
 }
 
 /**
- * @param {Pick<Table, 'capacity'>} table
+ * @param {Pick<Table, 'capacity' | 'leader' | 'coLeader'>} table
  * @param {ReadonlyArray<unknown>} occupants
  * @returns {string[]}
  */
 export function tableWarnings(table, occupants) {
-  return occupants.length > table.capacity ? [`Hay ${occupants.length} personas para ${table.capacity} plazas.`] : [];
+  const warnings = [];
+  if (occupants.length > table.capacity) warnings.push(`Hay ${occupants.length} personas para ${table.capacity} plazas.`);
+  if (!table.leader) warnings.push('Falta el líder de mesa.');
+  if (!table.coLeader) warnings.push('Falta el colíder de mesa.');
+  return warnings;
 }

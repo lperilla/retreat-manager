@@ -63,6 +63,32 @@ export async function loadAccommodation(kind) {
 }
 
 /**
+ * Name and phone inputs for the table leader and co-leader (servers of the retreat, not
+ * participants).
+ * @param {string} prefix  Unique id prefix.
+ * @param {any} [table]
+ */
+function leaderFields(prefix, table) {
+  const make = (/** @type {'leader' | 'coLeader'} */ key, /** @type {string} */ label) => {
+    const name = /** @type {HTMLInputElement} */ (h('input', { class: 'form-control form-control-sm', id: `${prefix}-${key}-name`, maxlength: '120', autocomplete: 'off', value: table?.[key]?.name ?? '' }));
+    const phone = /** @type {HTMLInputElement} */ (h('input', { class: 'form-control form-control-sm', id: `${prefix}-${key}-phone`, type: 'tel', maxlength: '40', autocomplete: 'off', value: table?.[key]?.phone ?? '' }));
+    const element = h(
+      'div',
+      { class: 'row g-2' },
+      h('div', { class: 'col-7' }, h('label', { class: 'form-label small mb-1', for: `${prefix}-${key}-name`, text: label }), name),
+      h('div', { class: 'col-5' }, h('label', { class: 'form-label small mb-1', for: `${prefix}-${key}-phone`, text: 'Teléfono' }), phone),
+    );
+    return { element, value: () => ({ name: name.value.trim(), phone: phone.value.trim() }) };
+  };
+  const leader = make('leader', 'Líder de mesa (servidor)');
+  const coLeader = make('coLeader', 'Colíder de mesa (servidor)');
+  return {
+    element: h('div', { class: 'd-flex flex-column gap-2' }, leader.element, coLeader.element),
+    value: () => ({ leader: leader.value(), coLeader: coLeader.value() }),
+  };
+}
+
+/**
  * Creates one place, or several numbered ones ("Habitación 1…20").
  * @param {'rooms' | 'tables'} kind
  */
@@ -84,8 +110,13 @@ function newPlaceForm(kind) {
     h('div', { class: 'col-6 col-md-2' }, h('label', { class: 'form-label small mb-1', for: id('to'), text: 'Hasta el número' }), to),
     h('div', { class: 'col-12 form-text', text: `Se crean «nombre + número», por ejemplo «${isRooms ? 'Habitación' : 'Mesa'} 1», «${isRooms ? 'Habitación' : 'Mesa'} 2»…` }),
   );
+  const leaders = isRooms ? null : leaderFields(`new-${kind}`);
+  const leadersBlock = leaders
+    ? h('div', { class: 'mt-3 pt-3 border-top' }, h('p', { class: 'small text-body-secondary mb-2', text: 'Quiénes dirigen la mesa: son servidores, no participantes.' }), leaders.element)
+    : null;
   several.addEventListener('change', () => {
     range.hidden = !several.checked;
+    if (leadersBlock) leadersBlock.hidden = several.checked;
     /** @type {HTMLInputElement} */ (name).placeholder = several.checked ? (isRooms ? 'Habitación' : 'Mesa') : isRooms ? 'Habitación 1' : 'Mesa 1';
   });
 
@@ -112,6 +143,7 @@ function newPlaceForm(kind) {
           : null,
         h('div', { class: 'col-md-2 d-grid' }, h('button', { type: 'submit', class: 'btn btn-sm btn-primary', text: 'Crear' })),
       ),
+      leadersBlock,
       h('div', { class: 'form-check mt-2' }, several, h('label', { class: 'form-check-label small', for: id('several'), text: 'Crear varias numeradas' })),
       range,
     ),
@@ -132,6 +164,7 @@ function newPlaceForm(kind) {
     }
     const common = {
       capacity: Number(/** @type {HTMLInputElement} */ (capacity).value),
+      ...(leaders && !several.checked ? leaders.value() : {}),
       ...(isRooms ? { floor: /** @type {HTMLInputElement} */ (floor).value, accessible: accessible.checked, groundFloor: ground.checked } : {}),
     };
     const button = /** @type {HTMLButtonElement} */ (form.querySelector('button[type="submit"]'));
@@ -233,6 +266,19 @@ function placeCard(kind, place, without) {
               );
             }),
           ),
+      !isRooms
+        ? h(
+            'p',
+            { class: 'leaders' },
+            'Líder: ',
+            place.leader ? h('strong', { text: place.leader.name }) : h('span', { class: 'text-danger', text: 'sin asignar' }),
+            place.leader?.phone ? ` · ${place.leader.phone}` : '',
+            h('br'),
+            'Colíder: ',
+            place.coLeader ? h('strong', { text: place.coLeader.name }) : h('span', { class: 'text-danger', text: 'sin asignar' }),
+            place.coLeader?.phone ? ` · ${place.coLeader.phone}` : '',
+          )
+        : null,
       !isRooms && place.dietary.length > 0
         ? h(
             'div',
@@ -272,6 +318,7 @@ function editForm(kind, place) {
   const capacity = h('input', { class: 'form-control form-control-sm', id: id('capacity'), type: 'number', min: '1', max: '50', value: String(place.capacity) });
   const floor = h('input', { class: 'form-control form-control-sm', id: id('floor'), value: place.floor ?? '', maxlength: '40' });
   const notes = h('input', { class: 'form-control form-control-sm', id: id('notes'), value: place.notes ?? '', maxlength: '300' });
+  const editLeaders = isRooms ? null : leaderFields(`edit-${place.id}`, place);
   const accessible = /** @type {HTMLInputElement} */ (h('input', { class: 'form-check-input', type: 'checkbox', id: id('accessible'), checked: place.accessible }));
   const ground = /** @type {HTMLInputElement} */ (h('input', { class: 'form-check-input', type: 'checkbox', id: id('ground'), checked: place.groundFloor }));
   const form = h(
@@ -290,6 +337,7 @@ function editForm(kind, place) {
           h('div', { class: 'form-check' }, ground, h('label', { class: 'form-check-label small', for: id('ground'), text: 'Sin escaleras' })),
         )
       : null,
+    editLeaders ? editLeaders.element : null,
     h('label', { class: 'form-label small mb-0', for: id('notes'), text: 'Notas' }),
     notes,
     h('button', { type: 'submit', class: 'btn btn-sm btn-primary align-self-end', text: 'Guardar' }),
@@ -300,6 +348,7 @@ function editForm(kind, place) {
       name: /** @type {HTMLInputElement} */ (name).value,
       capacity: Number(/** @type {HTMLInputElement} */ (capacity).value),
       notes: /** @type {HTMLInputElement} */ (notes).value,
+      ...(editLeaders ? editLeaders.value() : {}),
       ...(isRooms ? { floor: /** @type {HTMLInputElement} */ (floor).value, accessible: accessible.checked, groundFloor: ground.checked } : {}),
     };
     const button = /** @type {HTMLButtonElement} */ (form.querySelector('button[type="submit"]'));

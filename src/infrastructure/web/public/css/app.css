@@ -208,6 +208,10 @@ main:focus { outline: none; }
 .chip:hover { background: var(--ui-subtle); }
 .chip[aria-pressed="true"] { color: #fff; background: var(--ui-accent); border-color: var(--ui-accent); }
 .chip .chip-count { color: inherit; opacity: .7; font-variant-numeric: tabular-nums; }
+.attendance-chip { white-space: nowrap; }
+.attendance-chip.is-confirmed, .attendance-chip.is-confirmed[aria-pressed="true"] { color: var(--ui-success); background: var(--ui-success-bg); border-color: var(--ui-success-border); }
+.leaders { font-size: .8125rem; color: var(--ui-muted); margin: 0; }
+.leaders strong { color: var(--ui-text); font-weight: 500; }
 .filter-chips .btn { border-radius: 999px; }
 
 /* ---------------------------------------------------------------- Skeleton loading */

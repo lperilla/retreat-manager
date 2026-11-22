@@ -25,6 +25,7 @@ function queryString(value) {
  *   PUT    /participants/:id            edit
  *   POST   /participants/:id/withdraw   dar de baja
  *   POST   /participants/:id/reactivate
+ *   PUT    /participants/:id/attendance  { confirmed: true | false }
  *   DELETE /participants/:id            only without assigned letters
  * @param {{ runtime: import('../../../../infrastructure/web/WebRuntime.js').WebRuntime }} options
  * @returns {import('express').Router}
@@ -63,6 +64,9 @@ export function createParticipantsRouter({ runtime }) {
   });
   router.post('/participants/:id/withdraw', async (req, res) => {
     res.json(await participants().withdraw(req.params.id));
+  });
+  router.put('/participants/:id/attendance', async (req, res) => {
+    res.json(await participants().setAttendance(req.params.id, { confirmed: req.body?.confirmed }));
   });
   router.post('/participants/:id/reactivate', async (req, res) => {
     res.json(await participants().reactivate(req.params.id));

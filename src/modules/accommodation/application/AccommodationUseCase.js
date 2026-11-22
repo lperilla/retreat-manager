@@ -161,7 +161,7 @@ export class AccommodationUseCase {
 
   /** @param {Record<string, any>} input */
   async createTable(input) {
-    const table = createTable({ ...pick(input, ['name', 'capacity', 'notes']), id: this.#idGenerator(), retreatId: await this.#retreatId() });
+    const table = createTable({ ...pick(input, ['name', 'capacity', 'notes', 'leader', 'coLeader']), id: this.#idGenerator(), retreatId: await this.#retreatId() });
     await this.#assertUniqueName(this.#tables, table, 'TABLE_NAME_TAKEN');
     await this.#tables.save(table);
     this.#logger.info({ tableId: table.id }, 'Table created');
@@ -174,7 +174,7 @@ export class AccommodationUseCase {
    */
   async updateTable(id, input) {
     const current = await this.#requirePlace(this.#tables, id, 'TABLE_NOT_FOUND');
-    const table = createTable({ ...current, ...pick(input, ['name', 'capacity', 'notes']) });
+    const table = createTable({ ...current, ...pick(input, ['name', 'capacity', 'notes', 'leader', 'coLeader']) });
     await this.#assertUniqueName(this.#tables, table, 'TABLE_NAME_TAKEN');
     await this.#tables.save(table);
     return table;

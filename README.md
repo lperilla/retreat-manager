@@ -256,6 +256,7 @@ El apartado **Participantes** es la **fuente única** de participantes del retir
 - **Alta y edición**. Son obligatorios el **nombre**, el **primer apellido**, la **edad o la fecha de nacimiento** y **una persona de contacto para emergencias** (nombre y teléfono; se puede añadir una segunda). El resto es opcional: segundo apellido, apodos, teléfono, correo (nunca se usa para las cartas), si ronca, alimentación, accesibilidad, apoyos y observaciones.
 - **Alimentación**: los 14 alérgenos de declaración obligatoria, intolerancias y dietas, con gravedad (*leve* o *grave, puede requerir medicación de urgencia*) y «otra» con detalle.
 - **Accesibilidad**: necesidades **prácticas** (movilidad reducida, habitación accesible, evitar escaleras, ayuda en desplazamientos…) y los apoyos necesarios durante el retiro. **No se piden diagnósticos.**
+- **Asistencia**: cada participante está *Sin confirmar* o *Confirmada* (con la fecha). Se cambia en un clic desde la columna «Asistencia» del listado o desde la ficha («Confirmar asistencia»), o en el formulario. Hay filtros «Asistencia confirmada» y «Sin confirmar», y el listado muestra cuántos han confirmado. No se puede confirmar a alguien dado de baja.
 - **Dar de baja**: el participante sale del panel y de los lotes de impresión, pero sus cartas se conservan con la marca **«No está en el retiro»** (en «Por revisar» → «Participantes dados de baja»). Se puede reactivar.
 - **Eliminar**: solo si no tiene cartas asignadas; si las tiene, dalo de baja.
 - **Identificador estable**: si cambias el nombre, el identificador no cambia; cartas, impresión y asignaciones manuales siguen enlazadas.
@@ -264,11 +265,12 @@ El apartado **Participantes** es la **fuente única** de participantes del retir
 
 ### Habitaciones y mesas
 
-En **Participantes → Habitaciones / Mesas** se crean las habitaciones (nombre, camas, planta, accesible, sin escaleras) y las mesas (nombre, plazas). Con «Crear varias numeradas» se crean de una vez, por ejemplo «Habitación 1» a «Habitación 20».
+En **Participantes → Habitaciones / Mesas** se crean las habitaciones (nombre, camas, planta, accesible, sin escaleras) y las mesas (nombre, plazas, **líder y colíder de mesa**). Con «Crear varias numeradas» se crean de una vez, por ejemplo «Habitación 1» a «Habitación 20».
 
 - **Asignar**: desde la tarjeta de cada habitación o mesa («Añadir a…», con quien aún no tiene), o desde la ficha del participante (sección **Habitación y mesa**, con cama opcional). Cada participante tiene **una habitación y una mesa fija** para todo el retiro.
 - **Aforo**: una habitación o mesa completa no admite a nadie más. Una con personas no se puede eliminar.
 - **Avisos** (informan, no bloquean): si comparten habitación quien ronca y quien no, si alguien que necesita habitación accesible o evitar escaleras no la tiene, o si hay más personas que plazas.
+- **Líder y colíder de mesa**: son **servidores**, no participantes, así que no ocupan plaza ni salen en las listas de participantes. Se indican con nombre y teléfono opcional al crear o editar la mesa, y la tarjeta los muestra; si falta alguno, la mesa lo avisa. Se borran con el retiro.
 - **Cocina**: cada mesa resume las alergias, intolerancias y dietas de quienes se sientan en ella, con las graves en rojo.
 - El listado de participantes muestra su habitación y su mesa, con filtros «Sin habitación» y «Sin mesa».
 - **Dar de baja o eliminar** a un participante libera su habitación y su mesa. Al cerrar el retiro se borran también habitaciones, mesas y asignaciones.

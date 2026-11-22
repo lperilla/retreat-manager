@@ -96,6 +96,33 @@ describe('ParticipantsUseCase (participants module)', () => {
     await assert.rejects(participants.list({ filter: 'nope' }), { code: 'VALIDATION_ERROR' });
   });
 
+  it('confirms attendance (with date), filters by it and does not allow it for withdrawn participants', async () => {
+    const { container, clock } = await seeded();
+    const participants = container.useCases.participants;
+    let list = await participants.list();
+    assert.equal(list.counts.confirmed, 0);
+    assert.equal(list.counts.unconfirmed, 6);
+
+    const confirmed = await participants.setAttendance('juan-perez', { confirmed: true });
+    assert.equal(confirmed.participant.attendanceConfirmed, true);
+    assert.equal(confirmed.participant.attendanceConfirmedAt, clock.now().toISOString());
+    list = await participants.list({ filter: 'confirmed' });
+    assert.deepEqual(list.participants.map((p) => p.id), ['juan-perez']);
+    assert.equal(list.counts.unconfirmed, 5);
+
+    const undone = await participants.setAttendance('juan-perez', { confirmed: false });
+    assert.equal(undone.participant.attendanceConfirmed, false);
+    assert.equal(undone.participant.attendanceConfirmedAt, null);
+    await assert.rejects(participants.setAttendance('juan-perez', { confirmed: 'yes' }), { code: 'VALIDATION_ERROR' });
+
+    // From the registration form too.
+    const created = await participants.create({ givenNames: 'Ana', firstSurname: 'Ruiz', ...COMPLETE, attendanceConfirmed: true });
+    assert.equal(created.participant.attendanceConfirmed, true);
+
+    await participants.withdraw('pedro-sanchez');
+    await assert.rejects(participants.setAttendance('pedro-sanchez', { confirmed: true }), { code: 'PARTICIPANT_WITHDRAWN' });
+  });
+
   it('withdrawn participants keep their letters, marked, out of the dashboard; deleting needs no letters', async () => {
     const { container } = await seeded();
     const { useCases } = container;

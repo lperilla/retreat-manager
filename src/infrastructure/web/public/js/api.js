@@ -78,6 +78,8 @@ export const api = {
     request('/api/participants', { method: 'POST', body: { ...body, quick: true } }),
   updateParticipant: (/** @type {string} */ id, /** @type {Record<string, unknown>} */ body) =>
     request(`/api/participants/${encodeURIComponent(id)}`, { method: 'PUT', body }),
+  setAttendance: (/** @type {string} */ id, /** @type {boolean} */ confirmed) =>
+    request(`/api/participants/${encodeURIComponent(id)}/attendance`, { method: 'PUT', body: { confirmed } }),
   withdrawParticipant: (/** @type {string} */ id) => request(`/api/participants/${encodeURIComponent(id)}/withdraw`, { method: 'POST' }),
   reactivateParticipant: (/** @type {string} */ id) => request(`/api/participants/${encodeURIComponent(id)}/reactivate`, { method: 'POST' }),
   deleteParticipant: (/** @type {string} */ id) => request(`/api/participants/${encodeURIComponent(id)}`, { method: 'DELETE' }),
