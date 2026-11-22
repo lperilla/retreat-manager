@@ -282,6 +282,10 @@ main:focus { outline: none; }
 .directory-table .participant-link { font-weight: 500; color: var(--ui-text); text-decoration: none; }
 .directory-table .participant-link:hover { text-decoration: underline; }
 .count-badge { min-width: 2.25rem; font-variant-numeric: tabular-nums; }
+/* "Impresas" column: printed letters out of the total. */
+.printed-count { display: inline-block; min-width: 3.25rem; padding: .1rem .45rem; border-radius: 999px; font-size: .75rem; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; color: var(--ui-muted); background: var(--ui-subtle); }
+.printed-count.is-partial { color: var(--ui-warning); background: var(--ui-warning-bg); }
+.printed-count.is-done { color: var(--ui-success); background: var(--ui-success-bg); }
 .print-toggle { min-width: 6.5rem; }
 .toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: space-between; }
 

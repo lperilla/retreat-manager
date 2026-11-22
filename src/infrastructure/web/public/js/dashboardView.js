@@ -147,6 +147,23 @@ function printToggle(row) {
   });
 }
 
+/**
+ * "3 / 8": letters printed out of the participant's letters (green when all, amber when
+ * some are missing, grey when none).
+ * @param {any} row
+ */
+function printedCount(row) {
+  if (row.letterCount === 0) return h('span', { class: 'text-body-secondary', text: '—' });
+  const printed = row.letterCount - (row.unprintedCount ?? row.letterCount);
+  const tone = printed === row.letterCount ? 'is-done' : printed > 0 ? 'is-partial' : '';
+  return h('span', {
+    class: `printed-count ${tone}`.trim(),
+    title: `${plural(printed, 'carta impresa', 'cartas impresas')} de ${row.letterCount}`,
+    'aria-label': `${plural(printed, 'carta impresa', 'cartas impresas')} de ${row.letterCount}`,
+    text: `${printed} / ${row.letterCount}`,
+  });
+}
+
 function renderDirectory() {
   const rows = currentRows();
   const body = $('#directory-body');
@@ -189,6 +206,7 @@ function renderDirectory() {
             text: String(row.letterCount),
           }),
         ),
+        h('td', { class: 'text-end' }, printedCount(row)),
         h(
           'td',
           {},
