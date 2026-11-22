@@ -130,7 +130,7 @@ Otras opciones: `--no-open` (no abrir el navegador), `--no-mongo` (no tocar Mong
 | `npm run db:purge` | Borra las cartas y los datos de sincronización (pide confirmación). |
 | `npm run demo:walkthrough` | Recorre la demo por consola, sin servidor. |
 | `node scripts/generate-demo-assets.js` | Regenera los adjuntos ficticios de la demo (ya incluidos en el repositorio). |
-| `npm run seed:gmail` | Crea en tu buzón de Gmail un juego de 48 cartas de prueba ([ver Tests](#tests)). |
+| `npm run seed:gmail` | Crea en tu buzón de Gmail un juego de 61 cartas de prueba ([ver Tests](#tests)). |
 
 ## MongoDB con Docker
 
@@ -255,9 +255,10 @@ El apartado **Participantes** es la **fuente única** de participantes del retir
 
 - **Listado** con búsqueda (nombre, apodo, teléfono, correo o número de documento), filtros (activos, fichas incompletas, alimentación, accesibilidad, roncan, dados de baja, sin habitación, sin mesa, asistencia confirmada o no) y filtro por **mesa** (una mesa concreta o «Sin mesa»).
 - **Ordenar por columnas**: pulsa la cabecera de Nombre, Asistencia, Edad, Habitación, Mesa o Cartas; otra pulsación invierte el orden (▲/▼). Los vacíos van siempre al final.
-- **Exportar a Excel**: descarga un `.xlsx` con los participantes que se ven en ese momento (misma búsqueda, filtro, mesa y orden; sin filtros, todos). Incluye nombre y apellidos, estado, asistencia, edad, contacto, contacto de emergencia, habitación y cama, mesa, ronca, alimentación, accesibilidad, apoyos, observaciones, cartas y si la ficha está completa, más una hoja «Información» con los criterios usados. **No incluye el documento de identidad.** Se genera al momento y no se guarda en el servidor; trátalo con cuidado porque contiene datos de salud.
+- **Exportar a Excel**: descarga un `.xlsx` con los participantes que se ven en ese momento (misma búsqueda, filtro, mesa y orden; sin filtros, todos). Incluye nombre y apellidos, estado, asistencia, edad, nacionalidad, contacto, contacto de emergencia, habitación y cama, mesa, ronca, alimentación, accesibilidad, apoyos, observaciones, cartas y si la ficha está completa, más una hoja «Información» con los criterios usados. **No incluye el documento de identidad.** Se genera al momento y no se guarda en el servidor; trátalo con cuidado porque contiene datos de salud.
 - **Ficha** de cada participante y botón **Ver cartas**.
 - **Alta y edición**. Son obligatorios el **nombre**, el **primer apellido**, la **edad o la fecha de nacimiento** y **una persona de contacto para emergencias** (nombre y teléfono; se puede añadir una segunda). El resto es opcional: segundo apellido, apodos, teléfono, correo (nunca se usa para las cartas), si ronca, alimentación, accesibilidad, apoyos y observaciones.
+- **Nacionalidad** (opcional): el país, elegido de la lista o escrito a mano. Se ve en la ficha, se puede buscar y sale en el Excel.
 - **Documento de identidad** (opcional): **DNI**, **NIE** (extranjeros residentes en España), **pasaporte** u **otro documento** (por ejemplo, la cédula de otro país), con su número y, para pasaporte u otro, el país de expedición. El número se guarda en mayúsculas y sin espacios ni guiones; en DNI y NIE se comprueba la letra de control. No puede haber dos participantes con el mismo documento, y se puede buscar por su número. Solo se muestra en la ficha y el formulario (nunca en listados ni exportaciones) y se borra con el retiro.
 - **Alimentación**: los 14 alérgenos de declaración obligatoria, intolerancias y dietas, con gravedad (*leve* o *grave, puede requerir medicación de urgencia*) y «otra» con detalle.
 - **Accesibilidad**: necesidades **prácticas** (movilidad reducida, habitación accesible, evitar escaleras, ayuda en desplazamientos…) y los apoyos necesarios durante el retiro. **No se piden diagnósticos.**
@@ -453,9 +454,10 @@ Sin `MONGODB_URI_TEST`, esos tests se saltan.
 
 ### Cartas de prueba en Gmail
 
-`npm run seed:gmail` crea **directamente en el buzón autorizado** 48 cartas de prueba, sin enviar nada a nadie (`users.messages.insert`). Cubren muchos formatos:
+`npm run seed:gmail` crea **directamente en el buzón autorizado** 61 cartas de prueba para un retiro de hombres (de esposas, hijos, padres, hermanos y amigos), sin enviar nada a nadie (`users.messages.insert`). Cubren muchos formatos:
 
 - texto, HTML, texto + HTML, tablas, ISO-8859-1 y emojis;
+- 13 cartas ilustradas con mucho formato: fuentes (Georgia, Palatino, Comic Sans, Segoe Script, Courier, Trebuchet), colores, fondos, titulares, citas, listas, tablas y fotos incrustadas;
 - todas las formas de saludo y nombres ambiguos;
 - respuestas citadas, reenvíos, respuestas automáticas, boletines, rebotes y «solo firma»;
 - escaneos con EXIF, WEBP, GIF, imagen `cid:`, PDF, Word, HEIC, vídeo, ZIP, SVG bloqueado y un tipo falso.
@@ -472,7 +474,36 @@ Genera los `.eml` en `.run/seed/` sin tocar Gmail.
 npm run seed:gmail -- --write-participants
 ```
 
-Los inserta en Gmail y escribe los 20 participantes de prueba en `data/participants.json`, con copia del anterior. Esa lista solo se importa si el retiro aún no tiene participantes; si ya los tiene, añádelos en **Participantes**.
+Los inserta en Gmail y escribe los nombres de los 20 participantes de prueba en `data/participants.json`, con copia del anterior. Esa lista solo se importa si el retiro aún no tiene participantes; si ya los tiene, añádelos en **Participantes**.
+
+```powershell
+npm run seed:gmail -- --load-participants
+```
+
+Los inserta en Gmail y **sustituye** los participantes del retiro activo por los 20 de prueba, con la ficha completa: edad, nacionalidad, teléfono, contacto de emergencia, ronquidos, alimentación (una alergia grave), accesibilidad y asistencia. Los que no estén en la lista de prueba se borran y se liberan su habitación y su mesa; antes se guarda una copia en `.run/participants-backup-*.json`. Con `--dry-run --load-participants` solo carga los participantes, sin tocar Gmail.
+
+```powershell
+npm run seed:gmail -- --generated
+```
+
+En vez del catálogo fijo, genera unas 100 cartas para los participantes **que ya hay** en el retiro activo, sin cambiarlos. Mezcla texto corto y largo, HTML con formato, cartas ilustradas con fotos, PDF, Word, escaneos, cartas para dos personas y casos para «Por revisar». El reparto es desigual: unos reciben muchas, otros pocas y un par ninguna. Cada carta se comprueba con el motor de reconocimiento antes de insertarla. Con `--generated=150` se cambia la cantidad, y con `--dry-run` solo se generan los `.eml`.
+
+**Preparar una presentación con datos de prueba**
+
+1. En Gmail, busca `from:familias-prueba.example` y **borra las cartas de prueba anteriores**. Hazlo antes de insertar las nuevas: la misma búsqueda las borraría también.
+2. Borra las cartas guardadas (los participantes, habitaciones y mesas se conservan):
+
+   ```powershell
+   npm run db:purge
+   ```
+
+3. Inserta las cartas y carga los participantes (pide escribir SI):
+
+   ```powershell
+   npm run seed:gmail -- --load-participants
+   ```
+
+4. Reinicia el panel y pulsa **Sincronización completa**.
 
 - Pide un permiso **aparte y solo para insertar** (`gmail.insert`). En la pantalla de Google, marca la casilla «Insertar correo en tu buzón de Gmail». Ese permiso se guarda en `.run/seed-token.json`; la aplicación sigue siendo de solo lectura.
 - Comprueba que esa autorización es de la misma cuenta que `token.json` antes de insertar nada.

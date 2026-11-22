@@ -175,3 +175,101 @@ export function fakeMov() {
 export function fakeHeic() {
   return Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from('ftypheic\x00\x00\x00\x00mif1heic', 'latin1'), Buffer.alloc(4096, 7)]);
 }
+
+/**
+ * Scenes for the illustrated test letters (800×500). Plain SVG shapes only, so they render
+ * the same on every machine.
+ */
+const SCENES = Object.freeze({
+  /** Mountains at sunset. */
+  sunset: () =>
+    `<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2d6e"/><stop offset=".55" stop-color="#e2725b"/><stop offset="1" stop-color="#f6c36b"/></linearGradient></defs>
+     <rect width="800" height="500" fill="url(#sky)"/><circle cx="560" cy="300" r="70" fill="#ffd27a" opacity=".95"/>
+     <polygon points="0,500 0,330 140,220 260,320 380,190 520,330 640,240 800,350 800,500" fill="#3c3a5f"/>
+     <polygon points="0,500 0,400 180,320 330,410 470,330 620,420 800,380 800,500" fill="#26243f"/>
+     <g fill="#fff" opacity=".8"><circle cx="90" cy="60" r="2"/><circle cx="200" cy="40" r="1.5"/><circle cx="330" cy="80" r="2"/><circle cx="700" cy="50" r="1.5"/></g>`,
+  /** Calm sea with a sailing boat. */
+  sea: () =>
+    `<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd3f4"/><stop offset="1" stop-color="#e0f4ff"/></linearGradient>
+     <linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f7fb8"/><stop offset="1" stop-color="#0b3d63"/></linearGradient></defs>
+     <rect width="800" height="500" fill="url(#sky)"/><circle cx="650" cy="90" r="45" fill="#fff4b0"/>
+     <rect y="280" width="800" height="220" fill="url(#water)"/>
+     <g fill="none" stroke="#bfe6ff" stroke-width="3" opacity=".7"><path d="M40 330 q30 -12 60 0 t60 0"/><path d="M420 360 q30 -12 60 0 t60 0"/><path d="M200 420 q30 -12 60 0 t60 0"/><path d="M600 440 q30 -12 60 0 t60 0"/></g>
+     <polygon points="300,275 470,275 445,305 325,305" fill="#7a4b2a"/><rect x="383" y="140" width="5" height="135" fill="#5a3a20"/>
+     <polygon points="391,145 391,265 470,265" fill="#fdfdfd"/><polygon points="380,160 380,265 320,265" fill="#f2d7a7"/>
+     <g fill="none" stroke="#334" stroke-width="3"><path d="M150 120 q12 -12 24 0 q12 -12 24 0"/><path d="M230 90 q9 -9 18 0 q9 -9 18 0"/></g>`,
+  /** A cheerful dog on the grass, with a ball. */
+  dog: () =>
+    `<rect width="800" height="500" fill="#bfe3f2"/><rect y="340" width="800" height="160" fill="#7cc36b"/>
+     <path d="M255 300 q-60 -60 -30 -110" stroke="#c98b4e" stroke-width="22" fill="none" stroke-linecap="round"/>
+     <ellipse cx="400" cy="330" rx="150" ry="85" fill="#c98b4e"/><ellipse cx="530" cy="240" rx="80" ry="72" fill="#c98b4e"/>
+     <ellipse cx="585" cy="180" rx="26" ry="55" fill="#8a5a2e" transform="rotate(25 585 180)"/><ellipse cx="480" cy="185" rx="26" ry="55" fill="#8a5a2e" transform="rotate(-25 480 185)"/>
+     <circle cx="510" cy="230" r="10" fill="#222"/><circle cx="555" cy="230" r="10" fill="#222"/><ellipse cx="560" cy="268" rx="16" ry="11" fill="#222"/>
+     <path d="M520 285 q25 22 50 0" stroke="#222" stroke-width="5" fill="none"/><ellipse cx="545" cy="302" rx="12" ry="16" fill="#e86a7a"/>
+     <rect x="300" y="380" width="30" height="70" rx="12" fill="#a8703c"/><rect x="360" y="390" width="30" height="62" rx="12" fill="#a8703c"/><rect x="440" y="390" width="30" height="62" rx="12" fill="#a8703c"/><rect x="490" y="380" width="30" height="70" rx="12" fill="#a8703c"/>
+     <circle cx="170" cy="430" r="34" fill="#f2c94c"/><path d="M140 418 q30 20 60 0" stroke="#fff" stroke-width="5" fill="none"/>`,
+  /** A child's crayon drawing: house, sun and family holding hands. */
+  crayon: () =>
+    `<rect width="800" height="500" fill="#fffdf7"/>
+     <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+       <circle cx="680" cy="95" r="48" stroke="#f5b700" stroke-width="9"/>
+       <g stroke="#f5b700" stroke-width="7"><path d="M680 30 v-20"/><path d="M730 50 l14 -12"/><path d="M740 105 h20"/><path d="M630 50 l-14 -12"/><path d="M620 105 h-20"/></g>
+       <path d="M90 300 l120 -110 l120 110 z" stroke="#d1495b" stroke-width="8"/><rect x="110" y="300" width="200" height="150" stroke="#3d5a80" stroke-width="8"/>
+       <rect x="185" y="370" width="50" height="80" stroke="#8d6346" stroke-width="7"/><rect x="130" y="320" width="40" height="38" stroke="#3d5a80" stroke-width="6"/>
+       <g stroke="#2a9d8f" stroke-width="7"><circle cx="430" cy="300" r="26"/><path d="M430 326 v80 M430 406 l-25 45 M430 406 l25 45 M400 350 h130"/>
+       <circle cx="530" cy="315" r="20"/><path d="M530 335 v60 M530 395 l-18 38 M530 395 l18 38 M530 350 h90"/>
+       <circle cx="620" cy="300" r="26"/><path d="M620 326 v80 M620 406 l-25 45 M620 406 l25 45"/></g>
+       <path d="M0 470 q100 -15 200 0 t200 0 t200 0 t200 0" stroke="#6ab04c" stroke-width="10"/>
+     </g>`,
+  /** Birthday cake with candles. */
+  cake: () =>
+    `<rect width="800" height="500" fill="#fde2e4"/><g fill="#fff" opacity=".6"><circle cx="80" cy="80" r="10"/><circle cx="720" cy="120" r="14"/><circle cx="650" cy="40" r="8"/><circle cx="150" cy="200" r="6"/></g>
+     <ellipse cx="400" cy="440" rx="260" ry="30" fill="#d9a5b3"/>
+     <rect x="200" y="330" width="400" height="105" rx="16" fill="#8d5a3b"/><path d="M200 350 q50 30 100 0 t100 0 t100 0 t100 0" fill="#fff6e9"/>
+     <rect x="250" y="250" width="300" height="85" rx="14" fill="#f4a7b9"/><path d="M250 268 q37 25 75 0 t75 0 t75 0 t75 0" fill="#fff"/>
+     <g fill="#7ec8e3"><rect x="300" y="190" width="14" height="60" rx="4"/><rect x="360" y="180" width="14" height="70" rx="4"/><rect x="426" y="180" width="14" height="70" rx="4"/><rect x="486" y="190" width="14" height="60" rx="4"/></g>
+     <g fill="#ffb703"><ellipse cx="307" cy="178" rx="9" ry="15"/><ellipse cx="367" cy="168" rx="9" ry="15"/><ellipse cx="433" cy="168" rx="9" ry="15"/><ellipse cx="493" cy="178" rx="9" ry="15"/></g>`,
+  /** Football pitch with goal and ball. */
+  football: () =>
+    `<rect width="800" height="500" fill="#4caf50"/><g fill="#43a047"><rect y="0" width="800" height="60"/><rect y="120" width="800" height="60"/><rect y="240" width="800" height="60"/><rect y="360" width="800" height="60"/><rect y="480" width="800" height="20"/></g>
+     <g fill="none" stroke="#fff" stroke-width="6"><rect x="250" y="40" width="300" height="140"/><path d="M250 40 l30 -25 h240 l30 25"/><circle cx="400" cy="560" r="160"/></g>
+     <g stroke="#fff" stroke-width="2" opacity=".6"><path d="M265 50 v120 M295 50 v120 M325 50 v120 M355 50 v120 M385 50 v120 M415 50 v120 M445 50 v120 M475 50 v120 M505 50 v120 M535 50 v120"/></g>
+     <circle cx="430" cy="330" r="46" fill="#fff" stroke="#222" stroke-width="4"/><polygon points="430,305 452,320 444,346 416,346 408,320" fill="#222"/>`,
+  /** Instant "photo" of a family (simple silhouettes). */
+  family: () =>
+    `<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9ad0ec"/><stop offset="1" stop-color="#f7d9a8"/></linearGradient></defs>
+     <rect width="800" height="500" fill="#f1e7d0"/><rect x="40" y="30" width="720" height="440" fill="url(#bg)"/><rect x="40" y="380" width="720" height="90" fill="#c9b18b"/>
+     <circle cx="230" cy="190" r="42" fill="#7b4b2a"/><rect x="180" y="235" width="100" height="170" rx="40" fill="#2e86ab"/>
+     <circle cx="350" cy="200" r="38" fill="#a0522d"/><rect x="305" y="240" width="90" height="160" rx="38" fill="#e76f51"/>
+     <circle cx="460" cy="245" r="30" fill="#8b5a2b"/><rect x="425" y="278" width="70" height="125" rx="30" fill="#f4a261"/>
+     <circle cx="560" cy="185" r="44" fill="#5c3d2e"/><rect x="508" y="232" width="104" height="175" rx="42" fill="#264653"/>
+     <circle cx="650" cy="260" r="24" fill="#9c6644"/><rect x="622" y="286" width="56" height="115" rx="24" fill="#2a9d8f"/>`,
+  /** A path with the yellow arrow of the Camino. */
+  camino: () =>
+    `<rect width="800" height="500" fill="#cfe8f5"/><circle cx="680" cy="80" r="40" fill="#fff3b0"/><path d="M0 260 q200 -60 400 -20 t400 -30 v290 h-800 z" fill="#a7c957"/>
+     <path d="M330 500 q40 -120 90 -250 q10 -20 30 -20 q-20 0 -30 20 q-20 130 60 250 z" fill="#e9d8a6"/>
+     <rect x="560" y="250" width="110" height="170" rx="10" fill="#9a8c7a"/><path d="M585 330 h55 l-18 -18 M640 330 l-18 18" stroke="#f9c80e" stroke-width="12" fill="none" stroke-linecap="round"/>
+     <rect x="160" y="270" width="16" height="60" fill="#6b4f2c"/><g fill="#386641"><circle cx="140" cy="250" r="45"/><circle cx="190" cy="230" r="55"/></g>`,
+});
+
+/** Names of the available illustration scenes. */
+export const ILLUSTRATION_SCENES = Object.freeze(Object.keys(SCENES));
+
+/**
+ * Illustration for the rich test letters, rendered from SVG, with an optional handwritten
+ * caption under the picture (like a printed photo).
+ * @param {string} scene  One of ILLUSTRATION_SCENES.
+ * @param {{ caption?: string, format?: 'png' | 'jpeg', width?: number }} [options]
+ * @returns {Promise<Buffer>}
+ */
+export async function illustration(scene, { caption, format = 'jpeg', width = 800 } = {}) {
+  const draw = SCENES[/** @type {keyof typeof SCENES} */ (scene)];
+  if (!draw) throw new Error(`Unknown illustration scene "${scene}"`);
+  const height = caption ? 560 : 500;
+  const label = caption
+    ? `<rect y="500" width="800" height="60" fill="#ffffff"/><text x="400" y="542" text-anchor="middle" font-family="'Segoe Script', 'Comic Sans MS', cursive" font-size="28" fill="#333">${xmlEscape(caption)}</text>`
+    : '';
+  const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="800" height="${height}" viewBox="0 0 800 ${height}">${draw()}${label}</svg>`);
+  const image = sharp(svg).resize({ width });
+  return format === 'png' ? image.png().toBuffer() : image.jpeg({ quality: 84 }).toBuffer();
+}

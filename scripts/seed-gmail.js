@@ -5,6 +5,14 @@
  *   node scripts/seed-gmail.js --dry-run              build the letters as .eml files in .run/seed/ (no Gmail)
  *   node scripts/seed-gmail.js                        insert them into Gmail (asks for confirmation)
  *   node scripts/seed-gmail.js --write-participants   also write data/participants.json (backup in .run/)
+ *   node scripts/seed-gmail.js --load-participants    also REPLACE the participants of the active retreat in the
+ *                                                     configured store (MongoDB) with the test participants and
+ *                                                     their full profiles (backup in .run/). With --dry-run it
+ *                                                     only loads the participants: Gmail is not touched.
+ *   node scripts/seed-gmail.js --generated            instead of the fixed catalog, ~100 letters of varied
+ *                                                     complexity generated for the participants ALREADY in the
+ *                                                     active retreat (read-only; --generated=150 for another
+ *                                                     amount). Combine with --dry-run to only build the .eml files.
  *
  * - Uses `users.messages.insert` (nothing is sent; messages appear in the inbox as unread,
  *   with the dates of the catalog).
@@ -19,13 +27,17 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSyn
 import { join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 
+import { createPersistenceAdapters } from '../src/composition/container.js';
 import { loadEnvironment, PROJECT_ROOT } from '../src/entrypoints/bootstrap.js';
+import { SystemClock } from '../src/infrastructure/clock/SystemClock.js';
 import { createGmailClient, OAuth2 } from '../src/infrastructure/gmail/googleClient.js';
 import { loadAuthorizedClient, readClientSecrets, writeTokenFile } from '../src/infrastructure/gmail/oauthClient.js';
 import { runLoopbackAuthorization } from '../src/infrastructure/gmail/oauthFlow.js';
 import { withRetry } from '../src/infrastructure/gmail/retry.js';
 import { NullLogger } from '../src/infrastructure/logging/NullLogger.js';
 import { SEED_LETTERS, SEED_PARTICIPANTS, SEED_QUERY, resolveDate } from './seed/catalog.js';
+import { generateLetters } from './seed/generated.js';
+import { currentParticipants, loadSeedParticipants } from './seed/loadParticipants.js';
 import { buildMime } from './seed/mime.js';
 
 const INSERT_SCOPES = Object.freeze(['https://www.googleapis.com/auth/gmail.insert', 'openid', 'email']);
@@ -63,10 +75,11 @@ function emailFromIdToken(idToken) {
 /**
  * @param {Date} now
  * @param {string} toAddress
+ * @param {readonly import('./seed/catalog.js').SeedLetter[]} letters
  */
-async function buildMessages(now, toAddress) {
+async function buildMessages(now, toAddress, letters) {
   const messages = [];
-  for (const letter of SEED_LETTERS) {
+  for (const letter of letters) {
     const attachments = letter.attachments ? await letter.attachments() : [];
     const raw = buildMime({
       from: letter.from,
@@ -124,14 +137,28 @@ async function insertAuthorization(config) {
 
 async function main() {
   const args = new Set(process.argv.slice(2));
-  const unknown = [...args].filter((arg) => !['--dry-run', '--yes', '--write-participants'].includes(arg));
+  const generatedArg = [...args].find((arg) => arg === '--generated' || arg.startsWith('--generated='));
+  const unknown = [...args].filter((arg) => arg !== generatedArg && !['--dry-run', '--yes', '--write-participants', '--load-participants'].includes(arg));
   if (unknown.length > 0) throw new Error(`Opción desconocida: ${unknown.join(', ')}`);
 
   const config = loadEnvironment();
   const now = new Date();
+  const loadParticipants = args.has('--load-participants');
+  if (loadParticipants && config.demoMode) throw new Error('--load-participants necesita DEMO_MODE=false (en el modo demo los participantes son los de ejemplo).');
+  if (generatedArg && loadParticipants) throw new Error('--generated escribe a los participantes que ya hay: no se combina con --load-participants.');
+
+  /** @type {readonly import('./seed/catalog.js').SeedLetter[]} */
+  let letters = SEED_LETTERS;
+  if (generatedArg) {
+    const count = generatedArg.includes('=') ? Number(generatedArg.split('=')[1]) : 100;
+    if (!Number.isInteger(count) || count < 20 || count > 500) throw new Error('--generated=N: N entre 20 y 500.');
+    const { retreat, participants } = await withStore(config, (persistence) => currentParticipants({ persistence, now }));
+    letters = await generateLetters(participants, { count });
+    say(`Cartas generadas para los ${participants.length} participantes del retiro «${retreat.name}» (no se cambia ningún participante).`);
+  }
 
   if (args.has('--dry-run')) {
-    const messages = await buildMessages(now, 'buzon-de-prueba@example.com');
+    const messages = await buildMessages(now, 'buzon-de-prueba@example.com', letters);
     const dir = join(RUN_DIR, 'seed');
     mkdirSync(dir, { recursive: true });
     for (const [index, { letter, raw }] of messages.entries()) {
@@ -139,6 +166,11 @@ async function main() {
     }
     printSummary(messages);
     say(`\n${messages.length} correos generados en ${dir} (puedes abrirlos con Outlook o Thunderbird). No se ha tocado Gmail.`);
+    if (loadParticipants) {
+      say(`\n${await describeReplacement(config, now)}`);
+      if (args.has('--yes') || (await confirm())) await replaceParticipants(config, now);
+      else say('Cancelado: no se ha cambiado ningún participante.');
+    }
     return;
   }
 
@@ -155,21 +187,14 @@ async function main() {
     );
   }
 
-  const messages = await buildMessages(now, mailbox);
+  const messages = await buildMessages(now, mailbox, letters);
   printSummary(messages);
   say(`\nSe van a crear ${messages.length} correos de prueba en la bandeja de entrada de ${mailbox}.`);
   say('No se envía nada a nadie; los remitentes son ficticios (@familias-prueba.example).');
-  if (!args.has('--yes')) {
-    const prompt = createInterface({ input: process.stdin, output: process.stdout });
-    const answer = await new Promise((resolve) => {
-      prompt.once('close', () => resolve(''));
-      prompt.question('Escribe SI para continuar: ').then(resolve, () => resolve(''));
-    });
-    prompt.close();
-    if (String(answer).trim().toUpperCase() !== 'SI') {
-      say('Cancelado: no se ha creado ningún correo.');
-      return;
-    }
+  if (loadParticipants) say(await describeReplacement(config, now));
+  if (!args.has('--yes') && !(await confirm())) {
+    say(`Cancelado: no se ha creado ningún correo${loadParticipants ? ' ni se ha cambiado ningún participante' : ''}.`);
+    return;
   }
 
   const gmail = createGmailClient(client);
@@ -189,11 +214,67 @@ async function main() {
   say(`✔ ${created} correos de prueba creados en ${mailbox}.`);
 
   if (args.has('--write-participants')) writeParticipants();
+  if (loadParticipants) await replaceParticipants(config, now);
 
   say('\nSiguientes pasos:');
   say(`  1. En .env pon: GMAIL_QUERY=${SEED_QUERY}`);
   say('  2. Reinicia el panel: .\\start.cmd --restart   y pulsa «Sincronización completa».');
   say(`  3. Para borrarlos de Gmail: busca «${SEED_QUERY}», selecciona todos y elimínalos.`);
+}
+
+/** Asks for an explicit "SI" (end of input counts as no). */
+async function confirm() {
+  const prompt = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await new Promise((resolve) => {
+    prompt.once('close', () => resolve(''));
+    prompt.question('Escribe SI para continuar: ').then(resolve, () => resolve(''));
+  });
+  prompt.close();
+  return String(answer).trim().toUpperCase() === 'SI';
+}
+
+/**
+ * @template T
+ * @param {import('../src/composition/config.js').AppConfig} config
+ * @param {(persistence: any) => Promise<T>} work
+ * @returns {Promise<T>}
+ */
+async function withStore(config, work) {
+  const persistence = await createPersistenceAdapters({ config, clock: new SystemClock(), logger: new NullLogger() });
+  try {
+    return await work(persistence);
+  } finally {
+    await persistence.close();
+  }
+}
+
+/**
+ * What --load-participants is going to change (shown before the confirmation).
+ * @param {import('../src/composition/config.js').AppConfig} config
+ * @param {Date} now
+ */
+async function describeReplacement(config, now) {
+  const { retreat, participants } = await withStore(config, (persistence) => currentParticipants({ persistence, now }));
+  return [
+    `Se van a SUSTITUIR los ${participants.length} participantes del retiro «${retreat.name}» por los ${SEED_PARTICIPANTS.length} de prueba (con ficha completa y nacionalidad).`,
+    'Los que no estén en la lista de prueba se borran y se liberan su habitación y su mesa. Antes se guarda una copia en .run/.',
+  ].join('\n');
+}
+
+/**
+ * Backs up the active retreat's participants, then loads the test participants.
+ * @param {import('../src/composition/config.js').AppConfig} config
+ * @param {Date} now
+ */
+async function replaceParticipants(config, now) {
+  await withStore(config, async (persistence) => {
+    const { participants } = await currentParticipants({ persistence, now });
+    mkdirSync(RUN_DIR, { recursive: true });
+    const backup = join(RUN_DIR, `participants-backup-${now.toISOString().replace(/[:.]/g, '-')}.json`);
+    writeFileSync(backup, `${JSON.stringify(participants, null, 2)}\n`);
+    const { loaded, removed } = await loadSeedParticipants({ persistence, now });
+    say(`✔ ${loaded} participantes de prueba cargados (${removed.length} quitados). Copia de los anteriores: ${backup}`);
+  });
 }
 
 function writeParticipants() {
@@ -203,7 +284,8 @@ function writeParticipants() {
     mkdirSync(RUN_DIR, { recursive: true });
     copyFileSync(file, join(RUN_DIR, 'participants.backup.json'));
   }
-  writeFileSync(file, `${JSON.stringify(SEED_PARTICIPANTS, null, 2)}\n`);
+  const names = SEED_PARTICIPANTS.map(({ displayName, aliases }) => ({ displayName, aliases }));
+  writeFileSync(file, `${JSON.stringify(names, null, 2)}\n`);
   say(`✔ data/participants.json actualizado con los ${SEED_PARTICIPANTS.length} participantes de prueba (copia del anterior en .run/participants.backup.json).`);
 }
 
