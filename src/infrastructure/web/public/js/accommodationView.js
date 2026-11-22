@@ -220,7 +220,6 @@ function placeCard(kind, place, without) {
     if (select.value) void assign(select.value, place.id, addButton);
   });
 
-  const edit = editForm(kind, place);
   return h(
     'article',
     { class: 'card place-card' },
@@ -292,7 +291,7 @@ function placeCard(kind, place, without) {
       h(
         'div',
         { class: 'd-flex gap-2 justify-content-end' },
-        h('button', { type: 'button', class: 'btn btn-sm btn-link px-0', text: 'Editar', onClick: () => (edit.hidden = !edit.hidden) }),
+        h('button', { type: 'button', class: 'btn btn-sm btn-link px-0', text: 'Editar', 'aria-haspopup': 'dialog', onClick: () => openEditModal(kind, place) }),
         h('button', {
           type: 'button',
           class: 'btn btn-sm btn-link text-danger px-0',
@@ -302,68 +301,97 @@ function placeCard(kind, place, without) {
           onClick: (/** @type {Event} */ e) => void removePlace(kind, place, /** @type {HTMLButtonElement} */ (e.currentTarget)),
         }),
       ),
-      edit,
     ),
   );
 }
 
+/** Save action of the edit dialog (the dialog is shared by rooms and tables). */
+/** @type {(() => Promise<void>) | null} */
+let saveEdit = null;
+
+function editModal() {
+  const modal = $('#place-modal');
+  if (!modal.dataset.ready) {
+    modal.dataset.ready = 'true';
+    $('#place-modal-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (saveEdit) void withBusy(/** @type {HTMLButtonElement} */ ($('#place-modal-save')), saveEdit);
+    });
+  }
+  return modal;
+}
+
 /**
+ * "Editar": a dialog with the room or table data (and, for tables, its leaders).
  * @param {'rooms' | 'tables'} kind
  * @param {any} place
  */
-function editForm(kind, place) {
+function openEditModal(kind, place) {
   const isRooms = kind === 'rooms';
-  const id = (/** @type {string} */ field) => `edit-${place.id}-${field}`;
-  const name = h('input', { class: 'form-control form-control-sm', id: id('name'), value: place.name, maxlength: '80' });
-  const capacity = h('input', { class: 'form-control form-control-sm', id: id('capacity'), type: 'number', min: '1', max: '50', value: String(place.capacity) });
-  const floor = h('input', { class: 'form-control form-control-sm', id: id('floor'), value: place.floor ?? '', maxlength: '40' });
-  const notes = h('input', { class: 'form-control form-control-sm', id: id('notes'), value: place.notes ?? '', maxlength: '300' });
-  const editLeaders = isRooms ? null : leaderFields(`edit-${place.id}`, place);
+  const id = (/** @type {string} */ field) => `edit-place-${field}`;
+  const name = /** @type {HTMLInputElement} */ (h('input', { class: 'form-control', id: id('name'), value: place.name, maxlength: '80', required: true }));
+  const capacity = /** @type {HTMLInputElement} */ (h('input', { class: 'form-control', id: id('capacity'), type: 'number', min: '1', max: '50', value: String(place.capacity) }));
+  const floor = /** @type {HTMLInputElement} */ (h('input', { class: 'form-control', id: id('floor'), value: place.floor ?? '', maxlength: '40', placeholder: 'Planta baja, 1ª…' }));
+  const notes = /** @type {HTMLInputElement} */ (h('input', { class: 'form-control', id: id('notes'), value: place.notes ?? '', maxlength: '300' }));
   const accessible = /** @type {HTMLInputElement} */ (h('input', { class: 'form-check-input', type: 'checkbox', id: id('accessible'), checked: place.accessible }));
   const ground = /** @type {HTMLInputElement} */ (h('input', { class: 'form-check-input', type: 'checkbox', id: id('ground'), checked: place.groundFloor }));
-  const form = h(
-    'form',
-    { class: 'border-top pt-2 d-flex flex-column gap-2', hidden: true, novalidate: true },
-    h('label', { class: 'form-label small mb-0', for: id('name'), text: 'Nombre' }),
-    name,
-    h('label', { class: 'form-label small mb-0', for: id('capacity'), text: isRooms ? 'Camas' : 'Plazas' }),
-    capacity,
-    isRooms ? [h('label', { class: 'form-label small mb-0', for: id('floor'), text: 'Planta' }), floor] : null,
-    isRooms
-      ? h(
-          'div',
-          { class: 'd-flex gap-3' },
-          h('div', { class: 'form-check' }, accessible, h('label', { class: 'form-check-label small', for: id('accessible'), text: 'Accesible' })),
-          h('div', { class: 'form-check' }, ground, h('label', { class: 'form-check-label small', for: id('ground'), text: 'Sin escaleras' })),
-        )
-      : null,
-    editLeaders ? editLeaders.element : null,
-    h('label', { class: 'form-label small mb-0', for: id('notes'), text: 'Notas' }),
-    notes,
-    h('button', { type: 'submit', class: 'btn btn-sm btn-primary align-self-end', text: 'Guardar' }),
+  const leaders = isRooms ? null : leaderFields('edit-place', place);
+  const error = h('div', { class: 'alert alert-danger py-2', role: 'alert', hidden: true });
+
+  $('#place-modal-title').textContent = `Editar ${place.name}`;
+  replaceChildren(
+    $('#place-modal-body'),
+    error,
+    h(
+      'div',
+      { class: 'row g-3' },
+      h('div', { class: 'col-8' }, h('label', { class: 'form-label small mb-1', for: id('name'), text: 'Nombre *' }), name),
+      h('div', { class: 'col-4' }, h('label', { class: 'form-label small mb-1', for: id('capacity'), text: isRooms ? 'Camas *' : 'Plazas *' }), capacity),
+      isRooms ? h('div', { class: 'col-12' }, h('label', { class: 'form-label small mb-1', for: id('floor'), text: 'Planta' }), floor) : null,
+      isRooms
+        ? h(
+            'div',
+            { class: 'col-12 d-flex gap-4' },
+            h('div', { class: 'form-check' }, accessible, h('label', { class: 'form-check-label', for: id('accessible'), text: 'Accesible' })),
+            h('div', { class: 'form-check' }, ground, h('label', { class: 'form-check-label', for: id('ground'), text: 'Sin escaleras' })),
+          )
+        : null,
+      leaders
+        ? h('div', { class: 'col-12 pt-2 border-top' }, h('p', { class: 'small text-body-secondary mb-2', text: 'Quiénes dirigen la mesa: son servidores, no participantes.' }), leaders.element)
+        : null,
+      h('div', { class: 'col-12' }, h('label', { class: 'form-label small mb-1', for: id('notes'), text: 'Notas' }), notes),
+    ),
   );
-  form.addEventListener('submit', (event) => {
-    event.preventDefault();
+
+  saveEdit = async () => {
+    if (!name.value.trim()) {
+      error.textContent = 'Escribe el nombre.';
+      error.hidden = false;
+      name.focus();
+      return;
+    }
     const body = {
-      name: /** @type {HTMLInputElement} */ (name).value,
-      capacity: Number(/** @type {HTMLInputElement} */ (capacity).value),
-      notes: /** @type {HTMLInputElement} */ (notes).value,
-      ...(editLeaders ? editLeaders.value() : {}),
-      ...(isRooms ? { floor: /** @type {HTMLInputElement} */ (floor).value, accessible: accessible.checked, groundFloor: ground.checked } : {}),
+      name: name.value,
+      capacity: Number(capacity.value),
+      notes: notes.value,
+      ...(leaders ? leaders.value() : {}),
+      ...(isRooms ? { floor: floor.value, accessible: accessible.checked, groundFloor: ground.checked } : {}),
     };
-    const button = /** @type {HTMLButtonElement} */ (form.querySelector('button[type="submit"]'));
-    void withBusy(button, async () => {
-      try {
-        if (isRooms) await api.updateRoom(place.id, body);
-        else await api.updateTable(place.id, body);
-        toast('Cambios guardados.');
-        emit('data-changed');
-      } catch (error) {
-        toastError(error);
-      }
-    });
-  });
-  return form;
+    try {
+      if (isRooms) await api.updateRoom(place.id, body);
+      else await api.updateTable(place.id, body);
+      /** @type {any} */ (window).bootstrap.Modal.getOrCreateInstance(editModal()).hide();
+      toast(`${body.name.trim()} guardada.`);
+      emit('data-changed');
+    } catch (failure) {
+      error.textContent = /** @type {Error} */ (failure).message;
+      error.hidden = false;
+    }
+  };
+
+  const modal = editModal();
+  modal.addEventListener('shown.bs.modal', () => name.focus(), { once: true });
+  /** @type {any} */ (window).bootstrap.Modal.getOrCreateInstance(modal).show();
 }
 
 /**

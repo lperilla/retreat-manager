@@ -270,7 +270,7 @@ export function initDashboard() {
     });
   }
   // Step 1 starts a search for new letters; step 3 prints everyone pending with letters.
-  $('#step-sync').addEventListener('click', () => /** @type {HTMLButtonElement} */ ($('#sync-now')).click());
+  $('#step-sync').addEventListener('click', () => /** @type {HTMLButtonElement} */ ($('#sync-now-menu')).click());
   $('#step-print-pending').addEventListener('click', () => {
     const ids = state.participants.filter((row) => row.printStatus === 'pending' && row.letterCount > 0).map((row) => row.participantId);
     if (ids.length > 0) void printLetters(ids);

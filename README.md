@@ -198,6 +198,8 @@ En cualquier caso se descartan los borradores, el spam, la papelera y los mensaj
 
 **Menú**: arriba hay una entrada por módulo, **Cartas** (con el número de cartas por revisar) y **Participantes**. Cada módulo agrupa sus opciones en pestañas: *Cartas* → Panel, Por revisar e Historial; *Participantes* → Participantes, Habitaciones y Mesas.
 
+**Móvil y tablet**: el panel se adapta a móvil, tablet (vertical y horizontal) y escritorio. En tablet vertical el menú sigue visible y «Buscar cartas nuevas» pasa a «Más opciones»; las tablas muestran las columnas principales y la ficha de cada participante tiene todos los datos; en pantallas táctiles los botones, chips y casillas son más grandes.
+
 **Barra superior**
 
 - Estado del correo («Al día», «Buscando…», «Con error») y «Última búsqueda: hace 5 min».

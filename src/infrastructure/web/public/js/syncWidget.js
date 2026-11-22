@@ -127,6 +127,8 @@ async function startSync(mode) {
 
 export function initSyncWidget() {
   $('#sync-now').addEventListener('click', () => void startSync('incremental'));
+  // Narrow screens (tablets in portrait): the same action lives in "Más opciones".
+  $('#sync-now-menu').addEventListener('click', () => void startSync('incremental'));
   $('#sync-full').addEventListener('click', async () => {
     const accepted = await confirmDialog({
       title: 'Volver a leer todo el buzón',

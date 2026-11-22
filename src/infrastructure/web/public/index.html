@@ -17,7 +17,7 @@
 <body>
   <a class="visually-hidden-focusable skip-link" href="#main">Saltar al contenido</a>
 
-  <nav class="navbar navbar-expand-lg app-navbar no-print" aria-label="Navegación principal">
+  <nav class="navbar navbar-expand-md app-navbar no-print" aria-label="Navegación principal">
     <div class="container-fluid">
       <a class="navbar-brand" href="#/"><img class="brand-logo" src="/img/logo.svg" alt="" width="36" height="36">Gestión del retiro</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#main-nav"
@@ -36,12 +36,14 @@
 
         <div class="sync-widget d-flex flex-wrap align-items-center gap-2" id="sync-widget">
           <span class="badge text-bg-secondary" id="sync-state" role="status">Sin datos</span>
-          <span class="text-body-secondary me-1" id="sync-last" aria-live="polite">Última búsqueda: nunca</span>
-          <button type="button" class="btn btn-outline-secondary btn-sm" id="sync-now">Buscar cartas nuevas</button>
+          <span class="text-body-secondary me-1 d-none d-xl-inline" id="sync-last" aria-live="polite">Última búsqueda: nunca</span>
+          <button type="button" class="btn btn-outline-secondary btn-sm d-none d-lg-inline-flex" id="sync-now">Buscar cartas nuevas</button>
           <div class="dropdown">
             <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" id="sync-menu"
               data-bs-toggle="dropdown" aria-expanded="false">Más opciones</button>
             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="sync-menu">
+              <li class="d-lg-none"><button class="dropdown-item" type="button" id="sync-now-menu">Buscar cartas nuevas</button></li>
+              <li class="d-lg-none"><hr class="dropdown-divider"></li>
               <li><button class="dropdown-item" type="button" id="sync-full">Volver a leer todo el buzón…</button></li>
               <li><button class="dropdown-item" type="button" id="recompute">Volver a repartir las cartas…</button></li>
               <li id="logout-item" hidden>
@@ -355,6 +357,23 @@
           <button type="button" class="btn btn-primary" id="assign-save">Asignar</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Edit room / table -->
+  <div class="modal fade" id="place-modal" tabindex="-1" aria-labelledby="place-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" id="place-modal-form" novalidate>
+        <div class="modal-header">
+          <h2 class="modal-title h5" id="place-modal-title">Editar</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body" id="place-modal-body"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="place-modal-save">Guardar cambios</button>
+        </div>
+      </form>
     </div>
   </div>
 

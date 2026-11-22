@@ -42,6 +42,22 @@ const DIETARY_GROUPS = Object.freeze([
 const DATE_FORMAT = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 const INSTANT_FORMAT = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 
+/** Columns hidden on narrow screens (tablets in portrait): the card always shows everything. */
+const COL_LG = 'd-none d-lg-table-cell';
+const COL_XL = 'd-none d-xl-table-cell';
+const PEOPLE_COLUMNS = Object.freeze([
+  ['Nombre', ''],
+  ['Asistencia', ''],
+  ['Edad', ''],
+  ['Teléfono', COL_XL],
+  ['Contacto de emergencia', COL_XL],
+  ['Habitación', ''],
+  ['Mesa', ''],
+  ['Alimentación', COL_LG],
+  ['Accesibilidad', COL_LG],
+  ['Cartas', ''],
+]);
+
 /** List state kept while navigating. */
 const listState = { q: '', filter: 'all' };
 /** @type {any} */
@@ -195,7 +211,7 @@ function peopleTable(data) {
         h(
           'thead',
           {},
-          h('tr', {}, ['Nombre', 'Asistencia', 'Edad', 'Teléfono', 'Contacto de emergencia', 'Habitación', 'Mesa', 'Alimentación', 'Accesibilidad', 'Cartas'].map((label) => h('th', { scope: 'col', text: label }))),
+          h('tr', {}, PEOPLE_COLUMNS.map(([label, cls]) => h('th', { scope: 'col', class: cls, text: label }))),
         ),
         h(
           'tbody',
@@ -214,18 +230,18 @@ function peopleTable(data) {
               ),
               h('td', {}, attendanceToggle(p)),
               h('td', { text: p.age ?? '—' }),
-              h('td', { text: p.phone ?? '—' }),
-              h('td', {}, p.emergencyContact ? `${p.emergencyContact.name} · ${p.emergencyContact.phone}` : h('span', { class: 'text-danger', text: 'Falta' })),
+              h('td', { class: COL_XL, text: p.phone ?? '—' }),
+              h('td', { class: COL_XL }, p.emergencyContact ? `${p.emergencyContact.name} · ${p.emergencyContact.phone}` : h('span', { class: 'text-danger', text: 'Falta' })),
               h('td', { text: p.room ? `${p.room.name}${p.room.bed ? ` · ${p.room.bed}` : ''}` : '—' }),
               h('td', { text: p.table?.name ?? '—' }),
               h(
                 'td',
-                {},
+                { class: COL_LG },
                 p.dietaryCount > 0
                   ? h('span', { class: `badge ${p.severeAllergy ? 'text-bg-danger' : 'text-bg-light border'}`, text: p.severeAllergy ? `${p.dietaryCount} · grave` : String(p.dietaryCount) })
                   : '—',
               ),
-              h('td', {}, p.accessibilityCount > 0 ? h('span', { class: 'badge text-bg-info', text: String(p.accessibilityCount) }) : '—'),
+              h('td', { class: COL_LG }, p.accessibilityCount > 0 ? h('span', { class: 'badge text-bg-info', text: String(p.accessibilityCount) }) : '—'),
               h('td', {}, h('a', { href: `#/participante/${encodeURIComponent(p.id)}`, text: String(p.letterCount), title: `Ver ${lettersLabel(p.letterCount)}` })),
             ),
           ),
