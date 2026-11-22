@@ -18,7 +18,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -81,7 +81,7 @@ export function parseArgs(argv) {
 
 export class UsageError extends Error {}
 
-export const HELP = `Cartas del retiro: gestión del panel
+export const HELP = `Gestión del retiro: gestión del panel
 
 Uso:  ./start.sh [acción] [opciones]        (Linux, macOS, Git Bash)
       .\\start.cmd [acción] [opciones]       (Windows: PowerShell o cmd)
@@ -338,19 +338,82 @@ function managesMongo(config, options) {
   return isLoopbackHost(host);
 }
 
+/** Same names docker compose uses for this project (container_name and <project>_<volume>). */
+const MONGO_CONTAINER = 'retreat-mail-mongo';
+const MONGO_VOLUME = `${basename(ROOT).toLowerCase().replace(/[^a-z0-9_-]/g, '')}_retreat_mongo_data`;
+
+function podmanAvailable() {
+  return run('podman', ['version', '--format', '{{.Client.Version}}']).status === 0;
+}
+
+/** @param {number} ms */
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * Fallback when compose cannot reach the engine (on Windows, "podman compose" delegates to
+ * docker-compose, which needs the Docker API pipe of the Podman machine; that pipe can
+ * disappear while the machine keeps running). Starts — or creates, with the same name,
+ * volume, port, credentials and healthcheck as docker-compose.yml — the container with the
+ * podman CLI, which talks to the machine over SSH.
+ * @param {Record<string, string | undefined>} env
+ */
+function startMongoWithPodman(env) {
+  if (run('podman', ['container', 'exists', MONGO_CONTAINER]).status === 0) {
+    const started = run('podman', ['start', MONGO_CONTAINER]);
+    if (started.status !== 0) throw new Error(`No se pudo arrancar MongoDB con podman:\n${(started.stderr || started.stdout).trim()}`);
+  } else {
+    if (!env.MONGO_ROOT_USERNAME || !env.MONGO_ROOT_PASSWORD) throw new Error('Faltan MONGO_ROOT_USERNAME / MONGO_ROOT_PASSWORD en .env.');
+    // Credentials go through a temporary env file (never on the command line).
+    mkdirSync(join(ROOT, '.run'), { recursive: true });
+    const envFile = join(ROOT, '.run', 'mongo.env');
+    writeFileSync(envFile, `MONGO_INITDB_ROOT_USERNAME=${env.MONGO_ROOT_USERNAME}\nMONGO_INITDB_ROOT_PASSWORD=${env.MONGO_ROOT_PASSWORD}\n`, { mode: 0o600 });
+    let created;
+    try {
+      created = run('podman', [
+        'run', '-d', '--name', MONGO_CONTAINER, '--restart', 'unless-stopped',
+        '-p', `127.0.0.1:${env.MONGO_PORT || '27017'}:27017`,
+        '--env-file', envFile,
+        '-v', `${MONGO_VOLUME}:/data/db`,
+        '--health-cmd', "mongosh --quiet --eval \"db.adminCommand('ping').ok\"",
+        '--health-interval', '10s', '--health-timeout', '5s', '--health-retries', '6', '--health-start-period', '20s',
+        '--label', `com.docker.compose.project=${basename(ROOT).toLowerCase()}`, '--label', 'com.docker.compose.service=mongo',
+        'docker.io/library/mongo:7',
+      ]);
+    } finally {
+      rmSync(envFile, { force: true });
+    }
+    if (created.status !== 0) throw new Error(`No se pudo crear el contenedor de MongoDB con podman:\n${(created.stderr || created.stdout).trim()}`);
+    out.ok(`Contenedor ${MONGO_CONTAINER} creado sobre el volumen ${MONGO_VOLUME} (los datos existentes se conservan).`);
+  }
+  for (let i = 0; i < 40; i += 1) {
+    if (run('podman', ['healthcheck', 'run', MONGO_CONTAINER]).status === 0) return;
+    sleepSync(1500);
+  }
+  throw new Error('MongoDB no ha respondido a tiempo. Revisa: podman logs retreat-mail-mongo');
+}
+
 /**
  * @param {Record<string, string | undefined>} env
  */
 function startMongo(env) {
   const compose = composeCommand();
-  if (!compose) {
+  if (!compose && !podmanAvailable()) {
     throw new Error('PERSISTENCE=mongo necesita Docker o Podman con Compose (o usa PERSISTENCE=json, o --no-mongo si MongoDB ya está en marcha).');
   }
-  out.step(`Arrancando MongoDB (${compose.join(' ')})…`);
-  const result = run(compose[0], [compose[1], 'up', '-d', '--wait'], { env });
-  if (result.status !== 0) {
-    throw new Error(`No se pudo arrancar MongoDB:\n${(result.stderr || result.stdout).trim()}`);
+  if (compose) {
+    out.step(`Arrancando MongoDB (${compose.join(' ')})…`);
+    const result = run(compose[0], [compose[1], 'up', '-d', '--wait'], { env });
+    if (result.status === 0) {
+      out.ok('MongoDB en marcha (127.0.0.1, con autenticación).');
+      return;
+    }
+    if (!podmanAvailable()) throw new Error(`No se pudo arrancar MongoDB:\n${(result.stderr || result.stdout).trim()}`);
+    out.warn(`${compose.join(' ')} no responde; se usa podman directamente.`);
   }
+  out.step('Arrancando MongoDB (podman)…');
+  startMongoWithPodman(env);
   out.ok('MongoDB en marcha (127.0.0.1, con autenticación).');
 }
 
@@ -359,8 +422,11 @@ function startMongo(env) {
  */
 function stopMongo(env) {
   const compose = composeCommand();
-  if (!compose) return;
-  const result = run(compose[0], [compose[1], 'stop'], { env });
+  let result = compose ? run(compose[0], [compose[1], 'stop'], { env }) : null;
+  if ((!result || result.status !== 0) && podmanAvailable() && run('podman', ['container', 'exists', MONGO_CONTAINER]).status === 0) {
+    result = run('podman', ['stop', MONGO_CONTAINER]);
+  }
+  if (!result) return;
   if (result.status === 0) out.ok('MongoDB parado (los datos se conservan en el volumen).');
   else out.warn(`No se pudo parar MongoDB: ${(result.stderr || result.stdout).trim()}`);
 }
@@ -371,10 +437,17 @@ function stopMongo(env) {
  */
 function mongoState(env) {
   const compose = composeCommand();
-  if (!compose) return 'sin Docker/Podman';
-  const result = run(compose[0], [compose[1], 'ps', '--all', '--format', '{{.Name}} {{.State}} {{.Status}}'], { env });
-  const line = result.stdout.split('\n').find((l) => l.trim());
-  return line ? line.trim() : 'no creado';
+  if (compose) {
+    const result = run(compose[0], [compose[1], 'ps', '--all', '--format', '{{.Name}} {{.State}} {{.Status}}'], { env });
+    const line = result.status === 0 ? result.stdout.split('\n').find((l) => l.trim()) : null;
+    if (line) return line.trim();
+  }
+  if (podmanAvailable()) {
+    const result = run('podman', ['ps', '--all', '--filter', `name=^${MONGO_CONTAINER}$`, '--format', '{{.Names}} {{.State}} {{.Status}}']);
+    const line = result.stdout.split('\n').find((l) => l.trim());
+    if (line) return line.trim();
+  }
+  return compose || podmanAvailable() ? 'no creado' : 'sin Docker/Podman';
 }
 
 // ---------------------------------------------------------------------------
