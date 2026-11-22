@@ -119,35 +119,6 @@ function currentRows() {
 }
 
 /**
- * @param {any} row
- */
-function printToggle(row) {
-  const printed = row.printStatus === 'printed';
-  // Printed before, with letters that arrived afterwards.
-  const someNew = !printed && row.unprintedCount > 0 && row.unprintedCount < row.letterCount;
-  return h('button', {
-    type: 'button',
-    class: `btn btn-sm print-toggle ${printed ? 'btn-success' : someNew ? 'btn-outline-warning' : 'btn-outline-secondary'}`,
-    'aria-pressed': printed ? 'true' : 'false',
-    title: printed
-      ? 'Todas impresas. Pulsa para marcarlas como pendientes'
-      : someNew
-        ? `${plural(row.unprintedCount, 'carta nueva', 'cartas nuevas')} sin imprimir. Pulsa para marcar todas como impresas`
-        : 'Pulsa para marcar todas como impresas',
-    text: printed ? 'Impresa' : someNew ? `${row.unprintedCount} sin imprimir` : 'Pendiente',
-    onClick: (/** @type {Event} */ event) =>
-      void withBusy(/** @type {HTMLButtonElement} */ (event.currentTarget), async () => {
-        try {
-          await api.updatePrintStatus([row.participantId], printed ? 'pending' : 'printed');
-          emit('data-changed');
-        } catch (error) {
-          toastError(error);
-        }
-      }),
-  });
-}
-
-/**
  * "3 / 8": letters printed out of the participant's letters (green when all, amber when
  * some are missing, grey when none).
  * @param {any} row
@@ -230,7 +201,6 @@ function renderDirectory() {
             row.warningCount > 0 ? h('span', { class: 'badge text-bg-warning', text: plural(row.warningCount, 'aviso', 'avisos') }) : null,
           ),
         ),
-        h('td', {}, printToggle(row)),
       );
     }),
   );
