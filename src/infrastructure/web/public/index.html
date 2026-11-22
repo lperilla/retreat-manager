@@ -19,7 +19,7 @@
 
   <nav class="navbar navbar-expand-md app-navbar no-print" aria-label="Navegación principal">
     <div class="container-fluid">
-      <a class="navbar-brand" href="#/"><img class="brand-logo" src="/img/logo.svg" alt="" width="36" height="36">Gestión del retiro</a>
+      <a class="navbar-brand" href="#/"><img class="brand-logo" src="/img/logo.svg" alt="" width="36" height="36"><span class="brand-text"><span class="brand-name">Gestión del retiro</span><span class="brand-retreat" id="brand-retreat" hidden></span></span></a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#main-nav"
         aria-controls="main-nav" aria-expanded="false" aria-label="Mostrar menú">
         <span class="navbar-toggler-icon"></span>
@@ -115,6 +115,25 @@
           <div class="step-action"><button type="button" class="btn btn-primary btn-sm" id="step-print-pending">Imprimir pendientes</button></div>
         </article>
       </div>
+      <!-- Who has most, fewest and no letters (the reason the letters are counted). -->
+      <div class="kpis" aria-label="Reparto de cartas" aria-live="polite">
+        <article class="kpi-card" id="kpi-most">
+          <h2 class="kpi-title">Más cartas</h2>
+          <p class="kpi-value"><span class="kpi-number" id="kpi-most-count">—</span> <span class="kpi-unit" id="kpi-most-unit"></span></p>
+          <p class="kpi-names" id="kpi-most-names"></p>
+        </article>
+        <article class="kpi-card" id="kpi-fewest">
+          <h2 class="kpi-title">Menos cartas</h2>
+          <p class="kpi-value"><span class="kpi-number" id="kpi-fewest-count">—</span> <span class="kpi-unit" id="kpi-fewest-unit"></span></p>
+          <p class="kpi-names" id="kpi-fewest-names"></p>
+        </article>
+        <article class="kpi-card" id="kpi-zero">
+          <h2 class="kpi-title">Sin cartas</h2>
+          <p class="kpi-value"><span class="kpi-number" id="kpi-zero-count">—</span> <span class="kpi-unit" id="kpi-zero-unit"></span></p>
+          <p class="kpi-names" id="kpi-zero-names"></p>
+          <div class="kpi-action"><button type="button" class="btn btn-sm btn-link px-0 text-decoration-none" id="kpi-zero-filter">Ver en la lista</button></div>
+        </article>
+      </div>
       <p class="stats-line" id="stats-line" aria-live="polite"></p>
 
       <div class="row g-4 mt-1">
@@ -197,32 +216,23 @@
 
     <!-- Review queue -->
     <section id="view-review" class="app-view" hidden aria-labelledby="review-title">
-      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <h1 class="h3 mb-0" id="review-title">Por revisar</h1>
-        <div class="d-flex align-items-center gap-3">
-          <span class="text-body-secondary" id="review-count"></span>
-          <span id="review-toggle-all"></span>
-        </div>
+      <div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2 mt-3 mb-1">
+        <h1 class="h4 mb-0" id="review-title">Por revisar <span class="fs-6 fw-normal text-body-secondary ms-1" id="review-count"></span></h1>
+        <span id="review-toggle-all"></span>
       </div>
-      <p class="text-body-secondary">Cartas que no se han podido asignar con seguridad. No cuentan para nadie hasta que las asignes; nunca se descartan.</p>
-      <div id="review-list" class="d-flex flex-column gap-3"></div>
+      <p class="small text-body-secondary mb-3">No se han podido asignar con seguridad. No cuentan para nadie hasta que las asignes.</p>
+      <div id="review-list" class="letter-list"></div>
 
-      <section id="unassigned-section" class="mt-5" aria-labelledby="unassigned-title" hidden>
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-          <h2 class="h4 mb-0" id="unassigned-title">Sin asignar</h2>
-          <span class="text-body-secondary" id="unassigned-count"></span>
-        </div>
-        <p class="text-body-secondary">Cartas que se dejaron sin asignar. Siguen guardadas: puedes asignarlas cuando quieras, por ejemplo después de dar de alta a su destinatario con «Asignar…» → «Añadir participante nuevo».</p>
-        <div id="unassigned-list" class="d-flex flex-column gap-3"></div>
+      <section id="unassigned-section" class="mt-4" aria-labelledby="unassigned-title" hidden>
+        <h2 class="section-title mb-1" id="unassigned-title">Sin asignar <span class="fw-normal" id="unassigned-count"></span></h2>
+        <p class="small text-body-secondary mb-2">Se dejaron sin asignar y siguen guardadas: puedes asignarlas cuando quieras.</p>
+        <div id="unassigned-list" class="letter-list"></div>
       </section>
 
-      <section id="withdrawn-section" class="mt-5" aria-labelledby="withdrawn-title" hidden>
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-          <h2 class="h4 mb-0" id="withdrawn-title">Participantes dados de baja</h2>
-          <span class="text-body-secondary" id="withdrawn-count"></span>
-        </div>
-        <p class="text-body-secondary">Cartas de participantes que ya no están en el retiro. Se conservan y no salen en el panel ni en los lotes de impresión.</p>
-        <div id="withdrawn-list" class="d-flex flex-column gap-3"></div>
+      <section id="withdrawn-section" class="mt-4" aria-labelledby="withdrawn-title" hidden>
+        <h2 class="section-title mb-1" id="withdrawn-title">Participantes dados de baja <span class="fw-normal" id="withdrawn-count"></span></h2>
+        <p class="small text-body-secondary mb-2">Se conservan, pero no salen en el panel ni en los lotes de impresión.</p>
+        <div id="withdrawn-list" class="letter-list"></div>
       </section>
     </section>
 

@@ -1,6 +1,6 @@
 /**
- * Participant detail: chronological letters with assignment badges and flags, and
- * "Imprimir" / "Exportar" for this participant only.
+ * Participant letters: one compact toolbar (print with its options and exports, print
+ * status, date filter) and the letters as a quiet inbox-like list.
  */
 import { api } from './api.js';
 import { openAssignModal } from './assignModal.js';
@@ -28,168 +28,175 @@ export async function loadParticipant(participantId) {
   document.title = `${participant.displayName} · Gestión del retiro`;
 
   const printed = data.printStatus.status === 'printed';
-  const exportMenuId = `export-menu-${participant.id}`;
+  const menuId = `print-menu-${participant.id}`;
+
+  /** @param {string} id @param {string} label @param {boolean} checked @param {(on: boolean) => void} onChange @param {string} [title] */
+  const optionSwitch = (id, label, checked, onChange, title) =>
+    h(
+      'div',
+      { class: 'form-check form-switch mb-1', title },
+      h('input', {
+        class: 'form-check-input',
+        type: 'checkbox',
+        role: 'switch',
+        id,
+        checked,
+        onChange: (/** @type {Event} */ event) => onChange(/** @type {HTMLInputElement} */ (event.target).checked),
+      }),
+      h('label', { class: 'form-check-label', for: id, text: label }),
+    );
+
+  const menuToggle = h(
+    'button',
+    {
+      type: 'button',
+      class: 'btn btn-sm btn-primary dropdown-toggle dropdown-toggle-split',
+      id: menuId,
+      'data-bs-toggle': 'dropdown',
+      'data-bs-auto-close': 'outside',
+      'aria-expanded': 'false',
+    },
+    h('span', { class: 'visually-hidden', text: 'Opciones de impresión y exportación' }),
+  );
+  const closeMenu = () => /** @type {any} */ (window).bootstrap?.Dropdown.getOrCreateInstance(menuToggle).hide();
+
+  const printMenu = h(
+    'div',
+    { class: 'btn-group' },
+    h('button', { type: 'button', class: 'btn btn-sm btn-primary', text: 'Imprimir', onClick: () => void printLetters([participant.id], afterDate) }),
+    menuToggle,
+    h(
+      'div',
+      { class: 'dropdown-menu batch-options', 'aria-labelledby': menuId },
+      h('h6', { class: 'dropdown-header px-0', text: 'Al imprimir y exportar' }),
+      optionSwitch('participant-include-attachments', 'Incluir adjuntos', state.includeAttachments, (on) => {
+        state.includeAttachments = on;
+        const batchSwitch = /** @type {HTMLInputElement | null} */ (document.getElementById('batch-include-attachments'));
+        if (batchSwitch) batchSwitch.checked = on;
+      }),
+      optionSwitch(
+        'participant-original-format',
+        'Formato original',
+        state.originalFormat,
+        (on) => {
+          state.originalFormat = on;
+          const batchSwitch = /** @type {HTMLInputElement | null} */ (document.getElementById('batch-original-format'));
+          if (batchSwitch) batchSwitch.checked = on;
+        },
+        'Mantiene los colores, fuentes y tamaños de cada correo al imprimir y exportar a .html',
+      ),
+      h('hr', { class: 'dropdown-divider' }),
+      h('h6', { class: 'dropdown-header px-0', text: 'Exportar' }),
+      ['html', 'txt', 'json', 'pdf'].map((format) =>
+        h('button', {
+          type: 'button',
+          class: 'dropdown-item px-0',
+          text: format === 'pdf' ? 'PDF de adjuntos (.pdf)' : `Archivo .${format}`,
+          onClick: () => {
+            closeMenu();
+            void exportLetters([participant.id], /** @type {any} */ (format), afterDate);
+          },
+        }),
+      ),
+    ),
+  );
+
+  const printToggle = h('button', {
+    type: 'button',
+    class: `btn btn-sm ${printed ? 'btn-success' : 'btn-outline-secondary'}`,
+    'aria-pressed': printed ? 'true' : 'false',
+    text: printed ? 'Impresa ✓' : 'Pendiente de imprimir',
+    title: printed ? 'Marcar como pendiente' : 'Marcar como impresa',
+    onClick: (/** @type {Event} */ event) =>
+      void withBusy(/** @type {HTMLButtonElement} */ (event.currentTarget), async () => {
+        try {
+          await api.updatePrintStatus([participant.id], printed ? 'pending' : 'printed');
+          emit('data-changed');
+        } catch (error) {
+          toastError(error);
+        }
+      }),
+  });
+
+  const reload = () => void loadParticipant(participant.id).catch(toastError);
+  const dateFilter = h(
+    'div',
+    { class: 'd-flex align-items-center gap-2' },
+    h('label', { class: 'small text-body-secondary text-nowrap', for: 'after-date', text: 'Desde el día' }),
+    h('input', {
+      type: 'date',
+      class: 'form-control form-control-sm w-auto',
+      id: 'after-date',
+      value: afterDate ?? '',
+      title: 'Muestra solo las cartas posteriores a ese día',
+      onChange: (/** @type {Event} */ event) => {
+        afterDate = /** @type {HTMLInputElement} */ (event.target).value || null;
+        reload();
+      },
+    }),
+    afterDate
+      ? h('button', {
+          type: 'button',
+          class: 'btn btn-sm btn-link px-1 text-decoration-none',
+          'aria-label': 'Quitar el filtro de fecha',
+          title: 'Quitar el filtro de fecha',
+          text: '✕',
+          onClick: () => {
+            afterDate = null;
+            reload();
+          },
+        })
+      : null,
+  );
 
   const controls = h(
     'div',
-    { class: 'participant-controls d-flex flex-wrap gap-2 align-items-end mb-3' },
-    h('button', {
-      type: 'button',
-      class: 'btn btn-primary',
-      text: 'Imprimir',
-      onClick: () => void printLetters([participant.id], afterDate),
-    }),
+    { class: 'participant-controls d-flex flex-wrap gap-2 align-items-center mb-3' },
+    printMenu,
+    printToggle,
     h(
       'div',
-      { class: 'btn-group' },
-      h('button', {
-        type: 'button',
-        class: 'btn btn-outline-primary dropdown-toggle',
-        id: exportMenuId,
-        'data-bs-toggle': 'dropdown',
-        'aria-expanded': 'false',
-        text: 'Exportar',
-      }),
-      h(
-        'ul',
-        { class: 'dropdown-menu', 'aria-labelledby': exportMenuId },
-        ['html', 'txt', 'json', 'pdf'].map((format) =>
-          h(
-            'li',
-            {},
-            h('button', {
-              type: 'button',
-              class: 'dropdown-item',
-              text: format === 'pdf' ? 'PDF de adjuntos (.pdf)' : `Exportar .${format}`,
-              onClick: () => void exportLetters([participant.id], /** @type {any} */ (format), afterDate),
-            }),
-          ),
-        ),
-      ),
-    ),
-    h('button', {
-      type: 'button',
-      class: `btn ${printed ? 'btn-success' : 'btn-outline-secondary'}`,
-      'aria-pressed': printed ? 'true' : 'false',
-      text: printed ? 'Impresa' : 'Pendiente de imprimir',
-      title: printed ? 'Marcar como pendiente' : 'Marcar como impresa',
-      onClick: (/** @type {Event} */ event) =>
-        void withBusy(/** @type {HTMLButtonElement} */ (event.currentTarget), async () => {
-          try {
-            await api.updatePrintStatus([participant.id], printed ? 'pending' : 'printed');
-            emit('data-changed');
-          } catch (error) {
-            toastError(error);
-          }
-        }),
-    }),
-    h(
-      'div',
-      { class: 'form-check form-switch align-self-center mb-0' },
-      h('input', {
-        class: 'form-check-input',
-        type: 'checkbox',
-        role: 'switch',
-        id: 'participant-include-attachments',
-        checked: state.includeAttachments,
-        onChange: (/** @type {Event} */ event) => {
-          state.includeAttachments = /** @type {HTMLInputElement} */ (event.target).checked;
-          const batchSwitch = /** @type {HTMLInputElement | null} */ (document.getElementById('batch-include-attachments'));
-          if (batchSwitch) batchSwitch.checked = state.includeAttachments;
-        },
-      }),
-      h('label', { class: 'form-check-label', for: 'participant-include-attachments', text: 'Incluir adjuntos' }),
-    ),
-    h(
-      'div',
-      { class: 'form-check form-switch align-self-center mb-0' },
-      h('input', {
-        class: 'form-check-input',
-        type: 'checkbox',
-        role: 'switch',
-        id: 'participant-original-format',
-        checked: state.originalFormat,
-        onChange: (/** @type {Event} */ event) => {
-          state.originalFormat = /** @type {HTMLInputElement} */ (event.target).checked;
-          const batchSwitch = /** @type {HTMLInputElement | null} */ (document.getElementById('batch-original-format'));
-          if (batchSwitch) batchSwitch.checked = state.originalFormat;
-        },
-      }),
-      h('label', {
-        class: 'form-check-label',
-        for: 'participant-original-format',
-        title: 'Mantiene los colores, fuentes y tamaños de cada correo al imprimir y exportar a .html',
-        text: 'Formato original',
-      }),
-    ),
-    h('button', {
-      type: 'button',
-      class: 'btn btn-outline-secondary',
-      text: 'Marcar como vistas',
-      disabled: data.newCount === 0,
-      onClick: (/** @type {Event} */ event) =>
-        void withBusy(/** @type {HTMLButtonElement} */ (event.currentTarget), async () => {
-          try {
-            await api.markSeen({ participantId: participant.id });
-            toast('Cartas marcadas como vistas.');
-            emit('data-changed');
-          } catch (error) {
-            toastError(error);
-          }
-        }),
-    }),
-    h(
-      'form',
-      {
-        class: 'd-flex flex-wrap gap-2 align-items-end ms-md-auto',
-        onSubmit: (/** @type {Event} */ event) => {
-          event.preventDefault();
-          const value = /** @type {HTMLInputElement} */ ($('#after-date', view)).value;
-          afterDate = value || null;
-          void loadParticipant(participant.id).catch(toastError);
-        },
-      },
-      h(
-        'div',
-        {},
-        h('label', { class: 'form-label small mb-1', for: 'after-date', text: 'Mostrar cartas posteriores al día' }),
-        h('input', { type: 'date', class: 'form-control form-control-sm', id: 'after-date', value: afterDate ?? '' }),
-      ),
-      h('button', { type: 'submit', class: 'btn btn-sm btn-outline-secondary', text: 'Aplicar' }),
-      afterDate
+      { class: 'd-flex flex-wrap gap-3 align-items-center ms-md-auto' },
+      data.newCount > 0
         ? h('button', {
             type: 'button',
-            class: 'btn btn-sm btn-link',
-            text: 'Quitar filtro',
-            onClick: () => {
-              afterDate = null;
-              void loadParticipant(participant.id).catch(toastError);
-            },
+            class: 'btn btn-sm btn-link px-0 text-decoration-none',
+            text: 'Marcar como vistas',
+            onClick: (/** @type {Event} */ event) =>
+              void withBusy(/** @type {HTMLButtonElement} */ (event.currentTarget), async () => {
+                try {
+                  await api.markSeen({ participantId: participant.id });
+                  toast('Cartas marcadas como vistas.');
+                  emit('data-changed');
+                } catch (error) {
+                  toastError(error);
+                }
+              }),
           })
         : null,
+      dateFilter,
+      data.letters.length > 1 ? letterToggleAllButtons(() => view) : null,
     ),
   );
 
   const letters =
     data.letters.length === 0
-      ? h('p', { class: 'text-body-secondary', text: afterDate ? 'No hay cartas posteriores a esa fecha.' : 'Este participante todavía no tiene cartas.' })
-      : data.letters.map((/** @type {any} */ letter) =>
-          lettersCardWithActions(letter, () => void loadParticipant(participant.id).catch(toastError)),
-        );
+      ? h('p', { class: 'letter-list-empty', text: afterDate ? 'No hay cartas posteriores a esa fecha.' : 'Este participante todavía no tiene cartas.' })
+      : data.letters.map((/** @type {any} */ letter) => lettersCardWithActions(letter, reload));
 
   replaceChildren(
     view,
-    h('nav', { class: 'my-3 no-print', 'aria-label': 'Ruta' }, h('a', { href: '#/', text: '← Volver al panel' })),
+    h('nav', { class: 'mt-3 mb-2 no-print small', 'aria-label': 'Ruta' }, h('a', { class: 'text-decoration-none', href: '#/', text: '← Panel' })),
     h(
       'div',
       { class: 'print-participant' },
       h(
         'header',
         { class: 'mb-3' },
-        h('h1', { class: 'h3 mb-1', id: 'participant-title', text: participant.displayName }),
+        h('h1', { class: 'h4 mb-1', id: 'participant-title', text: participant.displayName }),
         h(
           'p',
-          { class: 'text-body-secondary mb-0' },
+          { class: 'small text-body-secondary mb-0' },
           lettersLabel(data.total),
           data.newCount > 0 ? ` · ${plural(data.newCount, 'nueva', 'nuevas')}` : '',
           participant.aliases.length > 0 ? ` · Alias: ${participant.aliases.join(', ')}` : '',
@@ -197,10 +204,7 @@ export async function loadParticipant(participantId) {
         ),
       ),
       controls,
-      data.letters.length > 1
-        ? h('div', { class: 'd-flex justify-content-end mb-2' }, letterToggleAllButtons(() => view))
-        : null,
-      letters,
+      h('div', { class: 'letter-list' }, letters),
     ),
   );
   enableTooltips(view);
@@ -212,7 +216,9 @@ export async function loadParticipant(participantId) {
  */
 function lettersCardWithActions(letter, reload) {
   return letterCard(letter, {
-    showRecipients: true,
+    // The page is about this participant: name the others only when the letter is shared.
+    showRecipients: letter.assignment.participants.length > 1,
+    actionsWhenOpen: true,
     actions: [
       h('button', {
         type: 'button',

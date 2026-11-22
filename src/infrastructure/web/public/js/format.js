@@ -32,6 +32,15 @@ export function formatDateTime(iso) {
 }
 
 /**
+ * "19 nov, 23:50" (compact, for letter rows).
+ * @param {string | null | undefined} iso
+ */
+export function formatShortDateTime(iso) {
+  if (!iso) return '—';
+  return formatter({ day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+}
+
+/**
  * "jueves, 19 de noviembre de 2026, 23:50"
  * @param {string | null | undefined} iso
  */

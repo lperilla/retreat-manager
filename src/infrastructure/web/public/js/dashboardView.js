@@ -25,13 +25,50 @@ const FILTERS = {
 let directoryFilter = 'all';
 
 /**
+ * Linked names: the first `max`, then "y N más".
  * @param {any[]} participants
+ * @param {number} max
  */
-function nameLinks(participants) {
-  return participants.slice(0, 4).map((/** @type {any} */ p, /** @type {number} */ index) => [
+function kpiNames(participants, max) {
+  const shown = participants.slice(0, max).flatMap((/** @type {any} */ p, /** @type {number} */ index) => [
     index > 0 ? ', ' : null,
     h('a', { href: `#/participante/${encodeURIComponent(p.id)}`, text: p.displayName }),
-  ]).concat(participants.length > 4 ? [` y ${participants.length - 4} más`] : []);
+  ]);
+  return participants.length > max ? [...shown, h('span', { class: 'kpi-more', text: ` y ${participants.length - max} más` })] : shown;
+}
+
+/**
+ * Most letters, fewest letters (among those who have some) and no letters.
+ * @param {any} kpis
+ */
+function renderKpis(kpis) {
+  const rows = state.participants;
+  const withLetters = rows.filter((row) => row.letterCount > 0);
+  const byName = (/** @type {any} */ a, /** @type {any} */ b) => compareNames(a.displayName, b.displayName);
+  const asRefs = (/** @type {any[]} */ list) => list.sort(byName).map((row) => ({ id: row.participantId, displayName: row.displayName }));
+
+  const most = kpis.mostLetters;
+  $('#kpi-most-count').textContent = most.participants.length > 0 ? String(most.count) : '—';
+  $('#kpi-most-unit').textContent = most.participants.length > 0 ? (most.count === 1 ? 'carta' : 'cartas') : '';
+  replaceChildren($('#kpi-most-names'), most.participants.length > 0 ? kpiNames(most.participants, 4) : 'Todavía no hay cartas asignadas.');
+
+  const min = withLetters.length > 0 ? Math.min(...withLetters.map((row) => row.letterCount)) : 0;
+  const fewest = asRefs(withLetters.filter((row) => row.letterCount === min));
+  const sameAsMost = withLetters.length > 0 && min === most.count;
+  $('#kpi-fewest-count').textContent = withLetters.length > 0 ? String(min) : '—';
+  $('#kpi-fewest-unit').textContent = withLetters.length > 0 ? (min === 1 ? 'carta' : 'cartas') : '';
+  replaceChildren(
+    $('#kpi-fewest-names'),
+    withLetters.length === 0 ? 'Nadie tiene cartas todavía.' : sameAsMost ? 'Todos los que tienen cartas tienen las mismas.' : kpiNames(fewest, 4),
+  );
+
+  const zero = kpis.zeroLetterParticipants;
+  const clear = kpis.participantCount > 0 && zero.length === 0;
+  $('#kpi-zero').classList.toggle('is-clear', clear);
+  $('#kpi-zero-count').textContent = kpis.participantCount > 0 ? String(zero.length) : '—';
+  $('#kpi-zero-unit').textContent = kpis.participantCount > 0 ? `de ${plural(kpis.participantCount, 'participante', 'participantes')}` : '';
+  replaceChildren($('#kpi-zero-names'), clear ? 'Todos tienen al menos una carta.' : kpiNames(zero, 6));
+  /** @type {HTMLElement} */ ($('#kpi-zero-filter')).hidden = zero.length === 0;
 }
 
 /**
@@ -57,15 +94,9 @@ function renderSteps(kpis, sync) {
   const printButton = /** @type {HTMLButtonElement} */ ($('#step-print-pending'));
   printButton.disabled = pending.length === 0;
 
+  renderKpis(kpis);
+
   const line = [];
-  if (kpis.mostLetters.participants.length > 0) line.push(['Más cartas: ', h('strong', {}, nameLinks(kpis.mostLetters.participants)), ` (${kpis.mostLetters.count})`]);
-  if (kpis.participantCount > 0) {
-    line.push(
-      kpis.zeroLetterParticipants.length > 0
-        ? [h('span', { class: 'zero-letters', text: 'Sin cartas: ' }), h('strong', {}, nameLinks(kpis.zeroLetterParticipants))]
-        : ['Todos tienen cartas'],
-    );
-  }
   if (kpis.newLettersCount > 0) line.push([h('strong', { text: String(kpis.newLettersCount) }), ' sin ver por el equipo']);
   replaceChildren($('#stats-line'), line.flatMap((part, index) => (index > 0 ? [' · ', ...part] : part)));
 
@@ -276,6 +307,12 @@ export function initDashboard() {
     if (ids.length > 0) void printLetters(ids);
   });
   $('#directory-sort').addEventListener('change', renderDirectory);
+  // "Sin cartas" KPI: show those participants in the list below.
+  $('#kpi-zero-filter').addEventListener('click', () => {
+    const chip = /** @type {HTMLButtonElement | null} */ (document.querySelector('#directory-filters [data-filter="without-letters"]'));
+    chip?.click();
+    $('#directory-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 
   /** @param {(row: any) => boolean} predicate */
   const selectWhere = (predicate) => {

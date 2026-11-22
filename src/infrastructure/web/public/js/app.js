@@ -100,13 +100,47 @@ async function route({ focus = true } = {}) {
 }
 
 const BANNER_DATE = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+/** Retreat days are calendar days (YYYY-MM-DD): format them in UTC so they never shift. */
+const RETREAT_DAYS = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+/** Name given to the retreat when it is created automatically (not shown as a subtitle). */
+const DEFAULT_RETREAT_NAME = 'Retiro';
 
-/** Warns when the retreat is over and its personal data is about to be deleted automatically. */
+/**
+ * "11–13 dic 2026" (or a single day).
+ * @param {string | null} start
+ * @param {string | null} end
+ * @returns {string | null}
+ */
+function retreatDays(start, end) {
+  const day = (/** @type {string} */ value) => new Date(`${value}T00:00:00Z`);
+  if (start && end) return start === end ? RETREAT_DAYS.format(day(start)) : RETREAT_DAYS.formatRange(day(start), day(end));
+  return start || end ? RETREAT_DAYS.format(day(/** @type {string} */ (start || end))) : null;
+}
+
+/**
+ * Active retreat name (and dates) under the app name in the top bar.
+ * @param {any} retreat
+ */
+function showRetreatName(retreat) {
+  const subtitle = document.getElementById('brand-retreat');
+  if (!subtitle) return;
+  const named = retreat?.name && retreat.name !== DEFAULT_RETREAT_NAME;
+  const days = named ? retreatDays(retreat.startDate, retreat.endDate) : null;
+  subtitle.textContent = named ? [retreat.name, days].filter(Boolean).join(' · ') : '';
+  subtitle.title = subtitle.textContent;
+  subtitle.hidden = !named;
+}
+
+/**
+ * Top-bar retreat name, and a warning when the retreat is over and its personal data is
+ * about to be deleted automatically.
+ */
 async function refreshRetreatBanner() {
   const banner = document.getElementById('retreat-banner');
   if (!banner) return;
   try {
     const retreat = await api.retreat();
+    showRetreatName(retreat);
     if (!retreat.ended || !retreat.deletionDate) {
       banner.hidden = true;
       return;

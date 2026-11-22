@@ -1,7 +1,7 @@
 /**
- * "Por revisar": letter preview, suggested participants as one-click buttons,
- * "Asignar" (choose participants) and "Dejar sin asignar". Below, the letters left
- * "Sin asignar", which can still be assigned (or returned to automatic assignment).
+ * "Por revisar": a compact list of letters, each with one line of actions (suggested
+ * participants as one-click buttons, "Asignar…" and "Dejar sin asignar"). Below, the
+ * letters left "Sin asignar" (still assignable) and those of withdrawn participants.
  */
 import { api } from './api.js';
 import { openAssignModal } from './assignModal.js';
@@ -30,6 +30,32 @@ async function act(action, message, button) {
 }
 
 /**
+ * "Para: Pablo · Crear participante" when the letter names someone who is not registered.
+ * @param {any} letter
+ */
+function detectedRecipient(letter) {
+  const detected = letter.detectedRecipient;
+  if (!detected) return null;
+  return h(
+    'span',
+    { class: 'letter-actions-label' },
+    'Para ',
+    h('strong', { class: 'text-body', text: detected.name }),
+    detected.canCreate
+      ? h('button', {
+          type: 'button',
+          class: 'btn btn-sm btn-link px-1 py-0 align-baseline',
+          text: 'Crear participante',
+          title: `Dar de alta a «${detected.name}» y asignarle la carta`,
+          onClick: () => openAssignModal(letter, () => emit('data-changed'), { newParticipantName: detected.name }),
+        })
+      : null,
+  );
+}
+
+/**
+ * One compact line: who it seems to be for, suggested participants (one click), "Asignar…"
+ * and "Dejar sin asignar".
  * @param {any} letter
  */
 function reviewActions(letter) {
@@ -37,9 +63,11 @@ function reviewActions(letter) {
     h('button', {
       type: 'button',
       class: 'btn btn-sm btn-outline-primary',
-      'data-bs-toggle': suggestion.matchedText ? 'tooltip' : null,
-      'data-bs-title': suggestion.matchedText ? `${SIGNAL_LABELS[suggestion.signal] ?? ''}: «${suggestion.matchedText}»` : null,
-      text: `Asignar a ${suggestion.displayName}`,
+      'data-bs-toggle': 'tooltip',
+      'data-bs-title': suggestion.matchedText
+        ? `Asignar a ${suggestion.displayName} · ${SIGNAL_LABELS[suggestion.signal] ?? ''}: «${suggestion.matchedText}»`
+        : `Asignar a ${suggestion.displayName}`,
+      text: suggestion.displayName,
       onClick: (/** @type {Event} */ event) =>
         void act(
           () => api.assign(letter.messageId, [suggestion.id]),
@@ -48,29 +76,10 @@ function reviewActions(letter) {
         ),
     }),
   );
-  const detected = letter.detectedRecipient;
   return [
-    detected
-      ? h(
-          'div',
-          { class: 'detected-recipient w-100 small' },
-          h('span', { class: 'text-body-secondary', text: 'Destinatario detectado: ' }),
-          h('strong', { text: detected.name }),
-          !detected.canCreate
-            ? null
-            : h('button', {
-                type: 'button',
-                class: 'btn btn-sm btn-link py-0',
-                text: `Crear participante «${detected.name}»`,
-                onClick: () => openAssignModal(letter, () => emit('data-changed'), { newParticipantName: detected.name }),
-              }),
-        )
-      : null,
-    h(
-      'div',
-      { class: 'suggestion-buttons d-flex flex-wrap gap-2 me-auto' },
-      suggestions.length > 0 ? suggestions : h('span', { class: 'small text-body-secondary align-self-center', text: 'Sin sugerencias.' }),
-    ),
+    detectedRecipient(letter),
+    suggestions.length > 0 ? [h('span', { class: 'letter-actions-label', text: 'Asignar a' }), suggestions] : null,
+    h('span', { class: 'spacer' }),
     h('button', {
       type: 'button',
       class: 'btn btn-sm btn-primary',
@@ -79,7 +88,7 @@ function reviewActions(letter) {
     }),
     h('button', {
       type: 'button',
-      class: 'btn btn-sm btn-outline-secondary',
+      class: 'btn btn-sm btn-link text-body-secondary text-decoration-none',
       text: 'Dejar sin asignar',
       onClick: (/** @type {Event} */ event) =>
         void act(() => api.unassign(letter.messageId), 'La carta queda sin asignar.', /** @type {HTMLButtonElement} */ (event.currentTarget)),
@@ -91,26 +100,18 @@ function reviewActions(letter) {
  * @param {any} letter
  */
 function unassignedActions(letter) {
-  const detected = letter.detectedRecipient;
   return [
-    h('span', { class: 'small text-body-secondary align-self-center me-auto' }, 'Dejada sin asignar. No cuenta para nadie.', detected ? h('span', {}, ' Destinatario detectado: ', h('strong', { text: detected.name }), '.') : null),
-    detected?.canCreate
-      ? h('button', {
-          type: 'button',
-          class: 'btn btn-sm btn-outline-secondary',
-          text: `Crear «${detected.name}»`,
-          onClick: () => openAssignModal(letter, () => emit('data-changed'), { newParticipantName: detected.name }),
-        })
-      : null,
+    detectedRecipient(letter),
+    h('span', { class: 'spacer' }),
     h('button', {
       type: 'button',
-      class: 'btn btn-sm btn-primary',
+      class: 'btn btn-sm btn-outline-primary',
       text: 'Asignar…',
       onClick: () => openAssignModal(letter, () => emit('data-changed')),
     }),
     h('button', {
       type: 'button',
-      class: 'btn btn-sm btn-outline-secondary',
+      class: 'btn btn-sm btn-link text-body-secondary text-decoration-none',
       text: 'Volver a automático',
       onClick: (/** @type {Event} */ event) =>
         void act(
@@ -132,7 +133,7 @@ function renderUnassigned(unassigned) {
   $('#unassigned-count').textContent = total === 0 ? '' : lettersLabel(total);
   replaceChildren(
     $('#unassigned-list'),
-    (unassigned?.letters ?? []).map((/** @type {any} */ letter) => letterCard(letter, { actions: unassignedActions(letter) })),
+    (unassigned?.letters ?? []).map((/** @type {any} */ letter) => letterCard(letter, { actions: unassignedActions(letter), showStatus: false })),
   );
 }
 
@@ -148,10 +149,8 @@ function renderWithdrawn(withdrawn) {
     (withdrawn?.letters ?? []).map((/** @type {any} */ letter) =>
       letterCard(letter, {
         showRecipients: true,
-        actions: [
-          h('span', { class: 'small text-body-secondary align-self-center me-auto', text: 'El destinatario está dado de baja.' }),
-          h('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', text: 'Reasignar…', onClick: () => openAssignModal(letter, () => emit('data-changed')) }),
-        ],
+        actionsWhenOpen: true,
+        actions: [h('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', text: 'Reasignar…', onClick: () => openAssignModal(letter, () => emit('data-changed')) })],
       }),
     ),
   );
@@ -170,12 +169,12 @@ export async function loadReview() {
     queue.total + (queue.unassigned?.total ?? 0) > 1 ? letterToggleAllButtons(() => $('#view-review')) : null,
   );
   if (queue.total === 0) {
-    replaceChildren(list, h('div', { class: 'alert alert-success mb-0', role: 'status', text: 'No hay cartas pendientes de revisar.' }));
+    replaceChildren(list, h('p', { class: 'letter-list-empty', role: 'status', text: 'No hay cartas pendientes de revisar. ✓' }));
     return;
   }
   replaceChildren(
     list,
-    queue.letters.map((/** @type {any} */ letter) => letterCard(letter, { actions: reviewActions(letter) })),
+    queue.letters.map((/** @type {any} */ letter) => letterCard(letter, { actions: reviewActions(letter), showStatus: false })),
   );
   enableTooltips(list);
 }
