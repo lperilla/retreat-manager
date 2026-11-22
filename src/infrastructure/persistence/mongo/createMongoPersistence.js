@@ -6,6 +6,8 @@ import { MongoPrintStatusRepository } from './MongoPrintStatusRepository.js';
 import { MongoSyncStateRepository } from './MongoSyncStateRepository.js';
 import { MongoParticipantRecordRepository, MongoRetreatRepository } from '../../../modules/participants/infrastructure/MongoParticipantStores.js';
 import { ParticipantDirectory } from '../../../modules/participants/infrastructure/ParticipantDirectory.js';
+import { createRoom, createTable } from '../../../modules/accommodation/domain/accommodation.js';
+import { ACCOMMODATION_COLLECTIONS as AC, MongoAssignmentRepository, MongoPlaceRepository } from '../../../modules/accommodation/infrastructure/stores.js';
 
 /**
  * Builds the Mongo repositories over an existing database handle (indexes must exist).
@@ -21,6 +23,10 @@ export function buildMongoRepositories(db, { clock }) {
     participantRepository: new ParticipantDirectory({ records: participantRecords, retreats, clock }),
     participantRecords,
     retreats,
+    rooms: new MongoPlaceRepository(db, { collection: AC.ROOMS, create: createRoom }),
+    tables: new MongoPlaceRepository(db, { collection: AC.TABLES, create: createTable }),
+    roomAssignments: new MongoAssignmentRepository(db, { collection: AC.ROOM_ASSIGNMENTS }),
+    tableAssignments: new MongoAssignmentRepository(db, { collection: AC.TABLE_ASSIGNMENTS }),
     printStatusRepository: new MongoPrintStatusRepository(db),
     overrideRepository: new MongoAssignmentOverrideRepository(db),
   };

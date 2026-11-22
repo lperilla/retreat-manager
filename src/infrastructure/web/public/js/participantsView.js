@@ -8,6 +8,7 @@ import { $, debounce, h, replaceChildren, withBusy } from './dom.js';
 import { lettersLabel, plural } from './format.js';
 import { emit } from './state.js';
 import { confirmDialog, toast, toastError } from './ui.js';
+import { accommodationSection, loadAccommodation, sectionTabs } from './accommodationView.js';
 
 const FILTERS = Object.freeze([
   ['all', 'Todos'],
@@ -17,7 +18,11 @@ const FILTERS = Object.freeze([
   ['accessibility', 'Accesibilidad'],
   ['snores', 'Roncan'],
   ['withdrawn', 'Dados de baja'],
+  ['noRoom', 'Sin habitación'],
+  ['noTable', 'Sin mesa'],
 ]);
+/** Filters resolved in the browser with the accommodation data. */
+const ACCOMMODATION_FILTERS = new Set(['noRoom', 'noTable']);
 
 const MISSING_LABELS = Object.freeze({
   firstSurname: 'el primer apellido',
@@ -68,9 +73,10 @@ function needLabel(code) {
 }
 
 /**
- * @param {{ mode: 'list' | 'detail' | 'new' | 'edit', id?: string | null }} route
+ * @param {{ mode: 'list' | 'detail' | 'new' | 'edit' | 'rooms' | 'tables', id?: string | null }} route
  */
 export async function loadParticipants(route) {
+  if (route.mode === 'rooms' || route.mode === 'tables') return loadAccommodation(route.mode);
   await getCatalogs();
   if (route.mode === 'new') return renderForm(null);
   if (route.mode === 'edit' && route.id) return renderForm(await api.participant(route.id));
@@ -85,7 +91,7 @@ export async function loadParticipants(route) {
 async function renderList() {
   document.title = 'Participantes · Cartas del retiro';
   const view = $('#view-people');
-  const [data, retreat] = await Promise.all([api.participants(listState), api.retreat()]);
+  const [data, retreat] = await Promise.all([fetchList(), api.retreat()]);
 
   const search = h('input', {
     type: 'search',
@@ -107,7 +113,7 @@ async function renderList() {
     'div',
     { class: 'filter-chips d-flex flex-wrap gap-2', role: 'group', 'aria-label': 'Filtrar participantes' },
     FILTERS.map(([value, label]) => {
-      const count = value === 'active' ? data.counts.active : value === 'withdrawn' ? data.counts.withdrawn : value === 'incomplete' ? data.counts.incomplete : null;
+      const count = ['active', 'withdrawn', 'incomplete', 'noRoom', 'noTable'].includes(value) ? data.counts[value] : null;
       return h('button', {
         type: 'button',
         class: `btn btn-sm ${listState.filter === value ? 'btn-primary' : 'btn-outline-secondary'}`,
@@ -123,9 +129,10 @@ async function renderList() {
 
   replaceChildren(
     view,
+    sectionTabs('participants'),
     h(
       'div',
-      { class: 'd-flex flex-wrap justify-content-between align-items-center gap-2 my-3' },
+      { class: 'd-flex flex-wrap justify-content-between align-items-center gap-2 mb-3' },
       h('div', {}, h('h1', { class: 'h3 mb-0', text: 'Participantes' }), h('p', { class: 'text-body-secondary mb-0', text: `${plural(data.total, 'participante', 'participantes')} en ${retreat.name}` })),
       h('a', { class: 'btn btn-primary', href: '#/participantes/nuevo', text: '+ Nuevo participante' }),
     ),
@@ -145,9 +152,22 @@ async function renderList() {
   );
 }
 
+/**
+ * Participants of the list with their room and table ("Sin habitación" / "Sin mesa" are
+ * filtered here, with the accommodation data).
+ */
+async function fetchList() {
+  const local = ACCOMMODATION_FILTERS.has(listState.filter);
+  const [data, places] = await Promise.all([api.participants({ q: listState.q, filter: local ? 'active' : listState.filter }), api.accommodation()]);
+  const participants = data.participants
+    .map((/** @type {any} */ p) => ({ ...p, room: places.byParticipant[p.id]?.room ?? null, table: places.byParticipant[p.id]?.table ?? null }))
+    .filter((/** @type {any} */ p) => (listState.filter === 'noRoom' ? !p.room : listState.filter === 'noTable' ? !p.table : true));
+  return { ...data, participants, counts: { ...data.counts, noRoom: places.withoutRoom.length, noTable: places.withoutTable.length } };
+}
+
 async function refreshList() {
   try {
-    const data = await api.participants(listState);
+    const data = await fetchList();
     replaceChildren($('#people-list'), peopleTable(data));
   } catch (error) {
     toastError(error);
@@ -173,7 +193,7 @@ function peopleTable(data) {
         h(
           'thead',
           {},
-          h('tr', {}, ['Nombre', 'Edad', 'Teléfono', 'Contacto de emergencia', 'Alimentación', 'Accesibilidad', 'Cartas'].map((label) => h('th', { scope: 'col', text: label }))),
+          h('tr', {}, ['Nombre', 'Edad', 'Teléfono', 'Contacto de emergencia', 'Habitación', 'Mesa', 'Alimentación', 'Accesibilidad', 'Cartas'].map((label) => h('th', { scope: 'col', text: label }))),
         ),
         h(
           'tbody',
@@ -193,6 +213,8 @@ function peopleTable(data) {
               h('td', { text: p.age ?? '—' }),
               h('td', { text: p.phone ?? '—' }),
               h('td', {}, p.emergencyContact ? `${p.emergencyContact.name} · ${p.emergencyContact.phone}` : h('span', { class: 'text-danger', text: 'Falta' })),
+              h('td', { text: p.room ? `${p.room.name}${p.room.bed ? ` · ${p.room.bed}` : ''}` : '—' }),
+              h('td', { text: p.table?.name ?? '—' }),
               h(
                 'td',
                 {},
@@ -298,7 +320,7 @@ function retreatPanel(retreat) {
 /**
  * @param {any} p
  */
-function renderDetail(p) {
+async function renderDetail(p) {
   document.title = `${p.displayName} · Participantes`;
   const view = $('#view-people');
   const missing = p.missing.map((/** @type {keyof typeof MISSING_LABELS} */ m) => MISSING_LABELS[m]);
@@ -405,6 +427,7 @@ function renderDetail(p) {
       ),
       section('Alimentación', dietary),
       section('Accesibilidad y apoyos', needs),
+      section('Habitación y mesa', await accommodationSection(p)),
       section('Estancia', dl([['Ronca', { yes: 'Sí', no: 'No', unknown: 'No consta' }[/** @type {'yes'|'no'|'unknown'} */ (p.snores)]]])),
       section('Observaciones', h('p', { class: 'mb-0 pre-wrap', text: p.notes ?? 'Sin observaciones.' })),
     ),

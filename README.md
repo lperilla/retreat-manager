@@ -248,11 +248,22 @@ El apartado **Participantes** es la **fuente única** de participantes del retir
 - Al registrar a alguien o cambiar su nombre o apodos, **se recalculan las asignaciones** (respetando siempre las manuales): las cartas pendientes que lo nombran se le asignan solas.
 - **Datos que venían de versiones anteriores**: los participantes guardados solo con «nombre completo» se separan automáticamente en nombre y apellidos. Si el reparto es dudoso (tres o más palabras, como «José Ignacio Sanz»), la ficha lo indica para revisarlo. Mientras tanto, se reconocen solo por el nombre completo, como antes.
 
+### Habitaciones y mesas
+
+En **Participantes → Habitaciones / Mesas** se crean las habitaciones (nombre, camas, planta, accesible, sin escaleras) y las mesas (nombre, plazas). Con «Crear varias numeradas» se crean de una vez, por ejemplo «Habitación 1» a «Habitación 20».
+
+- **Asignar**: desde la tarjeta de cada habitación o mesa («Añadir a…», con quien aún no tiene), o desde la ficha del participante (sección **Habitación y mesa**, con cama opcional). Cada participante tiene **una habitación y una mesa fija** para todo el retiro.
+- **Aforo**: una habitación o mesa completa no admite a nadie más. Una con personas no se puede eliminar.
+- **Avisos** (informan, no bloquean): si comparten habitación quien ronca y quien no, si alguien que necesita habitación accesible o evitar escaleras no la tiene, o si hay más personas que plazas.
+- **Cocina**: cada mesa resume las alergias, intolerancias y dietas de quienes se sientan en ella, con las graves en rojo.
+- El listado de participantes muestra su habitación y su mesa, con filtros «Sin habitación» y «Sin mesa».
+- **Dar de baja o eliminar** a un participante libera su habitación y su mesa. Al cerrar el retiro se borran también habitaciones, mesas y asignaciones.
+
 ### Retiro y borrado automático
 
 Todo pertenece a un **retiro** (de momento, uno activo). En **Participantes → Editar datos del retiro** se indican su nombre y su primer y último día.
 
-- **Borrado automático**: `RETREAT_RETENTION_DAYS` días después del último día (30 por defecto), se borran **todos los datos personales** del retiro: participantes (con alergias, necesidades y contactos de emergencia), cartas, asignaciones, estado de impresión, historial de sincronización, caché de adjuntos y archivos exportados. Del retiro solo quedan su nombre, sus fechas y los totales, y empieza un retiro nuevo vacío.
+- **Borrado automático**: `RETREAT_RETENTION_DAYS` días después del último día (30 por defecto), se borran **todos los datos personales** del retiro: participantes (con alergias, necesidades y contactos de emergencia), habitaciones, mesas y asignaciones, cartas, asignaciones, estado de impresión, historial de sincronización, caché de adjuntos y archivos exportados. Del retiro solo quedan su nombre, sus fechas y los totales, y empieza un retiro nuevo vacío.
 - Desde que termina el retiro, el panel muestra un **aviso** con la fecha de borrado.
 - **Cerrar retiro…** permite borrarlo antes, escribiendo su nombre para confirmar.
 - Las cartas recibidas antes del cierre **no se vuelven a importar**.
@@ -380,7 +391,7 @@ El panel usa **HTTP sin cifrar**: úsalo solo en una red de confianza (nunca en 
              └────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Módulos**: el código de cartas sigue en `src/{domain,application,infrastructure}`. Los módulos nuevos van en `src/modules/<módulo>/{domain,application,infrastructure}`, empezando por `src/modules/participants` (Retreat, ParticipantRecord, catálogos, casos de uso, repositorios Mongo/JSON y API).
+- **Módulos**: el código de cartas sigue en `src/{domain,application,infrastructure}`. Los módulos nuevos van en `src/modules/<módulo>/{domain,application,infrastructure}`: `src/modules/participants` (Retreat, ParticipantRecord, catálogos, casos de uso, repositorios Mongo/JSON y API) y `src/modules/accommodation` (Room, Table y sus asignaciones, que leen los participantes a través de un puerto).
 - **Puente entre módulos**: las cartas ven a los participantes a través de su puerto de siempre, `ParticipantRepositoryPort`, que ahora implementa `ParticipantDirectory` (participantes del retiro activo con nombre estructurado y estado). Así los casos de uso de cartas no cambiaron.
 
 - **Regla de dependencias**: infraestructura → aplicación → dominio. El dominio no importa Express, Google, MongoDB ni nada de E/S. Solo usa `Intl` para las zonas horarias.

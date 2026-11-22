@@ -25,6 +25,10 @@ export function indexSpecs({ runsTtlDays }) {
     { collection: COLLECTIONS.LETTERS, key: { retreatId: 1 }, name: 'retreat' },
     { collection: COLLECTIONS.PARTICIPANTS, key: { retreatId: 1, status: 1 }, name: 'retreat_status' },
     { collection: COLLECTIONS.RETREATS, key: { status: 1, createdAt: 1 }, name: 'status_created_at' },
+    { collection: COLLECTIONS.ROOMS, key: { retreatId: 1 }, name: 'retreat' },
+    { collection: COLLECTIONS.TABLES, key: { retreatId: 1 }, name: 'retreat' },
+    { collection: COLLECTIONS.ROOM_ASSIGNMENTS, key: { retreatId: 1, targetId: 1 }, name: 'retreat_target' },
+    { collection: COLLECTIONS.TABLE_ASSIGNMENTS, key: { retreatId: 1, targetId: 1 }, name: 'retreat_target' },
     {
       collection: COLLECTIONS.SYNC_RUNS,
       key: { startedAt: 1 },

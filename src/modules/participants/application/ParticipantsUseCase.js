@@ -49,6 +49,7 @@ export class ParticipantsUseCase {
   #logger;
   #idGenerator;
   #timeZone;
+  #onParticipantLeft;
 
   /**
    * @param {{
@@ -60,9 +61,10 @@ export class ParticipantsUseCase {
    *   logger: import('../../../application/ports/LoggerPort.js').LoggerPort,
    *   timeZone: string,
    *   idGenerator?: () => string,
-   * }} deps
+   *   onParticipantLeft?: (participantId: string) => Promise<void>,
+   * }} deps  onParticipantLeft: other modules release what the participant held (room, table).
    */
-  constructor({ participantRecords, retreats, letterUsage, recomputeAssignments, clock, logger, timeZone, idGenerator = randomUUID }) {
+  constructor({ participantRecords, retreats, letterUsage, recomputeAssignments, clock, logger, timeZone, idGenerator = randomUUID, onParticipantLeft = async () => {} }) {
     this.#records = participantRecords;
     this.#retreats = retreats;
     this.#letterUsage = letterUsage;
@@ -71,6 +73,7 @@ export class ParticipantsUseCase {
     this.#logger = logger;
     this.#timeZone = timeZone;
     this.#idGenerator = idGenerator;
+    this.#onParticipantLeft = onParticipantLeft;
   }
 
   #activeRetreat() {
@@ -166,7 +169,8 @@ export class ParticipantsUseCase {
 
   /**
    * "Dar de baja": the participant leaves the retreat. Letters stay with them, marked as
-   * "no está en el retiro", and they disappear from the dashboard and print batches.
+   * "no está en el retiro", and they disappear from the dashboard and print batches. Their
+   * room and table are released.
    * @param {string} id
    */
   async withdraw(id) {
@@ -175,6 +179,7 @@ export class ParticipantsUseCase {
     const now = this.#clock.now();
     await this.#records.save(createParticipantRecord({ ...current, status: ParticipantStatus.WITHDRAWN, withdrawnAt: now, updatedAt: now }));
     this.#logger.info({ participantId: id }, 'Participant withdrawn');
+    await this.#onParticipantLeft(id);
     return { participant: await this.get({ id }) };
   }
 
@@ -198,6 +203,7 @@ export class ParticipantsUseCase {
     if (letters > 0) throw new AppError('PARTICIPANT_HAS_LETTERS', 409, undefined, { participantId: id, letters });
     await this.#records.delete(current.id);
     this.#logger.info({ participantId: id }, 'Participant deleted');
+    await this.#onParticipantLeft(current.id);
     const recompute = await this.#recompute.execute();
     return { deleted: true, recompute: { changed: recompute.changed } };
   }

@@ -17,11 +17,13 @@ import { confirmDialog, showSummary, toast, toastError } from './ui.js';
 
 const VIEWS = ['dashboard', 'participant', 'people', 'review', 'history'];
 
-/** @returns {{ view: string, param: string | null, mode?: 'list' | 'detail' | 'new' | 'edit' }} */
+/** @returns {{ view: string, param: string | null, mode?: 'list' | 'detail' | 'new' | 'edit' | 'rooms' | 'tables' }} */
 function parseRoute() {
   const hash = window.location.hash.replace(/^#\/?/, '');
   const [first, ...rest] = hash.split('/');
   if (first === 'participante' && rest[0]) return { view: 'participant', param: decodeURIComponent(rest.join('/')) };
+  if (first === 'habitaciones') return { view: 'people', param: null, mode: 'rooms' };
+  if (first === 'mesas') return { view: 'people', param: null, mode: 'tables' };
   if (first === 'participantes') {
     if (!rest[0]) return { view: 'people', param: null, mode: 'list' };
     if (rest[0] === 'nuevo') return { view: 'people', param: null, mode: 'new' };

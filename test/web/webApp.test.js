@@ -199,6 +199,23 @@ describe('web API', () => {
     assert.equal(runs.runs[0].status, 'success');
   });
 
+  it('manages rooms, tables and assignments through the accommodation API', async () => {
+    const app = await startApp();
+    const json = (/** @type {string} */ method, /** @type {any} */ body) => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const room = await app.post('/api/rooms', { name: 'Habitación 1', capacity: 1, accessible: true });
+    assert.equal(room.status, 201);
+    const roomId = (await room.json()).id;
+    const table = await (await app.post('/api/tables', { name: 'Mesa 1', capacity: 6 })).json();
+    const assigned = await app.fetch('/api/participants/lucia-fernandez/room', json('PUT', { roomId, bed: 'Cama 1' }));
+    assert.equal(assigned.status, 200);
+    assert.equal((await app.fetch('/api/participants/maria-garcia/room', json('PUT', { roomId }))).status, 409);
+    await app.fetch('/api/participants/lucia-fernandez/table', json('PUT', { tableId: table.id }));
+    const overview = await (await app.fetch('/api/accommodation')).json();
+    assert.deepEqual(overview.byParticipant['lucia-fernandez'].room, { id: roomId, name: 'Habitación 1', bed: 'Cama 1' });
+    assert.equal(overview.tables[0].occupancy, 1);
+    assert.equal((await app.fetch(`/api/rooms/${roomId}`, json('DELETE', {}))).status, 409);
+  });
+
   it('manages participants and the retreat through the participants module API', async () => {
     const app = await startApp();
     // Quick registration from the letters screen: name only, reported as incomplete.

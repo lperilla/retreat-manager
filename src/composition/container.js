@@ -49,6 +49,8 @@ import { getOrCreateActiveRetreat } from '../modules/participants/application/ac
 import { ParticipantRecordRepositoryPort, RetreatRepositoryPort } from '../modules/participants/application/ports.js';
 import { ParticipantsUseCase } from '../modules/participants/application/ParticipantsUseCase.js';
 import { RetreatUseCase } from '../modules/participants/application/RetreatUseCase.js';
+import { AccommodationUseCase } from '../modules/accommodation/application/AccommodationUseCase.js';
+import { AssignmentRepositoryPort, PlaceRepositoryPort } from '../modules/accommodation/application/ports.js';
 import { createMongoPersistence } from '../infrastructure/persistence/mongo/createMongoPersistence.js';
 import { FileExportStorage } from '../infrastructure/rendering/FileExportStorage.js';
 import { AttachmentsPdfRenderer } from '../infrastructure/rendering/AttachmentsPdfRenderer.js';
@@ -210,6 +212,10 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
   const overrideRepository = AssignmentOverrideRepositoryPort.assert(persistence.overrideRepository);
   const participantRecords = ParticipantRecordRepositoryPort.assert(persistence.participantRecords);
   const retreats = RetreatRepositoryPort.assert(persistence.retreats);
+  const rooms = PlaceRepositoryPort.assert(persistence.rooms);
+  const tables = PlaceRepositoryPort.assert(persistence.tables);
+  const roomAssignments = AssignmentRepositoryPort.assert(persistence.roomAssignments);
+  const tableAssignments = AssignmentRepositoryPort.assert(persistence.tableAssignments);
 
   try {
     await prepareRetreat({ config, overrides, persistence, participantRepository, participantRecords, retreats, letterStore, clock, logger });
@@ -242,6 +248,18 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
       return counts;
     },
   };
+
+  // Accommodation module (rooms and tables): reads participants through their repository.
+  const accommodation = new AccommodationUseCase({
+    rooms,
+    tables,
+    roomAssignments,
+    tableAssignments,
+    participants: { findByRetreat: (retreatId) => participantRecords.findByRetreat(retreatId) },
+    retreats,
+    clock,
+    logger,
+  });
 
   const preparePrintView = new PreparePrintViewUseCase({
     participantRepository,
@@ -318,7 +336,9 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
       clock,
       logger,
       timeZone: config.timeZone,
+      onParticipantLeft: (participantId) => accommodation.releaseParticipant(participantId),
     }),
+    accommodation,
     retreat: new RetreatUseCase({
       retreats,
       participantRecords,
@@ -326,6 +346,7 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
       // belongs to it, so closing it deletes them all, plus local files with personal data.
       purgeRetreatData: async (retreatId) => {
         await purgeData({ persistence, directories: [config.cacheDir, config.exportDir], projectRoot: config.projectRoot });
+        await accommodation.deleteRetreatData(retreatId);
         await participantRecords.deleteByRetreat(retreatId);
       },
       countLetters: async () => (await letterStore.findAll({ includeDeleted: true })).length,
@@ -363,6 +384,10 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
       participantRepository,
       participantRecords,
       retreats,
+      rooms,
+      tables,
+      roomAssignments,
+      tableAssignments,
       printStatusRepository,
       overrideRepository,
     }),

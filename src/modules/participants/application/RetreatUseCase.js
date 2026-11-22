@@ -9,8 +9,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /**
  * Retreat data and end of life. When the retreat is over, every personal datum is deleted
  * automatically `retentionDays` after its last day (or earlier, on request): participants
- * (including allergies, needs and emergency contacts), letters, manual assignments, print
- * status, sync history, the attachment cache and exported files. Only the retreat's name,
+ * (including allergies, needs and emergency contacts), rooms, tables and their assignments,
+ * letters, manual assignments, print status, sync history, the attachment cache and exported files. Only the retreat's name,
  * dates and anonymous totals remain, and a new empty retreat starts. Letters received
  * before that moment are never imported again.
  */

@@ -10,6 +10,7 @@ import { rateLimit } from './middleware/rateLimit.js';
 import { securityHeaders } from './middleware/securityHeaders.js';
 import { createApiRouter } from './routes/apiRoutes.js';
 import { createParticipantsRouter } from '../../modules/participants/infrastructure/web/participantsRoutes.js';
+import { createAccommodationRouter } from '../../modules/accommodation/infrastructure/web/accommodationRoutes.js';
 import { createPrintHandler } from './routes/printRoute.js';
 
 export const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), 'public');
@@ -85,6 +86,7 @@ export function createWebApp({ runtime, logger, accessToken, rateLimits = DEFAUL
     requireJson(),
     createApiRouter({ runtime, limiters }),
     createParticipantsRouter({ runtime }),
+    createAccommodationRouter({ runtime }),
     apiNotFound(),
   );
 

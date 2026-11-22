@@ -6,6 +6,8 @@ import { JsonPrintStatusRepository } from './JsonPrintStatusRepository.js';
 import { JsonSyncStateRepository } from './JsonSyncStateRepository.js';
 import { JsonParticipantRecordRepository, JsonRetreatRepository } from '../../../modules/participants/infrastructure/JsonParticipantStores.js';
 import { ParticipantDirectory } from '../../../modules/participants/infrastructure/ParticipantDirectory.js';
+import { createRoom, createTable } from '../../../modules/accommodation/domain/accommodation.js';
+import { JsonAssignmentRepository, JsonPlaceRepository } from '../../../modules/accommodation/infrastructure/stores.js';
 
 /**
  * @typedef {Object} PersistenceAdapters
@@ -16,6 +18,10 @@ import { ParticipantDirectory } from '../../../modules/participants/infrastructu
  *           Letters' view of the participants of the active retreat (served by the participants module).
  * @property {import('../../../modules/participants/application/ports.js').ParticipantRecordRepositoryPort} participantRecords
  * @property {import('../../../modules/participants/application/ports.js').RetreatRepositoryPort} retreats
+ * @property {import('../../../modules/accommodation/application/ports.js').PlaceRepositoryPort} rooms
+ * @property {import('../../../modules/accommodation/application/ports.js').PlaceRepositoryPort} tables
+ * @property {import('../../../modules/accommodation/application/ports.js').AssignmentRepositoryPort} roomAssignments
+ * @property {import('../../../modules/accommodation/application/ports.js').AssignmentRepositoryPort} tableAssignments
  * @property {import('../../../application/ports/PrintStatusRepositoryPort.js').PrintStatusRepositoryPort} printStatusRepository
  * @property {import('../../../application/ports/AssignmentOverrideRepositoryPort.js').AssignmentOverrideRepositoryPort} overrideRepository
  * @property {() => Promise<void>} close
@@ -49,6 +55,10 @@ export function createJsonPersistence({ directory, clock, runsTtlDays = 90 }) {
     participantRepository: new ParticipantDirectory({ records: participantRecords, retreats, clock }),
     participantRecords,
     retreats,
+    rooms: new JsonPlaceRepository({ filePath: file('rooms.json'), create: createRoom }),
+    tables: new JsonPlaceRepository({ filePath: file('tables.json'), create: createTable }),
+    roomAssignments: new JsonAssignmentRepository({ filePath: file('room_assignments.json') }),
+    tableAssignments: new JsonAssignmentRepository({ filePath: file('table_assignments.json') }),
     printStatusRepository: new JsonPrintStatusRepository({ filePath: file('print_status.json') }),
     overrideRepository: new JsonAssignmentOverrideRepository({ filePath: file('assignment_overrides.json') }),
     async close() {},

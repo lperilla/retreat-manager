@@ -82,6 +82,18 @@ export const api = {
   reactivateParticipant: (/** @type {string} */ id) => request(`/api/participants/${encodeURIComponent(id)}/reactivate`, { method: 'POST' }),
   deleteParticipant: (/** @type {string} */ id) => request(`/api/participants/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   retreat: () => request('/api/retreat'),
+  // Accommodation module (rooms and tables)
+  accommodation: () => request('/api/accommodation'),
+  createRoom: (/** @type {Record<string, unknown>} */ body) => request('/api/rooms', { method: 'POST', body }),
+  updateRoom: (/** @type {string} */ id, /** @type {Record<string, unknown>} */ body) => request(`/api/rooms/${encodeURIComponent(id)}`, { method: 'PUT', body }),
+  deleteRoom: (/** @type {string} */ id) => request(`/api/rooms/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  createTable: (/** @type {Record<string, unknown>} */ body) => request('/api/tables', { method: 'POST', body }),
+  updateTable: (/** @type {string} */ id, /** @type {Record<string, unknown>} */ body) => request(`/api/tables/${encodeURIComponent(id)}`, { method: 'PUT', body }),
+  deleteTable: (/** @type {string} */ id) => request(`/api/tables/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  assignRoom: (/** @type {string} */ participantId, /** @type {string | null} */ roomId, /** @type {string | null} */ bed = null) =>
+    request(`/api/participants/${encodeURIComponent(participantId)}/room`, { method: 'PUT', body: { roomId, bed } }),
+  assignTable: (/** @type {string} */ participantId, /** @type {string | null} */ tableId) =>
+    request(`/api/participants/${encodeURIComponent(participantId)}/table`, { method: 'PUT', body: { tableId } }),
   updateRetreat: (/** @type {{ name: string, startDate: string | null, endDate: string | null }} */ body) => request('/api/retreat', { method: 'PUT', body }),
   closeRetreat: (/** @type {string} */ confirmName) => request('/api/retreat/close', { method: 'POST', body: { confirmName } }),
   startSync: (/** @type {'incremental' | 'full'} */ mode) => request('/api/sync', { method: 'POST', body: { mode } }),

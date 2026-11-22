@@ -105,6 +105,11 @@ main:focus { outline: none; }
 .small-dl dd { margin-bottom: .35rem; }
 .pre-wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
 
+/* Accommodation module */
+.place-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 1rem; }
+.place-card .occupants li { padding: .15rem 0; border-bottom: 1px dashed var(--bs-border-color); }
+.place-card .occupants li:last-child { border-bottom: 0; }
+
 /* Assign modal */
 .assign-options { max-height: 50vh; overflow-y: auto; }
 .assign-options .form-check { padding: .35rem .5rem .35rem 2rem; border-radius: .375rem; }
