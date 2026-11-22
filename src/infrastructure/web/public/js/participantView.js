@@ -159,24 +159,6 @@ export async function loadParticipant(participantId) {
     ),
   );
 
-  const unprintedTotal = data.printStatus.unprintedCount ?? 0;
-  const printToggle = h('button', {
-    type: 'button',
-    class: `btn btn-sm ${printed ? 'btn-success' : 'btn-outline-secondary'}`,
-    'aria-pressed': printed ? 'true' : 'false',
-    text: printed ? 'Impresa ✓' : everPrinted ? `${plural(unprintedTotal, 'carta sin imprimir', 'cartas sin imprimir')}` : 'Pendiente de imprimir',
-    title: printed ? 'Marcar todas como no impresas' : 'Marcar todas como impresas',
-    onClick: (/** @type {Event} */ event) =>
-      void withBusy(/** @type {HTMLButtonElement} */ (event.currentTarget), async () => {
-        try {
-          await api.updatePrintStatus([participant.id], printed ? 'pending' : 'printed');
-          emit('data-changed');
-        } catch (error) {
-          toastError(error);
-        }
-      }),
-  });
-
   const reload = () => void loadParticipant(participant.id).catch(toastError);
   const dateFilter = h(
     'div',
@@ -212,7 +194,6 @@ export async function loadParticipant(participantId) {
     'div',
     { class: 'participant-controls d-flex flex-wrap gap-2 align-items-center mb-3' },
     printMenu,
-    printToggle,
     h(
       'div',
       { class: 'd-flex flex-wrap gap-3 align-items-center ms-md-auto' },
