@@ -27,7 +27,7 @@ export const REDACTED_PATHS = Object.freeze([
 
 /**
  * LoggerPort adapter backed by pino (JSON lines).
- * The MCP entrypoint must use `destination: 'stderr'`: stdout is reserved for the protocol.
+ * Use `destination: 'stderr'` when stdout must stay clean.
  * @implements {import('../../application/ports/LoggerPort.js').LoggerPort}
  */
 export class PinoLogger {

@@ -28,7 +28,7 @@ function buildSnippet(body, tokens) {
 
 /**
  * Accent/case-insensitive search over subject, sender and body of ALL active letters,
- * including unassigned ones (MCP `search_raw_letters`). Every query word must match.
+ * including unassigned ones . Every query word must match.
  */
 export class SearchRawLettersUseCase {
   #letters;

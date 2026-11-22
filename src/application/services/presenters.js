@@ -1,5 +1,5 @@
 /**
- * Plain, JSON-serializable views shared by the web and MCP adapters.
+ * Plain, JSON-serializable views shared by the web adapters.
  * Dates are ISO-8601 strings; participant ids are resolved to display names.
  */
 import { AssignmentStatus, SignalType } from '../../domain/constants.js';

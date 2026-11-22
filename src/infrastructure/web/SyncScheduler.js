@@ -4,7 +4,7 @@ const EXPECTED_REFUSALS = new Set(['SYNC_COOLDOWN', 'SYNC_IN_PROGRESS', 'MAIL_SO
 
 /**
  * Automatic incremental sync (web entrypoint only, SYNC_INTERVAL_MINUTES > 0).
- * Overlap with manual or MCP syncs is prevented by the database lock; a refused tick is
+ * Overlap with manual syncs is prevented by the database lock; a refused tick is
  * simply skipped.
  */
 export class SyncScheduler {

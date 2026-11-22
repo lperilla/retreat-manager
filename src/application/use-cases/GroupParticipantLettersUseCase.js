@@ -7,7 +7,7 @@ import { presentLetter, presentPrintStatus } from '../services/presenters.js';
 import { requireString } from '../services/validation.js';
 
 /**
- * Chronological letters of one participant (detail view, MCP `group_participant_letters`).
+ * Chronological letters of one participant (detail view).
  */
 export class GroupParticipantLettersUseCase {
   #participants;

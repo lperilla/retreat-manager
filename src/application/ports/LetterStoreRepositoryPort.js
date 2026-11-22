@@ -1,7 +1,7 @@
 import { definePort } from './definePort.js';
 
 /**
- * Local letter store. The dashboard and the MCP tools read ONLY from here.
+ * Local letter store. The dashboard reads ONLY from here.
  *
  * Semantics every adapter must honour:
  * - `upsertMany` inserts or replaces letters by `messageId`, but `firstSeenAt`, `syncRunId`

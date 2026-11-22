@@ -1,14 +1,13 @@
 # retreat-mail-mcp · Cartas del retiro
 
-Panel web, exportador por lotes, sistema de impresión y servidor MCP para gestionar las **cartas que las familias envían a los participantes de un retiro** a un buzón compartido de Gmail.
+Panel web, exportador por lotes, sistema de impresión para gestionar las **cartas que las familias envían a los participantes de un retiro** a un buzón compartido de Gmail.
 
 - Descarga las cartas de Gmail (solo lectura) y las guarda en una base de datos local con **sincronización incremental**.
 - Decide **para quién es cada carta** a partir del asunto y del cuerpo (nunca del remitente ni de la firma) y deja en «Por revisar» las dudosas.
 - Muestra cuántas cartas tiene cada participante, quién lleva más y quién menos (con empates) y qué ha llegado desde la última sincronización.
 - Exporta e **imprime por lotes**: cada carta en su propia hoja (con «Para: …»), agrupadas por participante y en orden cronológico, con tipografía cuidada.
-- Expone los mismos datos a asistentes de IA mediante un **servidor MCP**.
 
-El panel y el MCP **nunca leen Gmail directamente**: todo se lee de la base de datos local. Gmail solo se consulta al sincronizar, y solo para lo que ha cambiado.
+El panel **nunca lee Gmail directamente**: todo se lee de la base de datos local. Gmail solo se consulta al sincronizar, y solo para lo que ha cambiado.
 
 ---
 
@@ -27,7 +26,6 @@ El panel y el MCP **nunca leen Gmail directamente**: todo se lee de la base de d
 11. [Impresión](#impresión)
 12. [Sincronización incremental](#sincronización-incremental)
 13. [Panel en la red local](#panel-en-la-red-local)
-14. [Servidor MCP](#servidor-mcp)
 15. [Arquitectura hexagonal](#arquitectura-hexagonal)
 16. [Tests](#tests)
 17. [Privacidad, retención y borrado](#privacidad-retención-y-borrado)
@@ -118,7 +116,6 @@ Otras opciones: `--no-open` (no abrir el navegador), `--no-mongo` (no tocar Mong
 | `.\start.cmd` · `./start.sh` | Arrancar, parar, reiniciar, estado, registro, instalar ([ver tabla](#arrancar-parar-y-reiniciar)). |
 | `npm start` | Panel web y API en primer plano. |
 | `npm run dev` | Igual, reiniciando al cambiar el código. |
-| `npm run mcp` | Servidor MCP por stdio. |
 | `npm run auth` | Autoriza el acceso de solo lectura a Gmail y escribe `token.json`. |
 | `npm test` | Tests unitarios, de aplicación y de adaptadores. |
 | `npm run db:purge` | Borra las cartas y los datos de sincronización (pide confirmación). |
@@ -149,7 +146,7 @@ Espera a que aparezca `healthy`. Con Podman se usan los mismos comandos con `pod
 
 Los índices se crean solos al arrancar. Se usan estas colecciones: `letters`, `participants`, `assignment_overrides`, `print_status`, `sync_state` y `sync_runs` (esta última con caducidad automática según `SYNC_RUNS_TTL_DAYS`).
 
-**Alternativa sin MongoDB**: `PERSISTENCE=json` guarda ficheros en `data/db/`. Sirve para un solo proceso: si el panel y el MCP se ejecutan a la vez, usa MongoDB, porque el bloqueo de sincronización solo funciona entre procesos con Mongo.
+**Alternativa sin MongoDB**: `PERSISTENCE=json` guarda ficheros en `data/db/`. Sirve para un solo proceso: si hay más de un proceso, usa MongoDB, porque el bloqueo de sincronización solo funciona entre procesos con Mongo.
 
 ## Configuración OAuth2 en Google Cloud
 
@@ -267,7 +264,7 @@ La mayoría de las cartas llegan como texto, pero algunas traen una foto o un es
 - **HEIC (fotos de iPhone)**:
   - El `sharp` que se instala con npm no incluye el decodificador HEVC, por motivos de patentes. Las fotos HEIC muestran entonces «No se ha podido mostrar la imagen» con un botón para descargar el original.
   - Para convertirlas hay que instalar libvips con libheif y soporte HEVC y compilar sharp contra ella (consulta la documentación de sharp). Otra opción es pedir a las familias que envíen las fotos en JPEG (en el iPhone: Ajustes → Cámara → Formatos → «Más compatible»).
-- **Sin conexión con Gmail** (por ejemplo, un MCP en otra máquina): los adjuntos se listan, pero no se pueden abrir.
+- **Sin conexión con Gmail**: los adjuntos se listan, pero no se pueden abrir.
 
 ## Exportación en lote
 
@@ -298,11 +295,11 @@ Desde la ficha de un participante, «Exportar» hace lo mismo solo para esa pers
 - **Primera vez, o «Sincronización completa»**: se anota el punto actual del buzón (`historyId`) **antes** de listar todos los mensajes de la búsqueda. Así, lo que llegue mientras se descarga se recoge en la siguiente sincronización.
 - **Incremental**: se piden a Gmail solo los cambios desde ese punto (`users.history.list`, todas las páginas) y se descargan únicamente los mensajes nuevos.
 - **Seguridad del cursor**: el punto guardado **solo avanza cuando las cartas ya están guardadas**. Si algo falla, se conserva el anterior, el estado queda como *Con error* y el panel sigue mostrando los últimos datos buenos. Si Gmail dice que el punto guardado ya no vale, se hace una sincronización completa automáticamente.
-- **Cambio de filtro**: el punto guardado recuerda con qué filtro se obtuvo (`GMAIL_QUERY`, `GMAIL_LABEL_ID`, `GMAIL_START_DATE`). Si el filtro ha cambiado, la siguiente sincronización es completa aunque se pida incremental. El resultado lo indica en `fullSyncReason` (`requested`, `first-sync`, `cursor-expired` o `selection-changed`), también en el MCP.
+- **Cambio de filtro**: el punto guardado recuerda con qué filtro se obtuvo (`GMAIL_QUERY`, `GMAIL_LABEL_ID`, `GMAIL_START_DATE`). Si el filtro ha cambiado, la siguiente sincronización es completa aunque se pida incremental. El resultado lo indica en `fullSyncReason` (`requested`, `first-sync`, `cursor-expired` o `selection-changed`).
 - **Sin duplicados**: las cartas se guardan por id de mensaje, así que repetir la misma sincronización no duplica nada. Las cartas borradas en Gmail se marcan como borradas (no se eliminan) y dejan de contar.
 - **Novedades**: cada carta guarda cuándo se vio por primera vez y si el equipo ya la ha visto.
 - **Nunca se pierden** las asignaciones manuales ni el estado de impresión al sincronizar.
-- **Una sola sincronización a la vez**, aunque la lancen el panel, la sincronización automática y el MCP: hay un bloqueo en la base de datos y una pausa mínima entre sincronizaciones.
+- **Una sola sincronización a la vez**, aunque la lancen el panel y la sincronización automática: hay un bloqueo en la base de datos y una pausa mínima entre sincronizaciones.
 - **Sincronización automática**: `SYNC_INTERVAL_MINUTES` > 0. Solo la programa el panel web.
 - Reintentos con espera exponencial ante límites de Gmail (429) o errores temporales (5xx), y descargas en paralelo limitadas (`GMAIL_CONCURRENCY`).
 
@@ -322,60 +319,11 @@ Para usar el panel desde otros dispositivos del retiro (por ejemplo, una tableta
 
 El panel usa **HTTP sin cifrar**: úsalo solo en una red de confianza (nunca en una wifi abierta) y vuelve a `HOST=127.0.0.1` al terminar.
 
-## Servidor MCP
-
-Permite a un asistente compatible con MCP (Claude Desktop, Claude Code…) consultar las cartas. Usa la misma base de datos que el panel. Habla por **stdio**: por la salida estándar solo viajan los mensajes del protocolo, y todos los registros van a la salida de errores.
-
-```powershell
-npm run mcp
-```
-
-**Herramientas**
-
-| Herramienta | Qué hace |
-|---|---|
-| `list_retreat_summary` | Totales, quién tiene más y menos cartas (con empates), participantes sin cartas, cola de revisión, cartas nuevas y estado de la sincronización. |
-| `group_participant_letters` | Cartas de un participante en orden cronológico (`participantId`, `afterDate` opcional y exclusivo). |
-| `search_raw_letters` | Búsqueda sin tildes en asunto, remitente y cuerpo, incluidas las no asignadas (`query`, `limit` ≤ 50). |
-| `list_new_letters` | Cartas aún no vistas por el equipo, agrupadas por participante. |
-| `sync_mailbox` | Sincroniza con Gmail (`incremental` o `full`). No es de solo lectura, pero no destruye datos. |
-| `export_batch_letters` | Escribe un archivo en `EXPORT_DIR` (`html`, `txt` o `json`) y devuelve su ruta. |
-
-**Recursos**: `retreat://summary`, `retreat://participants`, `retreat://participants/{id}/letters` y `retreat://sync-status`.
-
-Si en esa máquina no está configurado Gmail, las consultas funcionan igual (leen la base de datos) y `sync_mailbox` responde con un error explicativo.
-
-### Claude Desktop
-
-Edita `claude_desktop_config.json`:
-
-- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "cartas-retiro": {
-      "command": "node",
-      "args": ["C:\\ruta\\a\\retreat-mail-mcp\\src\\entrypoints\\mcp.js"]
-    }
-  }
-}
-```
-
-El servidor lee el `.env` de la carpeta del proyecto aunque Claude lo arranque desde otra carpeta. Para usar otro archivo, añade `"env": { "RETREAT_ENV_FILE": "C:\\ruta\\otro.env" }`. Reinicia Claude Desktop después de editar.
-
-### Claude Code
-
-```powershell
-claude mcp add cartas-retiro -- node C:\ruta\a\retreat-mail-mcp\src\entrypoints\mcp.js
-```
-
 ## Arquitectura hexagonal
 
 ```
              ┌───────────────────────────── infraestructura ─────────────────────────────┐
-             │  web (Express + UI)   mcp (stdio)   gmail   persistence (mongo | json)     │
+             │  web (Express + UI)   gmail   persistence (mongo | json)                   │
              │  rendering (html/txt/json)   logging (pino)   maintenance (db:purge)       │
              └───────────────┬───────────────────────────────────────────┬───────────────┘
                              │ usa casos de uso                          │ implementa puertos
@@ -393,18 +341,18 @@ claude mcp add cartas-retiro -- node C:\ruta\a\retreat-mail-mcp\src\entrypoints\
 
 - **Regla de dependencias**: infraestructura → aplicación → dominio. El dominio no importa Express, Google, MongoDB ni nada de E/S. Solo usa `Intl` para las zonas horarias.
 - **Puertos** (`src/application/ports`): contratos documentados con JSDoc y comprobados al arrancar. Por ejemplo, `MailSourcePort.fetchChanges(cursor)` o `SyncStateRepositoryPort.acquireLock(owner, ttl)`.
-- **Adaptadores**: Gmail, demo, MongoDB, JSON, Express, MCP, renderizadores…
-- **Raíz de composición**: `src/composition/container.js` monta todo a mano (inyección de dependencias manual). El panel (`src/entrypoints/web.js`) y el MCP (`src/entrypoints/mcp.js`) comparten el mismo contenedor, casos de uso y base de datos.
-- **Errores**: `AppError(code, httpStatus)`, con código en inglés y mensaje en español. Se traduce en un único middleware de Express y en el manejador de herramientas del MCP. Formato: `{ "code": "PARTICIPANT_NOT_FOUND", "message": "Participante no encontrado." }`.
+- **Adaptadores**: Gmail, demo, MongoDB, JSON, Express, renderizadores…
+- **Raíz de composición**: `src/composition/container.js` monta todo a mano (inyección de dependencias manual). El panel (`src/entrypoints/web.js`) construye el contenedor con los casos de uso y la base de datos.
+- **Errores**: `AppError(code, httpStatus)`, con código en inglés y mensaje en español. Se traduce en un único middleware de Express. Formato: `{ "code": "PARTICIPANT_NOT_FOUND", "message": "Participante no encontrado." }`.
 
 ```
 src/
   domain/          entidades y servicios puros
   application/     puertos, casos de uso y servicios de apoyo
-  infrastructure/  gmail, persistence/{mongo,json}, rendering, web, mcp, logging, maintenance
+  infrastructure/  gmail, persistence/{mongo,json}, rendering, web, logging, maintenance
   composition/     config.js (entorno validado) y container.js
-  entrypoints/     web.js, mcp.js, auth.js, purge.js
-test/              node:test (dominio, aplicación, adaptadores, web, MCP)
+  entrypoints/     web.js, auth.js, purge.js
+test/              node:test (dominio, aplicación, adaptadores, web)
 ```
 
 ## Tests
@@ -413,7 +361,7 @@ test/              node:test (dominio, aplicación, adaptadores, web, MCP)
 npm test
 ```
 
-Cubren las reglas de dominio (conteo, empates, agrupación cronológica, zona horaria, asignación, avisos y `syncDiff`), los casos de uso con dobles en memoria (idempotencia, seguridad del cursor, respaldo con sincronización completa, bloqueo, pausa mínima, novedades), los adaptadores (JSON, Gmail con una API simulada, renderizadores), la web (seguridad, API, exportación, acceso) y el MCP (incluida una prueba real por stdio).
+Cubren las reglas de dominio (conteo, empates, agrupación cronológica, zona horaria, asignación, avisos y `syncDiff`), los casos de uso con dobles en memoria (idempotencia, seguridad del cursor, respaldo con sincronización completa, bloqueo, pausa mínima, novedades), los adaptadores (JSON, Gmail con una API simulada, renderizadores), la web (seguridad, API, exportación, acceso).
 
 **Integración con MongoDB** (opcional): crea bases de datos temporales y las borra al terminar. Sustituye `usuario` y `clave` por tus credenciales:
 
@@ -458,7 +406,6 @@ Las cartas son **correspondencia personal**, a menudo de familias a **menores de
 
 - **Base legal y finalidad**: informa a las familias de que las cartas se recopilan para entregarlas en el retiro y de quién las gestiona. No uses los datos para nada más.
 - **Mínimo acceso**: el panel escucha solo en `127.0.0.1` por defecto. En la red local, exige `ACCESS_TOKEN` y limita quién lo conoce. Gmail se usa en **solo lectura**.
-- **Asistentes de IA**: al conectar el MCP a un asistente, el contenido de las cartas consultadas se envía a ese asistente. Valora si es aceptable y comparte solo lo necesario.
 - **Registros**: nunca incluyen el cuerpo de las cartas ni credenciales. Las URI de MongoDB se ocultan.
 
 **Dónde quedan datos**
@@ -521,13 +468,13 @@ Todas están en `.env.example`, comentadas.
 | `SYNC_LOCK_TTL_SECONDS` | `300` | Duración del bloqueo de sincronización. |
 | `SYNC_RUNS_TTL_DAYS` | `90` | Días que se guarda el historial. |
 | `LOG_LEVEL` | `info` | Nivel de registro. |
-| `RETREAT_ENV_FILE` | `./.env` | Ruta alternativa del archivo de entorno (útil para el MCP). |
+| `RETREAT_ENV_FILE` | `./.env` | Ruta alternativa del archivo de entorno. |
 
 ## Solución de problemas
 
 - **«Falta configurar Gmail» al abrir el panel**: no se encuentran `credentials.json` o `token.json`. Revisa las rutas y ejecuta `npm run auth`. Mientras tanto puedes usar el modo demostración.
 - **La sincronización falla con `invalid_grant`**: la autorización ha caducado o se ha revocado. Con una app *Externa* en modo de prueba ocurre cada 7 días. Ejecuta `npm run auth` de nuevo.
-- **«Ya hay una sincronización en curso»**: otra sincronización (del panel, la automática o el MCP) está en marcha; espera a que termine. Si un proceso se cerró a la fuerza, el bloqueo caduca solo tras `SYNC_LOCK_TTL_SECONDS`.
+- **«Ya hay una sincronización en curso»**: otra sincronización (del panel o la automática) está en marcha; espera a que termine. Si un proceso se cerró a la fuerza, el bloqueo caduca solo tras `SYNC_LOCK_TTL_SECONDS`.
 - **«Espera unos segundos antes de volver a sincronizar»**: es la pausa mínima (`SYNC_MIN_INTERVAL_SECONDS`).
 - **No conecta con MongoDB**: comprueba `docker compose ps` (estado `healthy`), que `MONGODB_URI` use las mismas credenciales que `MONGO_ROOT_*` y que el puerto coincida con `MONGO_PORT`.
 - **Una carta está asignada a quien no es**: ábrela en la ficha y usa «Reasignar…». La decisión manual es definitiva hasta que pulses «Volver a automático».

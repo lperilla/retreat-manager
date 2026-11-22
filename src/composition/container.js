@@ -1,6 +1,6 @@
 /**
- * Single composition root (manual dependency injection). The web and MCP entrypoints build
- * their container here and share the same use cases and database.
+ * Single composition root (manual dependency injection). The web entrypoint builds
+ * its container here.
  */
 import { hostname } from 'node:os';
 import { join } from 'node:path';
@@ -154,7 +154,7 @@ export function registerMailSourceFactory(kind, factory) {
 /**
  * @param {{
  *   config?: import('./config.js').AppConfig,
- *   role?: 'web' | 'mcp' | 'cli',
+ *   role?: 'web' | 'cli',
  *   overrides?: ContainerOverrides,
  * }} [options]
  */
@@ -163,7 +163,7 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
     overrides.logger ??
       PinoLogger.create({
         level: config.logLevel,
-        destination: role === 'mcp' ? 'stderr' : 'stdout',
+        destination: 'stdout',
         bindings: { role },
       }),
   );

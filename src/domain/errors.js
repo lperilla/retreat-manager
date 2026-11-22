@@ -2,8 +2,7 @@
  * Typed application error shared by every layer.
  *
  * `code` is a stable English identifier; `message` is the Spanish text that may be
- * shown to staff. `httpStatus` is a transport hint used by the web adapter; the MCP
- * adapter ignores it and only forwards `{ code, message }`.
+ * shown to staff. `httpStatus` is a transport hint used by the web adapter.
  */
 
 /** Spanish user-facing messages, keyed by error code. */

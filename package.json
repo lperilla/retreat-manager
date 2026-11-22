@@ -1,7 +1,7 @@
 {
   "name": "retreat-mail-mcp",
   "version": "0.1.0",
-  "description": "Dashboard, batch exporter, printing system and MCP server for retreat letters received in a shared Gmail inbox.",
+  "description": "Dashboard, batch exporter and printing system for retreat letters received in a shared Gmail inbox.",
   "private": true,
   "type": "module",
   "engines": {
@@ -10,7 +10,6 @@
   "scripts": {
     "start": "node src/entrypoints/web.js",
     "dev": "node --watch src/entrypoints/web.js",
-    "mcp": "node src/entrypoints/mcp.js",
     "auth": "node src/entrypoints/auth.js",
     "test": "node --test \"test/**/*.test.js\"",
     "db:purge": "node src/entrypoints/purge.js",
@@ -18,7 +17,6 @@
     "seed:gmail": "node scripts/seed-gmail.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.32.2",
     "dotenv": "18.0.9",
     "express": "5.3.0",
     "googleapis": "189.0.0",

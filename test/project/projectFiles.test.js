@@ -57,7 +57,7 @@ describe('.env.example', () => {
 describe('package.json, .gitignore and examples', () => {
   it('defines the required scripts', async () => {
     const pkg = JSON.parse(await read('package.json'));
-    for (const script of ['start', 'dev', 'mcp', 'auth', 'test', 'db:purge']) assert.ok(pkg.scripts[script], script);
+    for (const script of ['start', 'dev', 'auth', 'test', 'db:purge']) assert.ok(pkg.scripts[script], script);
     for (const [name, version] of Object.entries(pkg.dependencies)) {
       assert.match(String(version), /^\d+\.\d+\.\d+$/, `${name} must be pinned to an exact version`);
     }
@@ -88,17 +88,15 @@ describe('README.md', () => {
       'Configuración OAuth2 en Google Cloud',
       'Sincronización incremental',
       'MongoDB con Docker',
-      'Servidor MCP',
       'Panel en la red local',
       'Impresión',
       'Privacidad, retención y borrado',
     ]) {
       assert.match(readme, new RegExp(`^## ${heading}$`, 'm'), heading);
     }
-    assert.match(readme, /claude_desktop_config\.json/);
-    for (const script of ['npm start', 'npm run mcp', 'npm run auth', 'npm test', 'npm run db:purge']) assert.ok(readme.includes(script), script);
+    for (const script of ['npm start', 'npm run auth', 'npm test', 'npm run db:purge']) assert.ok(readme.includes(script), script);
     const jsonBlocks = [...readme.matchAll(/```json\n([\s\S]*?)```/g)].map((m) => m[1]);
-    assert.ok(jsonBlocks.length >= 2);
+    assert.ok(jsonBlocks.length >= 1);
     for (const block of jsonBlocks) assert.doesNotThrow(() => JSON.parse(block));
   });
 });

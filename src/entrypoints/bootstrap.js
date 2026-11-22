@@ -1,7 +1,7 @@
 /**
  * Shared startup for every entrypoint.
  *
- * MCP clients (e.g. Claude Desktop) launch the server from an arbitrary working directory,
+ * The server may be launched from an arbitrary working directory,
  * so `.env` and every relative path (data/, exports/, credentials.json…) are resolved
  * against the PROJECT ROOT, never against `process.cwd()`.
  */
@@ -16,7 +16,7 @@ import { loadConfig } from '../composition/config.js';
 export const PROJECT_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
 /**
- * Loads `.env` silently (stdout must stay clean for the MCP protocol) and parses the config.
+ * Loads `.env` silently and parses the config.
  * `RETREAT_ENV_FILE` may point to another env file.
  * @param {{ env?: Record<string, string | undefined>, rootDir?: string }} [options]
  * @returns {Readonly<import('../composition/config.js').AppConfig>}

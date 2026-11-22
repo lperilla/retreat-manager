@@ -1,5 +1,5 @@
 /**
- * Minimal input validation for use cases (web and MCP adapters validate too, but use
+ * Minimal input validation for use cases (web adapters validate too, but use
  * cases must not trust their callers). Errors are `VALIDATION_ERROR` (HTTP 400).
  */
 import { AppError } from '../../domain/errors.js';
