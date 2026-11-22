@@ -13,6 +13,8 @@
  *                                                     complexity generated for the participants ALREADY in the
  *                                                     active retreat (read-only; --generated=150 for another
  *                                                     amount). Combine with --dry-run to only build the .eml files.
+ *                                                     Each run uses a new random seed (new letters); --seed=N
+ *                                                     repeats the set of a previous run.
  *
  * - Uses `users.messages.insert` (nothing is sent; messages appear in the inbox as unread,
  *   with the dates of the catalog).
@@ -138,7 +140,8 @@ async function insertAuthorization(config) {
 async function main() {
   const args = new Set(process.argv.slice(2));
   const generatedArg = [...args].find((arg) => arg === '--generated' || arg.startsWith('--generated='));
-  const unknown = [...args].filter((arg) => arg !== generatedArg && !['--dry-run', '--yes', '--write-participants', '--load-participants'].includes(arg));
+  const seedArg = [...args].find((arg) => arg.startsWith('--seed='));
+  const unknown = [...args].filter((arg) => arg !== generatedArg && arg !== seedArg && !['--dry-run', '--yes', '--write-participants', '--load-participants'].includes(arg));
   if (unknown.length > 0) throw new Error(`Opción desconocida: ${unknown.join(', ')}`);
 
   const config = loadEnvironment();
@@ -152,9 +155,12 @@ async function main() {
   if (generatedArg) {
     const count = generatedArg.includes('=') ? Number(generatedArg.split('=')[1]) : 100;
     if (!Number.isInteger(count) || count < 20 || count > 500) throw new Error('--generated=N: N entre 20 y 500.');
+    // A different seed on every run gives a new set of letters; --seed=N repeats a set.
+    const seed = seedArg ? Number(seedArg.split('=')[1]) : now.getTime() % 2_147_483_647;
+    if (!Number.isInteger(seed) || seed < 0) throw new Error('--seed=N: N debe ser un número entero positivo.');
     const { retreat, participants } = await withStore(config, (persistence) => currentParticipants({ persistence, now }));
-    letters = await generateLetters(participants, { count });
-    say(`Cartas generadas para los ${participants.length} participantes del retiro «${retreat.name}» (no se cambia ningún participante).`);
+    letters = await generateLetters(participants, { count, seed });
+    say(`Cartas generadas para los ${participants.length} participantes del retiro «${retreat.name}» (no se cambia ningún participante; semilla ${seed}).`);
   }
 
   if (args.has('--dry-run')) {
