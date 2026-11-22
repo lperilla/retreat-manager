@@ -29,7 +29,7 @@ function errorPage(message) {
 }
 
 /**
- * GET /print?participantIds=a,b[&afterDate=YYYY-MM-DD][&includeAttachments=0][&originalFormat=0][&autoprint=1]
+ * GET /print?participantIds=a,b[&afterDate=YYYY-MM-DD][&messageIds=x,y][&onlyUnprinted=1][&includeAttachments=0][&originalFormat=0][&autoprint=1]
  * Printable packet for the browser (one page per participant). Uses the same renderer as
  * the .html export, linking the stylesheet, the print script and the attachment images
  * (CSP forbids inline code; images are served by the authenticated attachment route).
@@ -45,6 +45,8 @@ export function createPrintHandler({ runtime, logger }) {
       const payload = await container.useCases.preparePrintView.execute({
         participantIds: parseIds(req.query.participantIds),
         afterDate: typeof req.query.afterDate === 'string' && req.query.afterDate ? req.query.afterDate : null,
+        messageIds: req.query.messageIds ? parseIds(req.query.messageIds) : null,
+        onlyUnprinted: req.query.onlyUnprinted === '1',
       });
       const html = await container.htmlRenderer.render(payload, {
         stylesheetHref: '/css/packet.css',

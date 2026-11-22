@@ -1,5 +1,5 @@
 import { DEFAULTS } from '../../domain/constants.js';
-import { markPrinted } from '../../domain/entities/PrintStatus.js';
+import { markLettersPrinted } from '../../domain/entities/PrintStatus.js';
 import { AppError } from '../../domain/errors.js';
 import { zonedParts } from '../../domain/services/time.js';
 
@@ -99,7 +99,13 @@ export class ExportBatchLettersUseCase {
     const participantIds = payload.sections.map((section) => section.participant.id);
     const markAsPrinted = input.markAsPrinted === true;
     if (markAsPrinted) {
-      await this.#printStatuses.saveMany(participantIds.map((id) => markPrinted(id, now)));
+      // Only the exported letters become printed (the rest keep their state).
+      const current = new Map((await this.#printStatuses.findAll()).map((s) => [s.participantId, s]));
+      await this.#printStatuses.saveMany(
+        payload.sections.map((section) =>
+          markLettersPrinted(current.get(section.participant.id), section.participant.id, section.letters.map((l) => l.messageId), now, section.letters),
+        ),
+      );
     }
 
     this.#logger.info(

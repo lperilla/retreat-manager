@@ -276,10 +276,11 @@ export function definePersistenceContract(name, factory, { skip = false } = {}) 
       it('stores print status per participant', async () => {
         const { printStatusRepository } = ctx.persistence;
         const now = new Date('2026-11-21T10:00:00Z');
-        await printStatusRepository.saveMany([markPrinted('juan-perez', now), markPrinted('ana-martin', now)]);
+        await printStatusRepository.saveMany([markPrinted('juan-perez', now, ['m1', 'm2']), markPrinted('ana-martin', now)]);
         await printStatusRepository.save(markPending('ana-martin'));
         assert.equal((await printStatusRepository.findByParticipant('juan-perez'))?.printedAt?.toISOString(), now.toISOString());
         assert.equal((await printStatusRepository.findByParticipant('ana-martin'))?.status, 'pending');
+        assert.deepEqual([...((await printStatusRepository.findByParticipant('juan-perez'))?.printedLetterIds ?? [])], ['m1', 'm2']);
         assert.equal(await printStatusRepository.findByParticipant('pedro-sanchez'), null);
         assert.equal((await printStatusRepository.findAll()).length, 2);
         assert.equal(await printStatusRepository.deleteAll(), 2);

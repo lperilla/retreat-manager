@@ -56,8 +56,9 @@ export const api = {
   dashboard: () => request('/api/dashboard'),
   participantLetters: (/** @type {string} */ id, /** @type {string | null} */ afterDate) =>
     request(`/api/participants/${encodeURIComponent(id)}/letters${query({ afterDate })}`),
-  updatePrintStatus: (/** @type {string[]} */ participantIds, /** @type {string} */ status) =>
-    request('/api/print-status', { method: 'POST', body: { participantIds, status } }),
+  /** Without messageIds: every letter of the participants; with them: only those letters. */
+  updatePrintStatus: (/** @type {string[]} */ participantIds, /** @type {string} */ status, /** @type {string[] | undefined} */ messageIds = undefined) =>
+    request('/api/print-status', { method: 'POST', body: { participantIds, status, ...(messageIds ? { messageIds } : {}) } }),
   newLetters: () => request('/api/letters/new'),
   markSeen: (/** @type {{ participantId?: string, messageIds?: string[] }} */ body = {}) =>
     request('/api/letters/seen', { method: 'POST', body }),

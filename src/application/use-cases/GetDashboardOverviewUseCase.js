@@ -1,6 +1,7 @@
 import { DEFAULTS, PrintStatusValue } from '../../domain/constants.js';
 import { indexParticipantsById, isParticipantActive } from '../../domain/entities/Participant.js';
-import { isPendingPrint } from '../../domain/entities/PrintStatus.js';
+import { participantPrintState } from '../../domain/entities/PrintStatus.js';
+import { groupParticipantLetters } from '../../domain/services/grouping.js';
 import { sortParticipantStats, summarizeRetreat } from '../../domain/services/counting.js';
 import { normalizeText } from '../../domain/services/text.js';
 import { presentParticipantRef, toIso } from '../services/presenters.js';
@@ -28,7 +29,8 @@ export const DIRECTORY_SORTS = Object.freeze(['name', 'count']);
  * @property {number}      letterCount
  * @property {number}      newCount
  * @property {number}      warningCount
- * @property {string}      printStatus  'pending' | 'printed'
+ * @property {string}      printStatus  'pending' | 'printed' (pending while any letter is not printed)
+ * @property {number}      unprintedCount  Letters not printed yet for this participant.
  * @property {string|null} printedAt
  */
 
@@ -102,6 +104,7 @@ export class GetDashboardOverviewUseCase {
     /** @type {DirectoryRow[]} */
     const allRows = summary.perParticipant.map((stats) => {
       const printStatus = statusById.get(stats.participantId);
+      const print = participantPrintState(printStatus, groupParticipantLetters(letters, stats.participantId));
       return {
         participantId: stats.participantId,
         displayName: stats.displayName,
@@ -109,7 +112,8 @@ export class GetDashboardOverviewUseCase {
         letterCount: stats.letterCount,
         newCount: stats.newCount,
         warningCount: stats.warningCount,
-        printStatus: isPendingPrint(printStatus) ? PrintStatusValue.PENDING : PrintStatusValue.PRINTED,
+        printStatus: print.status,
+        unprintedCount: print.unprintedCount,
         printedAt: toIso(printStatus?.printedAt),
       };
     });

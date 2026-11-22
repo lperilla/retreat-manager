@@ -82,14 +82,14 @@ export function letterFromDocument(document) {
  */
 export function printStatusToDocument(status) {
   const s = createPrintStatus(status);
-  return { _id: s.participantId, status: s.status, printedAt: s.printedAt };
+  return { _id: s.participantId, status: s.status, printedAt: s.printedAt, printedLetterIds: [...s.printedLetterIds] };
 }
 
 /**
  * @param {Record<string, any>} document
  */
 export function printStatusFromDocument(document) {
-  return createPrintStatus({ participantId: document._id, status: document.status, printedAt: document.printedAt ?? null });
+  return createPrintStatus({ participantId: document._id, status: document.status, printedAt: document.printedAt ?? null, printedLetterIds: document.printedLetterIds ?? [] });
 }
 
 /**

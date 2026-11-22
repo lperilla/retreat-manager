@@ -264,6 +264,7 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
   const preparePrintView = new PreparePrintViewUseCase({
     participantRepository,
     letterStore,
+    printStatusRepository,
     clock,
     timeZone: config.timeZone,
   });
@@ -293,7 +294,7 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
       logger,
       timeZone: config.timeZone,
     }),
-    updatePrintStatus: new UpdatePrintStatusUseCase({ participantRepository, printStatusRepository, clock }),
+    updatePrintStatus: new UpdatePrintStatusUseCase({ participantRepository, letterStore, printStatusRepository, clock }),
     searchRawLetters: new SearchRawLettersUseCase({ letterStore, participantRepository }),
     reviewAssignment: new ReviewAssignmentUseCase({
       letterStore,

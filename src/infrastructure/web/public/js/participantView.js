@@ -28,7 +28,13 @@ export async function loadParticipant(participantId) {
   document.title = `${participant.displayName} · Gestión del retiro`;
 
   const printed = data.printStatus.status === 'printed';
+  const everPrinted = (data.printStatus.printedCount ?? 0) > 0;
   const menuId = `print-menu-${participant.id}`;
+  // Letters on screen not printed yet: "Imprimir nuevas" prints exactly these.
+  const unprintedIds = data.letters.filter((/** @type {any} */ l) => !l.printed).map((/** @type {any} */ l) => l.messageId);
+  const offerNew = unprintedIds.length > 0 && unprintedIds.length < data.letters.length;
+  const printAll = () => void printLetters([participant.id], afterDate);
+  const printNew = () => void printLetters([participant.id], afterDate, { messageIds: unprintedIds });
 
   /** @param {string} id @param {string} label @param {boolean} checked @param {(on: boolean) => void} onChange @param {string} [title] */
   const optionSwitch = (id, label, checked, onChange, title) =>
@@ -63,11 +69,33 @@ export async function loadParticipant(participantId) {
   const printMenu = h(
     'div',
     { class: 'btn-group' },
-    h('button', { type: 'button', class: 'btn btn-sm btn-primary', text: 'Imprimir', onClick: () => void printLetters([participant.id], afterDate) }),
+    offerNew
+      ? h('button', {
+          type: 'button',
+          class: 'btn btn-sm btn-primary',
+          text: `Imprimir nuevas (${unprintedIds.length})`,
+          title: 'Imprime solo las cartas que todavía no se han impreso',
+          onClick: printNew,
+        })
+      : h('button', { type: 'button', class: 'btn btn-sm btn-primary', text: 'Imprimir', onClick: printAll }),
     menuToggle,
     h(
       'div',
       { class: 'dropdown-menu batch-options', 'aria-labelledby': menuId },
+      offerNew
+        ? [
+            h('button', {
+              type: 'button',
+              class: 'dropdown-item px-0',
+              text: `Imprimir todas (${data.letters.length})`,
+              onClick: () => {
+                closeMenu();
+                printAll();
+              },
+            }),
+            h('hr', { class: 'dropdown-divider' }),
+          ]
+        : null,
       h('h6', { class: 'dropdown-header px-0', text: 'Al imprimir y exportar' }),
       optionSwitch('participant-include-attachments', 'Incluir adjuntos', state.includeAttachments, (on) => {
         state.includeAttachments = on;
@@ -101,12 +129,13 @@ export async function loadParticipant(participantId) {
     ),
   );
 
+  const unprintedTotal = data.printStatus.unprintedCount ?? 0;
   const printToggle = h('button', {
     type: 'button',
     class: `btn btn-sm ${printed ? 'btn-success' : 'btn-outline-secondary'}`,
     'aria-pressed': printed ? 'true' : 'false',
-    text: printed ? 'Impresa ✓' : 'Pendiente de imprimir',
-    title: printed ? 'Marcar como pendiente' : 'Marcar como impresa',
+    text: printed ? 'Impresa ✓' : everPrinted ? `${plural(unprintedTotal, 'carta sin imprimir', 'cartas sin imprimir')}` : 'Pendiente de imprimir',
+    title: printed ? 'Marcar todas como no impresas' : 'Marcar todas como impresas',
     onClick: (/** @type {Event} */ event) =>
       void withBusy(/** @type {HTMLButtonElement} */ (event.currentTarget), async () => {
         try {
@@ -182,7 +211,7 @@ export async function loadParticipant(participantId) {
   const letters =
     data.letters.length === 0
       ? h('p', { class: 'letter-list-empty', text: afterDate ? 'No hay cartas posteriores a esa fecha.' : 'Este participante todavía no tiene cartas.' })
-      : data.letters.map((/** @type {any} */ letter) => lettersCardWithActions(letter, reload));
+      : data.letters.map((/** @type {any} */ letter) => lettersCardWithActions(letter, participant.id, everPrinted, reload));
 
   replaceChildren(
     view,
@@ -212,14 +241,35 @@ export async function loadParticipant(participantId) {
 
 /**
  * @param {any} letter
+ * @param {string} participantId
+ * @param {boolean} everPrinted  Some letter of this participant was printed before.
  * @param {() => void} reload
  */
-function lettersCardWithActions(letter, reload) {
+function lettersCardWithActions(letter, participantId, everPrinted, reload) {
   return letterCard(letter, {
     // The page is about this participant: name the others only when the letter is shared.
     showRecipients: letter.assignment.participants.length > 1,
     actionsWhenOpen: true,
+    print: {
+      printed: letter.printed === true,
+      highlight: everPrinted,
+      onToggle: (button) =>
+        void withBusy(button, async () => {
+          try {
+            await api.updatePrintStatus([participantId], letter.printed ? 'pending' : 'printed', [letter.messageId]);
+            emit('data-changed');
+          } catch (error) {
+            toastError(error);
+          }
+        }),
+    },
     actions: [
+      h('button', {
+        type: 'button',
+        class: 'btn btn-sm btn-outline-primary',
+        text: 'Imprimir esta carta',
+        onClick: () => void printLetters([participantId], null, { messageIds: [letter.messageId] }),
+      }),
       h('button', {
         type: 'button',
         class: 'btn btn-sm btn-outline-secondary',

@@ -61,7 +61,7 @@ export function createApiRouter({ runtime, limiters }) {
   });
 
   router.post('/print-status', async (req, res) => {
-    res.json(await useCases().updatePrintStatus.execute({ participantIds: req.body?.participantIds, status: req.body?.status }));
+    res.json(await useCases().updatePrintStatus.execute({ participantIds: req.body?.participantIds, status: req.body?.status, messageIds: req.body?.messageIds }));
   });
 
   // Letters ---------------------------------------------------------------------

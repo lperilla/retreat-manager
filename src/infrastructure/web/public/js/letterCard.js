@@ -83,6 +83,24 @@ function senderAddress(from) {
   return /<([^>]+)>\s*$/.exec(from ?? '')?.[1] ?? null;
 }
 
+/**
+ * "✓ Impresa" / "Sin imprimir": shows whether the letter was printed and toggles it.
+ * @param {{ printed: boolean, highlight: boolean, onToggle: (button: HTMLButtonElement) => void }} print
+ */
+function printToggle({ printed, highlight, onToggle }) {
+  const button = /** @type {HTMLButtonElement} */ (
+    h('button', {
+      type: 'button',
+      class: `letter-print${printed ? ' is-printed' : highlight ? ' is-new' : ''}`,
+      'aria-pressed': printed ? 'true' : 'false',
+      title: printed ? 'Impresa. Pulsa para marcarla como no impresa' : 'Sin imprimir. Pulsa para marcarla como impresa',
+      text: printed ? '✓ Impresa' : 'Sin imprimir',
+    })
+  );
+  button.addEventListener('click', () => onToggle(button));
+  return button;
+}
+
 /** Letters opened by staff in this session (kept open across re-renders). */
 const openLetters = new Set();
 /** card element → open/close function */
@@ -138,14 +156,16 @@ window.addEventListener('beforeprint', () => setLettersOpen(document, true));
 
 /**
  * @param {any} letter
- * @param {{ actions?: Node[], actionsWhenOpen?: boolean, showRecipients?: boolean, showStatus?: boolean }} [options]
+ * @param {{ actions?: Node[], actionsWhenOpen?: boolean, showRecipients?: boolean, showStatus?: boolean, print?: { printed: boolean, highlight: boolean, onToggle: (button: HTMLButtonElement) => void } | null }} [options]
  *   actions          Buttons for the letter.
  *   actionsWhenOpen  Show the actions only inside the open letter (quiet lists).
  *   showRecipients   Add a "Para: …" line.
  *   showStatus       Tag letters that are not assigned (off where every letter shares the status).
+ *   print            Printed / not printed toggle for the participant being viewed (highlight:
+ *                    show unprinted letters as new, when other letters were printed before).
  * @returns {HTMLElement}
  */
-export function letterCard(letter, { actions = [], actionsWhenOpen = false, showRecipients = false, showStatus = true } = {}) {
+export function letterCard(letter, { actions = [], actionsWhenOpen = false, showRecipients = false, showStatus = true, print = null } = {}) {
   const sender = senderName(letter.from);
   const subject = letter.subject || '(Sin asunto)';
   const recipients =
@@ -181,7 +201,7 @@ export function letterCard(letter, { actions = [], actionsWhenOpen = false, show
       'aria-label': `${subject}. De ${sender}${letter.isNew ? '. Nueva' : ''}`,
     },
     h('span', { class: 'letter-toggle-icon', 'aria-hidden': 'true' }),
-    h('span', { class: 'letter-from', text: sender }),
+    h('span', { class: 'letter-from', text: sender, title: letter.isNew ? 'Nueva: el equipo todavía no la ha visto («Marcar como vistas» la quita)' : null }),
     h('span', { class: 'letter-line' }, h('span', { class: 'letter-subject', text: subject }), preview),
   );
 
@@ -219,6 +239,7 @@ export function letterCard(letter, { actions = [], actionsWhenOpen = false, show
         withdrawn ? tag('Baja', 'El destinatario ya no está en el retiro') : null,
         assignmentTag(letter.assignment, showStatus),
         letter.flags.map(flagTag),
+        print ? printToggle(print) : null,
         h('time', { class: 'letter-date', datetime: letter.receivedAt, title: formatLongDateTime(letter.receivedAt), text: formatShortDateTime(letter.receivedAt) }),
       ),
     ),

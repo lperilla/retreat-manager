@@ -1,13 +1,14 @@
 import { DEFAULTS } from '../../domain/constants.js';
 import { indexParticipantsById } from '../../domain/entities/Participant.js';
 import { isNewLetter } from '../../domain/entities/Letter.js';
+import { isLetterPrinted, participantPrintState } from '../../domain/entities/PrintStatus.js';
 import { AppError } from '../../domain/errors.js';
 import { groupParticipantLetters } from '../../domain/services/grouping.js';
 import { presentLetter, presentPrintStatus } from '../services/presenters.js';
 import { requireString } from '../services/validation.js';
 
 /**
- * Chronological letters of one participant (detail view).
+ * Chronological letters of one participant (detail view), each marked printed or not for them.
  */
 export class GroupParticipantLettersUseCase {
   #participants;
@@ -48,15 +49,18 @@ export class GroupParticipantLettersUseCase {
       timeZone: this.#timeZone,
     });
     const participantsById = indexParticipantsById(participants);
+    // Print state counts every letter of the participant, whatever the date filter.
+    const all = groupParticipantLetters(letters, participantId, { timeZone: this.#timeZone });
 
     return {
       participant: { id: participant.id, displayName: participant.displayName, aliases: [...participant.aliases] },
-      printStatus: presentPrintStatus(participant.id, printStatus),
+      printStatus: presentPrintStatus(participant.id, printStatus, participantPrintState(printStatus, all)),
       afterDate: input.afterDate ?? null,
       timeZone: this.#timeZone,
       total: ordered.length,
       newCount: ordered.filter(isNewLetter).length,
-      letters: ordered.map((letter) => presentLetter(letter, { participantsById })),
+      unprintedCount: ordered.filter((letter) => !isLetterPrinted(printStatus, letter)).length,
+      letters: ordered.map((letter) => ({ ...presentLetter(letter, { participantsById }), printed: isLetterPrinted(printStatus, letter) })),
     };
   }
 }

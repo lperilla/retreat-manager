@@ -90,7 +90,7 @@ function renderSteps(kpis, sync) {
   $('#step-print').classList.toggle('is-done', pending.length === 0 && kpis.totalLetters > 0);
   $('#step-print-value').textContent = pending.length === 0 ? 'Nada pendiente' : `${plural(pending.length, 'participante pendiente', 'participantes pendientes')}`;
   $('#step-print-detail').textContent =
-    pending.length === 0 ? `${plural(kpis.printedCount, 'participante impreso', 'participantes impresos')}` : `${lettersLabel(pending.reduce((sum, row) => sum + row.letterCount, 0))} por imprimir`;
+    pending.length === 0 ? `${plural(kpis.printedCount, 'participante impreso', 'participantes impresos')}` : `${lettersLabel(pending.reduce((sum, row) => sum + (row.unprintedCount ?? row.letterCount), 0))} por imprimir`;
   const printButton = /** @type {HTMLButtonElement} */ ($('#step-print-pending'));
   printButton.disabled = pending.length === 0;
 
@@ -123,12 +123,18 @@ function currentRows() {
  */
 function printToggle(row) {
   const printed = row.printStatus === 'printed';
+  // Printed before, with letters that arrived afterwards.
+  const someNew = !printed && row.unprintedCount > 0 && row.unprintedCount < row.letterCount;
   return h('button', {
     type: 'button',
-    class: `btn btn-sm print-toggle ${printed ? 'btn-success' : 'btn-outline-secondary'}`,
+    class: `btn btn-sm print-toggle ${printed ? 'btn-success' : someNew ? 'btn-outline-warning' : 'btn-outline-secondary'}`,
     'aria-pressed': printed ? 'true' : 'false',
-    title: printed ? 'Marcar como pendiente' : 'Marcar como impresa',
-    text: printed ? 'Impresa' : 'Pendiente',
+    title: printed
+      ? 'Todas impresas. Pulsa para marcarlas como pendientes'
+      : someNew
+        ? `${plural(row.unprintedCount, 'carta nueva', 'cartas nuevas')} sin imprimir. Pulsa para marcar todas como impresas`
+        : 'Pulsa para marcar todas como impresas',
+    text: printed ? 'Impresa' : someNew ? `${row.unprintedCount} sin imprimir` : 'Pendiente',
     onClick: (/** @type {Event} */ event) =>
       void withBusy(/** @type {HTMLButtonElement} */ (event.currentTarget), async () => {
         try {
@@ -300,11 +306,12 @@ export function initDashboard() {
       renderDirectory();
     });
   }
-  // Step 1 starts a search for new letters; step 3 prints everyone pending with letters.
+  // Step 1 starts a search for new letters; step 3 prints, for everyone pending, only the
+  // letters not printed yet (those who got new letters after printing get just the new ones).
   $('#step-sync').addEventListener('click', () => /** @type {HTMLButtonElement} */ ($('#sync-now-menu')).click());
   $('#step-print-pending').addEventListener('click', () => {
     const ids = state.participants.filter((row) => row.printStatus === 'pending' && row.letterCount > 0).map((row) => row.participantId);
-    if (ids.length > 0) void printLetters(ids);
+    if (ids.length > 0) void printLetters(ids, null, { onlyUnprinted: true });
   });
   $('#directory-sort').addEventListener('change', renderDirectory);
   // "Sin cartas" KPI: show those participants in the list below.

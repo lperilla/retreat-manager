@@ -266,7 +266,53 @@ describe('UpdatePrintStatusUseCase', () => {
     assert.equal(printed.statuses[0].status, 'printed');
     assert.ok(printed.statuses[0].printedAt);
     const pending = await update.execute({ participantIds: ['juan-perez'], status: 'pending' });
-    assert.deepEqual(pending.statuses[0], { participantId: 'juan-perez', status: 'pending', printedAt: null });
+    assert.deepEqual(pending.statuses[0], { participantId: 'juan-perez', status: 'pending', printedAt: null, printedCount: 0, unprintedCount: 3 });
     await assert.rejects(update.execute({ participantIds: ['ghost'], status: 'printed' }), { code: 'PARTICIPANT_NOT_FOUND' });
+  });
+
+  it('tracks printed letters one by one: new letters stay pending and can be printed alone', async () => {
+    const { container } = await seededContainer();
+    const { updatePrintStatus: update, groupParticipantLetters: lettersOf, preparePrintView } = container.useCases;
+    const before = await lettersOf.execute({ participantId: 'juan-perez' });
+    const [first, ...rest] = before.letters.map((/** @type {any} */ l) => l.messageId);
+    assert.ok(rest.length >= 1);
+
+    // One letter printed: the participant is still pending, with the others unprinted.
+    const one = await update.execute({ participantIds: ['juan-perez'], status: 'printed', messageIds: [first] });
+    assert.equal(one.statuses[0].status, 'pending');
+    assert.equal(one.statuses[0].unprintedCount, rest.length);
+    const after = await lettersOf.execute({ participantId: 'juan-perez' });
+    assert.deepEqual(after.letters.filter((/** @type {any} */ l) => l.printed).map((/** @type {any} */ l) => l.messageId), [first]);
+    assert.equal(after.unprintedCount, rest.length);
+
+    // Printing only the new ones leaves out the printed letter.
+    const onlyNew = await preparePrintView.execute({ participantIds: ['juan-perez'], onlyUnprinted: true });
+    assert.deepEqual(onlyNew.sections[0].letters.map((l) => l.messageId).sort(), [...rest].sort());
+    const single = await preparePrintView.execute({ participantIds: ['juan-perez'], messageIds: [first] });
+    assert.deepEqual(single.sections[0].letters.map((l) => l.messageId), [first]);
+
+    // Marking the rest printed completes the participant; un-marking one makes it pending again.
+    const all = await update.execute({ participantIds: ['juan-perez'], status: 'printed', messageIds: rest });
+    assert.equal(all.statuses[0].status, 'printed');
+    const undo = await update.execute({ participantIds: ['juan-perez'], status: 'pending', messageIds: [first] });
+    assert.equal(undo.statuses[0].status, 'pending');
+    assert.equal(undo.statuses[0].unprintedCount, 1);
+
+    // Letters of other participants are ignored.
+    const foreign = await update.execute({ participantIds: ['juan-perez'], status: 'printed', messageIds: ['not-a-letter-of-juan'] });
+    assert.equal(foreign.statuses[0].unprintedCount, 1);
+  });
+});
+
+describe('PrintStatus (letters printed one by one)', () => {
+  it('treats letters stored before an old-style "printed" status as printed, and later ones as new', async () => {
+    const { createPrintStatus, isLetterPrinted, participantPrintState } = await import('../../src/domain/entities/PrintStatus.js');
+    const legacy = createPrintStatus({ participantId: 'p', status: 'printed', printedAt: new Date('2026-11-20T10:00:00Z') });
+    const old = { messageId: 'a', receivedAt: new Date('2026-11-19T10:00:00Z'), firstSeenAt: new Date('2026-11-19T10:05:00Z') };
+    const fresh = { messageId: 'b', receivedAt: new Date('2026-11-19T12:00:00Z'), firstSeenAt: new Date('2026-11-21T08:00:00Z') };
+    assert.equal(isLetterPrinted(legacy, old), true);
+    assert.equal(isLetterPrinted(legacy, fresh), false, 'synced after printing');
+    assert.deepEqual(participantPrintState(legacy, [old, fresh]), { status: 'pending', printedCount: 1, unprintedCount: 1, printedAt: legacy.printedAt });
+    assert.equal(participantPrintState(null, []).status, 'pending');
   });
 });

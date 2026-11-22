@@ -100,6 +100,7 @@ export function resolveSelection(requestedIds, participants) {
  *   generatedAt: Date,
  *   timeZone?: string,
  *   afterDate?: string | Date | null,
+ *   includeLetter?: ((letter: import('../entities/Letter.js').Letter, participantId: string) => boolean) | null,
  * }} input
  * @returns {Readonly<import('../entities/BatchExportPayload.js').BatchExportPayload>}
  */
@@ -110,6 +111,7 @@ export function buildBatchExportPayload({
   generatedAt,
   timeZone = DEFAULTS.TIME_ZONE,
   afterDate = null,
+  includeLetter = null,
 }) {
   const selected = resolveSelection(participantIds, participants);
   const byId = new Map(participants.map((p) => [p.id, p]));
@@ -117,7 +119,7 @@ export function buildBatchExportPayload({
     const participant = /** @type {import('../entities/Participant.js').Participant} */ (byId.get(id));
     return {
       participant: { id: participant.id, displayName: participant.displayName },
-      letters: groupParticipantLetters(letters, id, { afterDate, timeZone }),
+      letters: groupParticipantLetters(letters, id, { afterDate, timeZone }).filter((letter) => !includeLetter || includeLetter(letter, id)),
       letterCount: 0,
     };
   });

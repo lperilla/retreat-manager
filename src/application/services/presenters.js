@@ -127,11 +127,13 @@ export function presentSyncRun(run) {
 /**
  * @param {string} participantId
  * @param {import('../../domain/entities/PrintStatus.js').PrintStatus | null | undefined} status
+ * @param {{ status: string, printedCount: number, unprintedCount: number } | null} [live]  From participantPrintState (letters at hand).
  */
-export function presentPrintStatus(participantId, status) {
+export function presentPrintStatus(participantId, status, live = null) {
   return {
     participantId,
-    status: status?.status ?? 'pending',
+    status: live?.status ?? status?.status ?? 'pending',
     printedAt: toIso(status?.printedAt),
+    ...(live ? { printedCount: live.printedCount, unprintedCount: live.unprintedCount } : {}),
   };
 }
