@@ -48,6 +48,7 @@ El panel **nunca lee Gmail directamente**: todo se lee de la base de datos local
 - **MongoDB 7** (recomendado). La forma más sencilla es Docker o Podman con el `docker-compose.yml` incluido. Alternativa sin base de datos: `PERSISTENCE=json`.
 - Una **cuenta de Gmail o Google Workspace** con el buzón que recibe las cartas, y acceso a Google Cloud Console para crear las credenciales OAuth.
 - Un navegador moderno. Bootstrap y la fuente Inter (licencia SIL OFL) van incluidos en el proyecto (`vendor/`), así que **el panel funciona sin internet**; solo la sincronización necesita conexión.
+- **Logo**: dos caminantes (los discípulos de Emaús), en `src/infrastructure/web/public/img/` (`logo.svg` para la barra y el acceso, `favicon.svg` para la pestaña). Los iconos PNG se regeneran con `node scripts/generate-icons.js`.
 
 ## Prueba rápida (modo demostración)
 

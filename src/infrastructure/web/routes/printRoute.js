@@ -49,6 +49,7 @@ export function createPrintHandler({ runtime, logger }) {
       const html = await container.htmlRenderer.render(payload, {
         stylesheetHref: '/css/packet.css',
         scriptHref: '/js/print-page.js',
+        iconHref: '/img/favicon.svg',
         toolbar: true,
         includeAttachments: req.query.includeAttachments !== '0',
         originalFormat: req.query.originalFormat !== '0',

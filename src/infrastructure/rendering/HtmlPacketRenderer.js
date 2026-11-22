@@ -14,6 +14,7 @@ const DEFAULT_MAX_EMBEDDED_BYTES = 40 * 1024 * 1024;
  * @property {boolean} [originalFormat]      Keep each e-mail's own colours, fonts and sizes when it has them (default true).
  * @property {string}  [stylesheetHref]      Link a stylesheet instead of embedding it (served print view).
  * @property {string}  [scriptHref]          Optional external script (served print view: print button).
+ * @property {string}  [iconHref]            Tab icon (served print view only; exported files stay self-contained).
  * @property {boolean} [toolbar]             Show the on-screen toolbar with the print button.
  * @property {(messageId: string, index: number, variant: 'display' | 'thumbnail') => string} [attachmentUrl]
  *           Served print view: reference images by URL instead of embedding them.
@@ -73,6 +74,7 @@ export class HtmlPacketRenderer {
         ? `<link rel="stylesheet" href="${escapeHtml(options.stylesheetHref)}">`
         : `<style>${PACKET_CSS}</style>`,
       options.scriptHref ? `<script type="module" src="${escapeHtml(options.scriptHref)}"></script>` : '',
+      options.iconHref ? `<link rel="icon" href="${escapeHtml(options.iconHref)}" type="image/svg+xml">` : '',
     ].filter(Boolean);
 
     const toolbar = options.toolbar

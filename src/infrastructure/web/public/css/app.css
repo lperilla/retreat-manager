@@ -98,8 +98,9 @@ main:focus { outline: none; }
 /* Always visible: fixed at the top while scrolling. */
 .app-navbar { position: sticky; top: 0; z-index: 1030; background: var(--ui-surface); border-bottom: 1px solid var(--ui-border); padding-top: .5rem; padding-bottom: .5rem; }
 .app-navbar .navbar-brand { font-weight: 650; font-size: 1rem; color: var(--ui-text); display: inline-flex; align-items: center; gap: .55rem; }
-.brand-mark { width: 1.6rem; height: 1.6rem; border-radius: 6px; background: var(--ui-accent); display: inline-block; position: relative; }
-.brand-mark::after { content: ''; position: absolute; inset: .45rem .38rem; border: 2px solid #fff; border-top-width: 2px; border-radius: 2px; }
+/* Logo: two walkers (the disciples on the road to Emmaus). */
+.brand-logo { width: 28px; height: 28px; flex: none; }
+.login-logo { display: block; width: 48px; height: 48px; }
 .app-navbar .nav-link { color: var(--ui-muted); font-weight: 500; border-radius: var(--ui-radius-sm); padding: .4rem .75rem !important; transition: color var(--ui-ease), background-color var(--ui-ease); }
 .app-navbar .nav-link:hover { color: var(--ui-text); background: var(--ui-subtle); }
 .app-navbar .nav-link.active, .app-navbar .nav-link[aria-current="page"] { color: var(--ui-text); background: var(--ui-subtle); }
