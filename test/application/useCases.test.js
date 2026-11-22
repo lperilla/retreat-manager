@@ -233,7 +233,7 @@ describe('ExportBatchLettersUseCase', () => {
 
   it('rejects formats without a renderer and empty selections', async () => {
     const { container } = await seededContainer({ overrides: { exportStorage: new FileExportStorage({ exportDir }) } });
-    await assert.rejects(container.useCases.exportBatchLetters.execute({ participantIds: ['juan-perez'], format: 'pdf' }), {
+    await assert.rejects(container.useCases.exportBatchLetters.execute({ participantIds: ['juan-perez'], format: 'docx' }), {
       code: 'UNSUPPORTED_EXPORT_FORMAT',
     });
     await assert.rejects(container.useCases.exportBatchLetters.execute({ participantIds: [], format: 'json' }), {

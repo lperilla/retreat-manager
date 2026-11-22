@@ -247,7 +247,7 @@ describe('web API', () => {
     assert.ok(html.includes('Lucía Fernández'));
     assert.ok(html.includes('page-break-before: always'));
 
-    assert.equal((await app.post('/api/exports', { participantIds: ['lucia-fernandez'], format: 'pdf' })).status, 400);
+    assert.equal((await app.post('/api/exports', { participantIds: ['lucia-fernandez'], format: 'docx' })).status, 400);
     assert.equal((await app.fetch('/api/exports/..%2F..%2Fpackage.json')).status, 400);
     const missing = await app.fetch('/api/exports/cartas_x_20260101-000000.html');
     assert.equal(missing.status, 404);
@@ -369,7 +369,7 @@ describe('setup mode', () => {
     const enabled = await (await app.post('/api/demo/enable')).json();
     assert.equal(enabled.setupRequired, false);
     assert.equal(enabled.demoMode, true);
-    assert.deepEqual(enabled.exportFormats, ['html', 'txt', 'json']);
+    assert.deepEqual(enabled.exportFormats, ['html', 'txt', 'json', 'pdf']);
     assert.equal((await app.fetch('/api/dashboard')).status, 200);
   });
 });

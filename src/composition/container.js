@@ -48,6 +48,7 @@ import { DEMO_PARTICIPANTS } from '../infrastructure/persistence/json/demo/demoD
 import { ParticipantsJsonFile, readParticipantsFile } from '../infrastructure/persistence/json/participantsFile.js';
 import { createMongoPersistence } from '../infrastructure/persistence/mongo/createMongoPersistence.js';
 import { FileExportStorage } from '../infrastructure/rendering/FileExportStorage.js';
+import { AttachmentsPdfRenderer } from '../infrastructure/rendering/AttachmentsPdfRenderer.js';
 import { HtmlPacketRenderer } from '../infrastructure/rendering/HtmlPacketRenderer.js';
 import { JsonRenderer } from '../infrastructure/rendering/JsonRenderer.js';
 import { TxtRenderer } from '../infrastructure/rendering/TxtRenderer.js';
@@ -187,7 +188,12 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
         : null;
 
   const renderers = (
-    overrides.renderers ?? [new HtmlPacketRenderer({ attachments: attachmentProcessor }), new TxtRenderer(), new JsonRenderer()]
+    overrides.renderers ?? [
+      new HtmlPacketRenderer({ attachments: attachmentProcessor }),
+      new TxtRenderer(),
+      new JsonRenderer(),
+      new AttachmentsPdfRenderer({ attachments: attachmentProcessor }),
+    ]
   ).map((renderer) => ExportRendererPort.assert(renderer));
   const htmlRenderer = renderers.find((renderer) => renderer.format === 'html') ?? new HtmlPacketRenderer({ attachments: attachmentProcessor });
   const exportStorage = ExportStoragePort.assert(

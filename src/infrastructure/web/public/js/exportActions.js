@@ -41,7 +41,7 @@ async function offerMarkPrinted(participantIds) {
 
 /**
  * @param {string[]} participantIds
- * @param {'html' | 'txt' | 'json'} format
+ * @param {'html' | 'txt' | 'json' | 'pdf'} format  'pdf' = every PDF attachment merged into one file.
  * @param {string | null} [afterDate]
  */
 export async function exportLetters(participantIds, format, afterDate = null) {
@@ -52,6 +52,10 @@ export async function exportLetters(participantIds, format, afterDate = null) {
   try {
     const result = await api.createExport({ participantIds, format, afterDate, includeAttachments: state.includeAttachments, originalFormat: state.originalFormat });
     triggerDownload(result.downloadUrl, result.filename);
+    if (format === 'pdf') {
+      toast('PDF de adjuntos listo: todos los PDF adjuntos en un solo archivo, en el orden de las cartas.');
+      return;
+    }
     toast(`Exportación lista: ${plural(result.participantCount, 'participante', 'participantes')}, ${lettersLabel(result.letterCount)}.`);
     await offerMarkPrinted(result.participantIds);
   } catch (error) {

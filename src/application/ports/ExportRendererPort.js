@@ -14,6 +14,7 @@ import { definePort } from './definePort.js';
  * @property {string} format     'html' | 'txt' | 'json'
  * @property {string} extension  File extension without the dot.
  * @property {string} mimeType
+ * @property {string} [filePrefix]  Export file name prefix (default "cartas").
  * @property {(payload: BatchExportPayload, options?: RenderOptions) => Promise<string | Uint8Array>} render
  */
 

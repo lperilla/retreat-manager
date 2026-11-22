@@ -292,7 +292,7 @@ export function initDashboard() {
 
   for (const button of document.querySelectorAll('[data-export]')) {
     button.addEventListener('click', () => {
-      const format = /** @type {'html' | 'txt' | 'json'} */ (/** @type {HTMLElement} */ (button).dataset.export);
+      const format = /** @type {'html' | 'txt' | 'json' | 'pdf'} */ (/** @type {HTMLElement} */ (button).dataset.export);
       void withBusy(/** @type {HTMLButtonElement} */ (button), () => exportLetters([...state.selection], format));
     });
   }

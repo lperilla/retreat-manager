@@ -18,17 +18,18 @@ function pad(value) {
  * @param {string} extension
  * @param {Date} now
  * @param {string} timeZone
+ * @param {string} [prefix]  "cartas" for letter packets, "adjuntos" for the merged PDF.
  * @returns {string}
  */
-export function buildExportFilename(payload, extension, now, timeZone) {
+export function buildExportFilename(payload, extension, now, timeZone, prefix = 'cartas') {
   const p = zonedParts(now, timeZone);
   const stamp = `${p.year}${pad(p.month)}${pad(p.day)}-${pad(p.hour)}${pad(p.minute)}${pad(p.second)}`;
   const scope = payload.sections.length === 1 ? payload.sections[0].participant.id : `lote-${payload.sections.length}`;
-  return `cartas_${scope}_${stamp}.${extension}`;
+  return `${prefix}_${scope}_${stamp}.${extension}`;
 }
 
 /**
- * Renders a batch (HTML packet / TXT / JSON) and stores it under EXPORT_DIR.
+ * Renders a batch (HTML packet / TXT / JSON / merged attachments PDF) and stores it under EXPORT_DIR.
  * Optionally marks the exported participants as printed (the UI asks for confirmation).
  */
 export class ExportBatchLettersUseCase {
@@ -92,7 +93,7 @@ export class ExportBatchLettersUseCase {
       originalFormat: input.originalFormat !== false,
     });
     const now = this.#clock.now();
-    const filename = buildExportFilename(payload, renderer.extension, now, this.#timeZone);
+    const filename = buildExportFilename(payload, renderer.extension, now, this.#timeZone, renderer.filePrefix ?? 'cartas');
     const { filePath } = await this.#storage.save(filename, content);
 
     const participantIds = payload.sections.map((section) => section.participant.id);

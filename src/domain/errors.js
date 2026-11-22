@@ -33,6 +33,7 @@ export const ERROR_MESSAGES = Object.freeze({
   ATTACHMENT_BLOCKED: 'Este tipo de archivo está bloqueado por seguridad.',
   ATTACHMENT_TOO_LARGE: 'El adjunto supera el tamaño máximo permitido.',
   ATTACHMENT_NOT_PROCESSABLE: 'No se ha podido procesar el adjunto. Descárgalo para abrirlo.',
+  NO_PDF_ATTACHMENTS: 'Las cartas seleccionadas no tienen PDF adjuntos.',
   ATTACHMENTS_UNAVAILABLE: 'Los adjuntos no están disponibles: falta la conexión con el correo.',
   UNAUTHORIZED: 'Acceso no autorizado. Introduce el código de acceso.',
   RATE_LIMITED: 'Demasiadas solicitudes. Espera un momento y vuelve a intentarlo.',

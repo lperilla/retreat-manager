@@ -273,10 +273,21 @@ La mayoría de las cartas llegan como texto, pero algunas traen una foto o un es
    - **Exportar .html**: paquete listo para imprimir. **Cada carta va en su propia hoja** (o grupo de hojas, si es larga), con «Para: Nombre» arriba para poder entregarla suelta. Las cartas se agrupan por participante en orden cronológico, y los estilos van incluidos en el propio archivo.
    - **Exportar .txt**: texto plano UTF-8, con un salto de página (`\f`) entre participantes.
    - **Exportar .json**: datos estructurados (para otros programas).
+   - **PDF de adjuntos**: **un solo PDF con todos los PDF adjuntos** de las cartas seleccionadas, en el mismo orden que el paquete (participantes por nombre, cartas por fecha). Así no hay que abrir e imprimir cada PDF por separado. Ver [PDF de adjuntos](#pdf-de-adjuntos).
 3. El archivo se descarga y además queda guardado en `EXPORT_DIR` con un nombre generado por el servidor, por ejemplo `cartas_lote-12_20261121-093000.html` o `cartas_maria-garcia_…`.
 4. El panel pregunta **«¿Marcar como impresos?»**. Si aceptas, esos participantes pasan a *Impresa* con fecha. Se puede deshacer desde el directorio.
 
 Desde la ficha de un participante, «Exportar» hace lo mismo solo para esa persona. Una carta para varios destinatarios aparece en la sección de cada uno.
+
+### PDF de adjuntos
+
+Las cartas que llegan con un PDF adjunto no se pueden incrustar en el paquete HTML, que solo lo anota como «PDF adjunto (imprímelo aparte)». El botón **«PDF de adjuntos»** (barra inferior, y «Exportar → PDF de adjuntos» en la ficha) los une todos en un único archivo listo para imprimir: `adjuntos_<participante o lote>_<fecha>.pdf`.
+
+- Cada página lleva un pie pequeño: «Para: Nombre · De: Remitente · archivo.pdf (página/total)», para entregar cada hoja a quien corresponde.
+- Se respeta el tamaño y la orientación de cada página original.
+- Las fotos y los documentos Word no se repiten aquí, porque ya se imprimen dentro de las cartas.
+- Si un PDF no se puede unir (protegido con contraseña, dañado o que no es realmente un PDF), en su lugar va una página que lo explica, para que nada se pierda sin aviso.
+- Si las cartas seleccionadas no tienen ningún PDF, el panel lo indica y no genera archivo. Esta exportación no pregunta si marcar como impresos.
 
 ## Impresión
 

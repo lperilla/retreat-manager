@@ -53,14 +53,14 @@ export async function loadParticipant(participantId) {
       h(
         'ul',
         { class: 'dropdown-menu', 'aria-labelledby': exportMenuId },
-        ['html', 'txt', 'json'].map((format) =>
+        ['html', 'txt', 'json', 'pdf'].map((format) =>
           h(
             'li',
             {},
             h('button', {
               type: 'button',
               class: 'dropdown-item',
-              text: `Exportar .${format}`,
+              text: format === 'pdf' ? 'PDF de adjuntos (.pdf)' : `Exportar .${format}`,
               onClick: () => void exportLetters([participant.id], /** @type {any} */ (format), afterDate),
             }),
           ),
