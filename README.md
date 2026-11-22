@@ -20,12 +20,13 @@ El panel **nunca lee Gmail directamente**: todo se lee de la base de datos local
 5. [MongoDB con Docker](#mongodb-con-docker)
 6. [Configuración OAuth2 en Google Cloud](#configuración-oauth2-en-google-cloud)
 7. [Uso del panel](#uso-del-panel)
-8. [Cómo se asignan las cartas](#cómo-se-asignan-las-cartas)
-9. [Adjuntos](#adjuntos)
-10. [Exportación en lote](#exportación-en-lote)
-11. [Impresión](#impresión)
-12. [Sincronización incremental](#sincronización-incremental)
-13. [Panel en la red local](#panel-en-la-red-local)
+8. [Gestión de participantes](#gestión-de-participantes)
+9. [Cómo se asignan las cartas](#cómo-se-asignan-las-cartas)
+10. [Adjuntos](#adjuntos)
+11. [Exportación en lote](#exportación-en-lote)
+12. [Impresión](#impresión)
+13. [Sincronización incremental](#sincronización-incremental)
+14. [Panel en la red local](#panel-en-la-red-local)
 15. [Arquitectura hexagonal](#arquitectura-hexagonal)
 16. [Tests](#tests)
 17. [Privacidad, retención y borrado](#privacidad-retención-y-borrado)
@@ -83,7 +84,7 @@ Otras opciones: `--no-open` (no abrir el navegador), `--no-mongo` (no tocar Mong
 
 2. **Configuración**: revisa `.env` (cada valor está comentado). `--install` lo crea a partir de `.env.example`. Las rutas relativas se resuelven desde la carpeta del proyecto, no desde donde ejecutes el comando.
 
-3. **Participantes**: edita `data/participants.json` (la carpeta `data/` no se sube al repositorio). `--install` lo crea a partir de `participants.example.json`:
+3. **Participantes**: se gestionan en el panel, en **Participantes** (ver [Gestión de participantes](#gestión-de-participantes)). Opcionalmente puedes partir de una lista en `data/participants.json` (la carpeta `data/` no se sube al repositorio), que se **importa una sola vez** cuando el retiro aún no tiene participantes. `--install` la crea a partir de `participants.example.json`:
 
    ```json
    [
@@ -221,14 +222,41 @@ En cualquier caso se descartan los borradores, el spam, la papelera y los mensaj
 
 **Participantes nuevos** (las cartas llegan poco a poco y puede aparecer alguien que no estaba en la lista): en el diálogo **Asignar…**, pulsa **«+ Añadir participante nuevo»**. Si buscas un nombre que no existe, el diálogo también ofrece «Añadir «nombre» como participante».
 
-- Escribe el nombre completo y, si quieres, apodos separados por comas. Queda marcado para esa carta; pulsa **Asignar** para confirmar.
-- Se guarda en `PARTICIPANTS_FILE` (con copia del anterior en `participants.json.bak`), así que sigue ahí al reiniciar. En modo demostración solo dura mientras el panel está abierto.
+- Escribe el nombre y el primer apellido (y, si quieres, el segundo y apodos). Queda marcado para esa carta; pulsa **Asignar** para confirmar.
+- Es un **alta rápida**: el participante queda como **ficha incompleta** hasta que completes su edad y su contacto de emergencia en **Participantes**.
 - Al añadirlo se recalculan las asignaciones: las cartas pendientes que lo nombran se le asignan solas. Las decisiones manuales, incluidas las cartas dejadas sin asignar, no se tocan.
 - No se admite un nombre o apodo que ya tenga otro participante (sin distinguir tildes ni mayúsculas).
+
+- Al final de «Por revisar», la sección **Participantes dados de baja** reúne las cartas de quienes ya no están en el retiro.
 
 **Historial de sincronizaciones**: fecha, tipo, resultado, duración, cartas nuevas, actualizadas y eliminadas, y el error si lo hubo.
 
 **Avisos** (solo informan, nunca descartan una carta): *Respuesta automática*, *Envío masivo*, *Error de entrega*, *Solo firma*, *Solo adjuntos*, *Varios destinatarios* y *Con adjuntos*.
+
+## Gestión de participantes
+
+El apartado **Participantes** es la **fuente única** de participantes del retiro: lo usan las cartas y lo usarán los futuros módulos (habitaciones, mesas, cocina, accesibilidad). La lista de `PARTICIPANTS_FILE` solo se importa una vez, cuando el retiro todavía no tiene participantes; después ya no se lee y los cambios se hacen en el panel.
+
+- **Listado** con búsqueda (nombre, apodo, teléfono o correo) y filtros: activos, fichas incompletas, con alergias o dieta, con necesidades de accesibilidad, roncan y dados de baja.
+- **Ficha** de cada participante y botón **Ver cartas**.
+- **Alta y edición**. Son obligatorios el **nombre**, el **primer apellido**, la **edad o la fecha de nacimiento** y **una persona de contacto para emergencias** (nombre y teléfono; se puede añadir una segunda). El resto es opcional: segundo apellido, apodos, teléfono, correo (nunca se usa para las cartas), si ronca, alimentación, accesibilidad, apoyos y observaciones.
+- **Alimentación**: los 14 alérgenos de declaración obligatoria, intolerancias y dietas, con gravedad (*leve* o *grave, puede requerir medicación de urgencia*) y «otra» con detalle.
+- **Accesibilidad**: necesidades **prácticas** (movilidad reducida, habitación accesible, evitar escaleras, ayuda en desplazamientos…) y los apoyos necesarios durante el retiro. **No se piden diagnósticos.**
+- **Dar de baja**: el participante sale del panel y de los lotes de impresión, pero sus cartas se conservan con la marca **«No está en el retiro»** (en «Por revisar» → «Participantes dados de baja»). Se puede reactivar.
+- **Eliminar**: solo si no tiene cartas asignadas; si las tiene, dalo de baja.
+- **Identificador estable**: si cambias el nombre, el identificador no cambia; cartas, impresión y asignaciones manuales siguen enlazadas.
+- Al registrar a alguien o cambiar su nombre o apodos, **se recalculan las asignaciones** (respetando siempre las manuales): las cartas pendientes que lo nombran se le asignan solas.
+- **Datos que venían de versiones anteriores**: los participantes guardados solo con «nombre completo» se separan automáticamente en nombre y apellidos. Si el reparto es dudoso (tres o más palabras, como «José Ignacio Sanz»), la ficha lo indica para revisarlo. Mientras tanto, se reconocen solo por el nombre completo, como antes.
+
+### Retiro y borrado automático
+
+Todo pertenece a un **retiro** (de momento, uno activo). En **Participantes → Editar datos del retiro** se indican su nombre y su primer y último día.
+
+- **Borrado automático**: `RETREAT_RETENTION_DAYS` días después del último día (30 por defecto), se borran **todos los datos personales** del retiro: participantes (con alergias, necesidades y contactos de emergencia), cartas, asignaciones, estado de impresión, historial de sincronización, caché de adjuntos y archivos exportados. Del retiro solo quedan su nombre, sus fechas y los totales, y empieza un retiro nuevo vacío.
+- Desde que termina el retiro, el panel muestra un **aviso** con la fecha de borrado.
+- **Cerrar retiro…** permite borrarlo antes, escribiendo su nombre para confirmar.
+- Las cartas recibidas antes del cierre **no se vuelven a importar**.
+- **Gmail no se toca** (permiso de solo lectura): borra allí los correos del retiro.
 
 ## Cómo se asignan las cartas
 
@@ -239,7 +267,9 @@ Las escriben familiares, así que **el nombre del remitente y la firma nunca ind
    - **Asunto** (0,95): «Carta para X», «Para: X», «[Para: X]».
    - **Cuerpo** (0,85), en los primeros `BODY_SCAN_CHARS` caracteres: «Querido/a X», «Hola X», «Mi querida X», «Carta para X», o una línea de saludo que termina en «:» o «,».
    - **Mención** (0,30): el nombre completo o un alias en otra parte del texto.
-3. Se compara con el nombre y los alias de cada participante. **Un nombre de pila que comparten dos o más participantes es ambiguo** y nunca se asigna solo.
+3. Se compara con los participantes del retiro: nombre completo, apodos, nombre de pila y **variantes** del nombre registrado. Para «José Antonio García López» valen «José García», «José Antonio García», «José A. García» y «José García López» (sin distinguir mayúsculas ni tildes, y con apellidos compuestos o con guion). **Un nombre o una variante que comparten dos o más participantes es ambiguo** y nunca se asigna solo.
+   - **Contradicción de apellido**: si tras un nombre aparece un apellido que no es de ese participante («Carta para José Pérez» cuando el único José es José García), la carta va a **Por revisar** con la sugerencia, en vez de asignarse.
+   - Una errata («Garcai») no se asigna sola: la carta queda en revisión.
 4. Se asigna automáticamente si un único participante supera `ASSIGNMENT_MIN_CONFIDENCE` (0,75) y nadie más queda a menos de 0,15. Si hay varios nombrados explícitamente, la carta es para todos («Varios destinatarios»). En cualquier otro caso va a **Por revisar** con sugerencias ordenadas.
 5. Las **asignaciones manuales** siempre ganan: se guardan por mensaje y sobreviven a nuevas sincronizaciones y a «Reasignar cartas».
 
@@ -350,6 +380,9 @@ El panel usa **HTTP sin cifrar**: úsalo solo en una red de confianza (nunca en 
              └────────────────────────────────────────────────────────────────────────────┘
 ```
 
+- **Módulos**: el código de cartas sigue en `src/{domain,application,infrastructure}`. Los módulos nuevos van en `src/modules/<módulo>/{domain,application,infrastructure}`, empezando por `src/modules/participants` (Retreat, ParticipantRecord, catálogos, casos de uso, repositorios Mongo/JSON y API).
+- **Puente entre módulos**: las cartas ven a los participantes a través de su puerto de siempre, `ParticipantRepositoryPort`, que ahora implementa `ParticipantDirectory` (participantes del retiro activo con nombre estructurado y estado). Así los casos de uso de cartas no cambiaron.
+
 - **Regla de dependencias**: infraestructura → aplicación → dominio. El dominio no importa Express, Google, MongoDB ni nada de E/S. Solo usa `Intl` para las zonas horarias.
 - **Puertos** (`src/application/ports`): contratos documentados con JSDoc y comprobados al arrancar. Por ejemplo, `MailSourcePort.fetchChanges(cursor)` o `SyncStateRepositoryPort.acquireLock(owner, ttl)`.
 - **Adaptadores**: Gmail, demo, MongoDB, JSON, Express, renderizadores…
@@ -404,7 +437,7 @@ Genera los `.eml` en `.run/seed/` sin tocar Gmail.
 npm run seed:gmail -- --write-participants
 ```
 
-Los inserta en Gmail y escribe los 20 participantes de prueba en `data/participants.json`, con copia del anterior.
+Los inserta en Gmail y escribe los 20 participantes de prueba en `data/participants.json`, con copia del anterior. Esa lista solo se importa si el retiro aún no tiene participantes; si ya los tiene, añádelos en **Participantes**.
 
 - Pide un permiso **aparte y solo para insertar** (`gmail.insert`). En la pantalla de Google, marca la casilla «Insertar correo en tu buzón de Gmail». Ese permiso se guarda en `.run/seed-token.json`; la aplicación sigue siendo de solo lectura.
 - Comprueba que esa autorización es de la misma cuenta que `token.json` antes de insertar nada.
@@ -426,11 +459,11 @@ Las cartas son **correspondencia personal**, a menudo de familias a **menores de
 | MongoDB (`MONGODB_DB`) o `data/db/` | cartas, participantes, asignaciones, impresión, sincronizaciones | `npm run db:purge` (y `docker compose down -v` para eliminar el volumen) |
 | `EXPORT_DIR` (`exports/`) | paquetes exportados | `npm run db:purge -- --include-files` o borrar la carpeta |
 | `CACHE_DIR` (`cache/`) | caché de adjuntos descargados | `npm run db:purge -- --include-files` o borrar la carpeta |
-| `data/participants.json` | lista de participantes | borrar el archivo |
+| `data/participants.json` | lista inicial de participantes (solo se importa una vez) | borrar el archivo |
 | `token.json` / `credentials.json` | acceso a Gmail | borrar los archivos y **revocar el acceso** en <https://myaccount.google.com/permissions> |
 | Papel impreso | cartas entregadas | según el protocolo del retiro |
 
-**Retención recomendada**: borra todo cuando termine el retiro y se hayan entregado las cartas.
+**Retención**: el panel borra automáticamente todos los datos personales del retiro `RETREAT_RETENTION_DAYS` días después de su último día (ver [Retiro y borrado automático](#retiro-y-borrado-automático)). También puedes borrarlo todo a mano en cualquier momento:
 
 ```powershell
 npm run db:purge
@@ -457,7 +490,8 @@ Todas están en `.env.example`, comentadas.
 | `DEMO_MODE` | `false` | Datos ficticios en memoria. |
 | `ASSIGNMENT_MIN_CONFIDENCE` | `0.75` | Confianza mínima para asignar automáticamente. |
 | `BODY_SCAN_CHARS` | `600` | Caracteres iniciales del cuerpo donde se buscan saludos. |
-| `PARTICIPANTS_FILE` | `./data/participants.json` | Lista de participantes. |
+| `PARTICIPANTS_FILE` | `./data/participants.json` | Lista inicial de participantes, importada una sola vez en un retiro vacío. |
+| `RETREAT_RETENTION_DAYS` | `30` | Días tras el último día del retiro antes de borrar automáticamente sus datos personales. |
 | `GMAIL_QUERY` | — | Búsqueda de Gmail que selecciona las cartas. |
 | `GMAIL_LABEL_ID` | — | Alternativa: id interno de una etiqueta. |
 | `GMAIL_START_DATE` | — | Primer día (`AAAA-MM-DD`, en `TZ`) cuyos correos se leen, de cualquier remitente. |
@@ -489,5 +523,5 @@ Todas están en `.env.example`, comentadas.
 - **«Espera unos segundos antes de volver a sincronizar»**: es la pausa mínima (`SYNC_MIN_INTERVAL_SECONDS`).
 - **No conecta con MongoDB**: comprueba `docker compose ps` (estado `healthy`), que `MONGODB_URI` use las mismas credenciales que `MONGO_ROOT_*` y que el puerto coincida con `MONGO_PORT`.
 - **Una carta está asignada a quien no es**: ábrela en la ficha y usa «Reasignar…». La decisión manual es definitiva hasta que pulses «Volver a automático».
-- **He añadido participantes o alias**: actualiza `data/participants.json`, reinicia y pulsa «Reasignar cartas».
+- **He añadido participantes o apodos**: hazlo en **Participantes**; las cartas pendientes se reasignan solas. `data/participants.json` ya no se vuelve a leer.
 - **El panel no se ve desde otro dispositivo**: comprueba `HOST=0.0.0.0`, el cortafuegos de Windows (red privada) y que ambos equipos estén en la misma red.

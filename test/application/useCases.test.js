@@ -51,7 +51,7 @@ describe('GetDashboardOverviewUseCase', () => {
     assert.equal(overview.kpis.newLettersCount, 6);
     assert.deepEqual(overview.kpis.mostLetters, {
       count: 3,
-      participants: [{ id: 'juan-perez', displayName: 'Juan Pérez', known: true }],
+      participants: [{ id: 'juan-perez', displayName: 'Juan Pérez', known: true, withdrawn: false }],
     });
     assert.equal(overview.kpis.fewestLetters.count, 0);
     assert.deepEqual(

@@ -2,9 +2,10 @@ import { connectMongo } from './MongoConnection.js';
 import { ensureIndexes } from './indexes.js';
 import { MongoAssignmentOverrideRepository } from './MongoAssignmentOverrideRepository.js';
 import { MongoLetterStoreRepository } from './MongoLetterStoreRepository.js';
-import { MongoParticipantRepository } from './MongoParticipantRepository.js';
 import { MongoPrintStatusRepository } from './MongoPrintStatusRepository.js';
 import { MongoSyncStateRepository } from './MongoSyncStateRepository.js';
+import { MongoParticipantRecordRepository, MongoRetreatRepository } from '../../../modules/participants/infrastructure/MongoParticipantStores.js';
+import { ParticipantDirectory } from '../../../modules/participants/infrastructure/ParticipantDirectory.js';
 
 /**
  * Builds the Mongo repositories over an existing database handle (indexes must exist).
@@ -12,10 +13,14 @@ import { MongoSyncStateRepository } from './MongoSyncStateRepository.js';
  * @param {{ clock: import('../../../application/ports/ClockPort.js').ClockPort }} options
  */
 export function buildMongoRepositories(db, { clock }) {
+  const participantRecords = new MongoParticipantRecordRepository(db);
+  const retreats = new MongoRetreatRepository(db);
   return {
     letterStore: new MongoLetterStoreRepository(db),
     syncStateRepository: new MongoSyncStateRepository(db, { clock }),
-    participantRepository: new MongoParticipantRepository(db),
+    participantRepository: new ParticipantDirectory({ records: participantRecords, retreats, clock }),
+    participantRecords,
+    retreats,
     printStatusRepository: new MongoPrintStatusRepository(db),
     overrideRepository: new MongoAssignmentOverrideRepository(db),
   };

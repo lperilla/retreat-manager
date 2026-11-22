@@ -64,6 +64,7 @@ export function letterNoveltyFields(letter) {
   return {
     firstSeenAt: letter.firstSeenAt,
     syncRunId: letter.syncRunId,
+    retreatId: letter.retreatId,
     seenByStaff: letter.seenByStaff === true,
   };
 }
@@ -74,21 +75,6 @@ export function letterNoveltyFields(letter) {
 export function letterFromDocument(document) {
   const { _id, ...rest } = document;
   return createLetter({ ...rest, messageId: _id });
-}
-
-/**
- * @param {import('../../../domain/entities/Participant.js').Participant} participant
- */
-export function participantToDocument(participant) {
-  const p = createParticipant(participant);
-  return { _id: p.id, displayName: p.displayName, aliases: [...p.aliases] };
-}
-
-/**
- * @param {Record<string, any>} document
- */
-export function participantFromDocument(document) {
-  return createParticipant({ id: document._id, displayName: document.displayName, aliases: document.aliases ?? [] });
 }
 
 /**

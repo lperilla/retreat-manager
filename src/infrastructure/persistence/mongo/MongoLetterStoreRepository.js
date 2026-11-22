@@ -43,6 +43,12 @@ export class MongoLetterStoreRepository {
     return { inserted: result.upsertedCount, updated: result.matchedCount };
   }
 
+  /** @param {string} retreatId */
+  async assignRetreat(retreatId) {
+    const result = await this.#collection.updateMany({ $or: [{ retreatId: { $exists: false } }, { retreatId: null }] }, { $set: { retreatId } });
+    return result.modifiedCount;
+  }
+
   /**
    * @param {string[]} messageIds
    * @param {Date} deletedAt

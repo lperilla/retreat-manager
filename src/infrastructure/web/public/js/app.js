@@ -8,19 +8,25 @@ import { $, h, withBusy } from './dom.js';
 import { plural } from './format.js';
 import { loadHistory } from './historyView.js';
 import { loadParticipant } from './participantView.js';
+import { loadParticipants } from './participantsView.js';
 import { loadReview } from './reviewView.js';
 import { ASSIGNMENT_STATUS_LABELS } from './labels.js';
 import { initSyncWidget, refreshSyncStatus } from './syncWidget.js';
 import { on, state } from './state.js';
 import { confirmDialog, showSummary, toast, toastError } from './ui.js';
 
-const VIEWS = ['dashboard', 'participant', 'review', 'history'];
+const VIEWS = ['dashboard', 'participant', 'people', 'review', 'history'];
 
-/** @returns {{ view: string, param: string | null }} */
+/** @returns {{ view: string, param: string | null, mode?: 'list' | 'detail' | 'new' | 'edit' }} */
 function parseRoute() {
   const hash = window.location.hash.replace(/^#\/?/, '');
   const [first, ...rest] = hash.split('/');
   if (first === 'participante' && rest[0]) return { view: 'participant', param: decodeURIComponent(rest.join('/')) };
+  if (first === 'participantes') {
+    if (!rest[0]) return { view: 'people', param: null, mode: 'list' };
+    if (rest[0] === 'nuevo') return { view: 'people', param: null, mode: 'new' };
+    return { view: 'people', param: decodeURIComponent(rest[0]), mode: rest[1] === 'editar' ? 'edit' : 'detail' };
+  }
   if (first === 'revisar') return { view: 'review', param: null };
   if (first === 'historial') return { view: 'history', param: null };
   return { view: 'dashboard', param: null };
@@ -48,19 +54,41 @@ let routeToken = 0;
 async function route({ focus = true } = {}) {
   if (state.info?.setupRequired) return;
   const token = ++routeToken;
-  const { view, param } = parseRoute();
+  const { view, param, mode } = parseRoute();
   showView(view);
+  void refreshRetreatBanner();
   const titles = { dashboard: 'Cartas del retiro', review: 'Por revisar · Cartas del retiro', history: 'Historial · Cartas del retiro' };
-  if (view !== 'participant') document.title = titles[/** @type {keyof typeof titles} */ (view)];
+  if (view !== 'participant' && view !== 'people') document.title = titles[/** @type {keyof typeof titles} */ (view)];
   try {
     if (view === 'dashboard') await loadDashboard();
     else if (view === 'participant' && param) await loadParticipant(param);
+    else if (view === 'people') await loadParticipants({ mode: mode ?? 'list', id: param });
     else if (view === 'review') await loadReview();
     else if (view === 'history') await loadHistory();
   } catch (error) {
     if (token === routeToken) toastError(error);
   }
   if (focus && token === routeToken) $('#main').focus({ preventScroll: false });
+}
+
+const BANNER_DATE = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+/** Warns when the retreat is over and its personal data is about to be deleted automatically. */
+async function refreshRetreatBanner() {
+  const banner = document.getElementById('retreat-banner');
+  if (!banner) return;
+  try {
+    const retreat = await api.retreat();
+    if (!retreat.ended || !retreat.deletionDate) {
+      banner.hidden = true;
+      return;
+    }
+    $('#retreat-banner-text').textContent =
+      `«${retreat.name}» ha terminado. Sus datos personales (participantes, alergias, contactos de emergencia, cartas y archivos) se borrarán automáticamente el ${BANNER_DATE.format(new Date(retreat.deletionDate))}${retreat.daysUntilDeletion !== null ? ` (en ${plural(retreat.daysUntilDeletion, 'día', 'días')})` : ''}. Exporta o imprime antes lo que necesites y recuerda borrar los correos en Gmail.`;
+    banner.hidden = false;
+  } catch {
+    banner.hidden = true;
+  }
 }
 
 async function recompute(/** @type {HTMLButtonElement} */ button) {

@@ -21,7 +21,13 @@ export function toIso(date) {
  */
 export function presentParticipantRef(participantsById, participantId) {
   const participant = participantsById.get(participantId);
-  return { id: participantId, displayName: participant?.displayName ?? participantId, known: Boolean(participant) };
+  return {
+    id: participantId,
+    displayName: participant?.displayName ?? participantId,
+    known: Boolean(participant),
+    // "No está en el retiro": the participant was withdrawn (their letters stay with them).
+    withdrawn: participant?.status === 'withdrawn',
+  };
 }
 
 /**

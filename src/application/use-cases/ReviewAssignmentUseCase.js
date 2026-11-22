@@ -48,13 +48,20 @@ export class ReviewAssignmentUseCase {
       this.#participants.findAll(),
     ]);
     const participantsById = indexParticipantsById(participants);
+    const byDate = (/** @type {any} */ a, /** @type {any} */ b) => a.receivedAt.getTime() - b.receivedAt.getTime();
     const unassigned = all
       .filter((letter) => !letter.deletedAt && letter.assignment.status === AssignmentStatus.UNASSIGNED)
-      .sort((a, b) => a.receivedAt.getTime() - b.receivedAt.getTime());
+      .sort(byDate);
+    // Letters of withdrawn participants ("no está en el retiro"): kept and listed apart.
+    const withdrawnIds = new Set(participants.filter((p) => p.status === 'withdrawn').map((p) => p.id));
+    const withdrawn = all
+      .filter((letter) => !letter.deletedAt && letter.assignment.participantIds.some((id) => withdrawnIds.has(id)))
+      .sort(byDate);
     return {
       total: letters.length,
       letters: letters.map((letter) => presentLetter(letter, { participantsById })),
       unassigned: { total: unassigned.length, letters: unassigned.map((letter) => presentLetter(letter, { participantsById })) },
+      withdrawn: { total: withdrawn.length, letters: withdrawn.map((letter) => presentLetter(letter, { participantsById })) },
     };
   }
 

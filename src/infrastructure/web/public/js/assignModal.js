@@ -81,7 +81,13 @@ function showNewParticipantForm(name = '') {
   form.hidden = false;
   $('#new-participant-toggle').setAttribute('aria-expanded', 'true');
   const input = /** @type {HTMLInputElement} */ ($('#new-participant-name'));
-  if (name) input.value = name;
+  if (name) {
+    // "Luis Perilla" → Nombre «Luis», Primer apellido «Perilla» (editable before saving).
+    const [given, ...surnames] = name.split(/\s+/).filter(Boolean);
+    input.value = given ?? '';
+    /** @type {HTMLInputElement} */ ($('#new-participant-surname')).value = surnames[0] ?? '';
+    /** @type {HTMLInputElement} */ ($('#new-participant-surname2')).value = surnames.slice(1).join(' ');
+  }
   input.focus();
 }
 
@@ -98,8 +104,10 @@ function hideNewParticipantForm() {
 async function createParticipant(event) {
   event.preventDefault();
   const name = /** @type {HTMLInputElement} */ ($('#new-participant-name')).value.trim();
-  if (!name) {
-    toast('Escribe el nombre del participante.', 'warning');
+  const surname = /** @type {HTMLInputElement} */ ($('#new-participant-surname')).value.trim();
+  const surname2 = /** @type {HTMLInputElement} */ ($('#new-participant-surname2')).value.trim();
+  if (!name || !surname) {
+    toast('Escribe el nombre y el primer apellido del participante.', 'warning');
     return;
   }
   const aliases = /** @type {HTMLInputElement} */ ($('#new-participant-aliases'))
@@ -108,7 +116,7 @@ async function createParticipant(event) {
     .filter(Boolean);
   try {
     await withBusy(/** @type {HTMLButtonElement} */ ($('#new-participant-create')), async () => {
-      const result = await api.addParticipant({ displayName: name, aliases });
+      const result = await api.quickAddParticipant({ givenNames: name, firstSurname: surname, secondSurname: surname2, aliases });
       const { participant, recompute } = result;
       state.participants = [
         ...state.participants,
@@ -118,8 +126,8 @@ async function createParticipant(event) {
       /** @type {HTMLInputElement} */ ($('#assign-search')).value = '';
       hideNewParticipantForm();
       renderOptions();
-      const others = recompute.assignedToNew > 0 ? ` Además se le han asignado ${recompute.assignedToNew} carta(s) pendiente(s).` : '';
-      toast(`${participant.displayName} añadido a los participantes. Pulsa «Asignar» para asignarle esta carta.${others}`);
+      const others = recompute?.assignedToParticipant > 0 ? ` Además se le han asignado ${recompute.assignedToParticipant} carta(s) pendiente(s).` : '';
+      toast(`${participant.displayName} añadido como ficha incompleta. Pulsa «Asignar» para asignarle esta carta.${others}`);
       emit('data-changed');
     });
   } catch (error) {

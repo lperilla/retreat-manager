@@ -8,6 +8,12 @@
  *   2. Extract signals: SUBJECT_EXPLICIT (0.95), BODY_EXPLICIT (0.85, first N chars),
  *      NAME_MENTION (0.30, full name or alias elsewhere in the body).
  *   3. Decide: multi-recipient, auto-assign, or NEEDS_REVIEW with ranked suggestions.
+ *
+ * Index keys per participant: full name, aliases, bare first name and, for structured
+ * names, variants ("José García", "José A. García"…; see nameVariants.js).
+ * Surname contradiction: a partial match (first name or variant) followed by a capitalized
+ * word that is not one of the participant's names ("José Pérez" when the only José is José
+ * García) is lowered to a suggestion, so the letter goes to review instead of being assigned.
  */
 import { AssignmentStatus, DEFAULTS, EXPLICIT_SIGNALS, SIGNAL_CONFIDENCE, SignalType } from '../constants.js';
 import { createAssignment } from '../entities/Assignment.js';
@@ -20,6 +26,7 @@ import {
   sliceOriginal,
   stripSubjectPrefixes,
 } from './text.js';
+import { nameTokens, nameVariants } from './nameVariants.js';
 
 /**
  * @typedef {Object} AssignmentSignal
@@ -29,24 +36,40 @@ import {
  * @property {string}      matchedText   Original fragment (trigger + name).
  * @property {boolean}     ambiguous     True when the matched name belongs to 2+ participants.
  * @property {string|null} groupId       Groups the signals produced by one ambiguous occurrence.
+ * @property {string|null} [contradictedBy]  Word after a partial match that is not one of the
+ *                                       participant's names (the signal is lowered to a suggestion).
  */
 
 /**
  * @typedef {Object} IndexEntry
  * @property {string}              key            Normalized name.
  * @property {string[]}            participantIds Owners of the key (sorted).
- * @property {Map<string, string>} kinds          participantId → 'full' | 'alias' | 'first'.
+ * @property {Map<string, string>} kinds          participantId → 'full' | 'alias' | 'variant' | 'first'.
  * @property {boolean}             ambiguous
  */
 
-/** @typedef {{ entries: IndexEntry[] }} ParticipantIndex */
+/** @typedef {{ entries: IndexEntry[], tokens: Map<string, Set<string>> }} ParticipantIndex */
 
 /** @typedef {{ entry: IndexEntry, start: number, end: number }} NameMatch */
 
 const EPSILON = 1e-9;
 const MAX_FILLERS = 3;
 const MAX_CHAINED_NAMES = 6;
-const KIND_RANK = Object.freeze({ first: 1, alias: 2, full: 3 });
+const KIND_RANK = Object.freeze({ first: 1, variant: 2, alias: 3, full: 4 });
+/** Kinds that only cover part of the name: a contradicting surname after them matters. */
+const PARTIAL_KINDS = new Set(['first', 'variant']);
+
+/**
+ * Capitalized words that may follow a name without being a surname
+ * ("Para Juan De parte de mamá", "Querido Pablo Y Ana").
+ */
+const CONTINUATION_WORDS = new Set([
+  'y', 'e', 'o', 'u', 'ni', 'de', 'del', 'la', 'las', 'los', 'el', 'lo', 'al', 'a', 'ante', 'con', 'desde', 'en',
+  'entre', 'hacia', 'hasta', 'para', 'por', 'segun', 'sin', 'sobre', 'tras', 'que', 'te', 'os', 'nos', 'le', 'les',
+  'se', 'me', 'mi', 'mis', 'tu', 'tus', 'su', 'sus', 'un', 'una', 'unos', 'unas', 'este', 'esta', 'ese', 'esa',
+  'muy', 'mucho', 'feliz', 'hola', 'querido', 'querida', 'animo', 'besos', 'beso', 'abrazo', 'abrazos', 'gracias',
+  'carta', 'dios', 'hoy', 'ya', 'aqui', 'como', 'cuando', 'donde', 'si', 'no', 'pero', 'mas', 'tambien',
+]);
 
 /** Words allowed between a trigger and a name ("para mi querido nieto Juan"). */
 const FILLER_WORDS = new Set([
@@ -97,7 +120,7 @@ export function buildParticipantIndex(participants) {
   /**
    * @param {string} key
    * @param {string} participantId
-   * @param {'full' | 'alias' | 'first'} kind
+   * @param {'full' | 'alias' | 'variant' | 'first'} kind
    */
   const add = (key, participantId, kind) => {
     if (key.length < 2) return;
@@ -107,7 +130,7 @@ export function buildParticipantIndex(participants) {
       owners.set(key, keyOwners);
     }
     const current = keyOwners.get(participantId);
-    if (!current || KIND_RANK[kind] > KIND_RANK[/** @type {'full'|'alias'|'first'} */ (current)]) {
+    if (!current || KIND_RANK[kind] > KIND_RANK[/** @type {'full'|'alias'|'variant'|'first'} */ (current)]) {
       keyOwners.set(participantId, kind);
     }
   };
@@ -121,6 +144,7 @@ export function buildParticipantIndex(participants) {
       const key = normalizeText(alias);
       if (key) add(key, participant.id, 'alias');
     }
+    for (const variant of nameVariants(participant.nameParts)) add(variant, participant.id, 'variant');
   }
 
   const entries = [...owners.entries()]
@@ -132,7 +156,28 @@ export function buildParticipantIndex(participants) {
     }))
     .sort((a, b) => b.key.length - a.key.length || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
 
-  return { entries };
+  const tokens = new Map(participants.map((participant) => [participant.id, nameTokens(participant)]));
+  return { entries, tokens };
+}
+
+/**
+ * The capitalized word right after a partial name match, when it is not one of the
+ * participant's names (nor a common continuation word): "José Pérez" for José García.
+ * @param {{ normalized: string, map: number[], original: string }} text
+ * @param {number} end  End of the match in the normalized text.
+ * @param {Set<string> | undefined} tokens
+ * @returns {string | null}
+ */
+function contradictingWord({ normalized, map, original }, end, tokens) {
+  const found = /^[ \t]+(\p{L}[\p{L}'-]*)/u.exec(normalized.slice(end, end + 48));
+  if (!found) return null;
+  const word = found[1];
+  if (word.length < 2 || CONTINUATION_WORDS.has(word)) return null;
+  if (tokens && word.split(/[-']/).every((piece) => !piece || tokens.has(piece))) return null;
+  const start = end + found[0].length - word.length;
+  const originalChar = original[map[start]] ?? '';
+  if (!originalChar || originalChar === originalChar.toLowerCase()) return null;
+  return word;
 }
 
 // ---------------------------------------------------------------------------
@@ -224,22 +269,28 @@ function extendOverPunctuation(text, end) {
  * @param {string} args.original
  * @param {string} args.signal
  * @param {string} args.source
+ * @param {ParticipantIndex} args.index
  * @returns {AssignmentSignal[]}
  */
-function signalsFromChain({ chain, spanStart, normalized, map, original, signal, source }) {
+function signalsFromChain({ chain, spanStart, normalized, map, original, signal, source, index }) {
   const spanEnd = extendOverPunctuation(normalized, chain[chain.length - 1].end);
   const matchedText = sliceOriginal(original, map, spanStart, spanEnd);
   /** @type {AssignmentSignal[]} */
   const signals = [];
   for (const match of chain) {
     for (const participantId of match.entry.participantIds) {
+      const kind = match.entry.kinds.get(participantId) ?? 'full';
+      const contradictedBy = PARTIAL_KINDS.has(kind)
+        ? contradictingWord({ normalized, map, original }, match.end, index.tokens.get(participantId))
+        : null;
       signals.push({
         participantId,
         signal,
-        confidence: SIGNAL_CONFIDENCE[signal],
+        confidence: contradictedBy ? SIGNAL_CONFIDENCE[SignalType.NAME_MENTION] : SIGNAL_CONFIDENCE[signal],
         matchedText,
         ambiguous: match.entry.ambiguous,
         groupId: match.entry.ambiguous ? `${source}:${match.start}` : null,
+        contradictedBy,
       });
     }
   }

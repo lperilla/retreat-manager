@@ -37,6 +37,7 @@ import { createAssignment, isAssigned, needsReviewAssignment } from './Assignmen
  * @property {string}           contentHash  Fingerprint of the mail content (used by syncDiff).
  * @property {Date|null}        firstSeenAt
  * @property {string|null}      syncRunId    Sync run that first stored the letter.
+ * @property {string|null}      retreatId    Retreat active when the letter was first stored.
  * @property {boolean}          seenByStaff
  * @property {Date|null}        deletedAt    Soft-delete marker (deleted from Gmail).
  */
@@ -202,6 +203,7 @@ export function createLetter(props) {
     contentHash: computeContentHash(content),
     firstSeenAt: optionalDate(source.firstSeenAt, 'firstSeenAt'),
     syncRunId: source.syncRunId ? String(source.syncRunId) : null,
+    retreatId: source.retreatId ? String(source.retreatId) : null,
     seenByStaff: source.seenByStaff === true,
     deletedAt: optionalDate(source.deletedAt, 'deletedAt'),
   });
@@ -295,14 +297,15 @@ export function softDeleteLetter(letter, now) {
  * @param {{ now: Date, syncRunId: string }} context
  * @returns {Readonly<Letter>}
  */
-export function mergeIncomingLetter(existing, incoming, { now, syncRunId }) {
+export function mergeIncomingLetter(existing, incoming, { now, syncRunId, retreatId = null }) {
   if (!existing) {
-    return createLetter({ ...incoming, firstSeenAt: now, syncRunId, seenByStaff: false, deletedAt: null });
+    return createLetter({ ...incoming, firstSeenAt: now, syncRunId, retreatId, seenByStaff: false, deletedAt: null });
   }
   return createLetter({
     ...incoming,
     firstSeenAt: existing.firstSeenAt ?? now,
     syncRunId: existing.syncRunId ?? syncRunId,
+    retreatId: existing.retreatId ?? retreatId,
     seenByStaff: existing.seenByStaff,
     deletedAt: null,
   });

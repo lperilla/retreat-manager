@@ -39,6 +39,7 @@ export class JsonLetterStoreRepository {
             ...document,
             firstSeenAt: existing.firstSeenAt ?? document.firstSeenAt,
             syncRunId: existing.syncRunId ?? document.syncRunId,
+            retreatId: existing.retreatId ?? document.retreatId,
             seenByStaff: existing.seenByStaff === true,
           });
           updated += 1;
@@ -48,6 +49,19 @@ export class JsonLetterStoreRepository {
         }
       }
       return { inserted, updated };
+    });
+  }
+
+  /** @param {string} retreatId */
+  assignRetreat(retreatId) {
+    return this.#store.write((documents) => {
+      let count = 0;
+      for (const document of documents.values()) {
+        if (document.retreatId) continue;
+        document.retreatId = retreatId;
+        count += 1;
+      }
+      return count;
     });
   }
 

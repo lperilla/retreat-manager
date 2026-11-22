@@ -110,12 +110,34 @@ function renderUnassigned(unassigned) {
   );
 }
 
+/**
+ * @param {{ total: number, letters: any[] } | undefined} withdrawn
+ */
+function renderWithdrawn(withdrawn) {
+  const total = withdrawn?.total ?? 0;
+  $('#withdrawn-section').hidden = total === 0;
+  $('#withdrawn-count').textContent = total === 0 ? '' : lettersLabel(total);
+  replaceChildren(
+    $('#withdrawn-list'),
+    (withdrawn?.letters ?? []).map((/** @type {any} */ letter) =>
+      letterCard(letter, {
+        showRecipients: true,
+        actions: [
+          h('span', { class: 'small text-body-secondary align-self-center me-auto', text: 'El destinatario está dado de baja.' }),
+          h('button', { type: 'button', class: 'btn btn-sm btn-outline-secondary', text: 'Reasignar…', onClick: () => openAssignModal(letter, () => emit('data-changed')) }),
+        ],
+      }),
+    ),
+  );
+}
+
 export async function loadReview() {
   const queue = await api.reviewQueue();
   $('#review-count').textContent = queue.total === 0 ? '' : lettersLabel(queue.total);
   $('#nav-review-count').textContent = String(queue.total);
   const list = $('#review-list');
   renderUnassigned(queue.unassigned);
+  renderWithdrawn(queue.withdrawn);
   replaceChildren(
     $('#review-toggle-all'),
     queue.total + (queue.unassigned?.total ?? 0) > 1 ? letterToggleAllButtons(() => $('#view-review')) : null,

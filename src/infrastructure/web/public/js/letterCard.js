@@ -173,6 +173,9 @@ export function letterCard(letter, { actions = [], showRecipients = false } = {}
           'div',
           { class: 'd-flex flex-wrap gap-1 align-items-start' },
           letter.isNew ? h('span', { class: 'badge text-bg-info badge-new', text: 'Nueva' }) : null,
+          letter.assignment.participants.some((/** @type {any} */ p) => p.withdrawn)
+            ? h('span', { class: 'badge text-bg-secondary', text: 'No está en el retiro' })
+            : null,
           assignmentBadge(letter.assignment),
           letter.flags.map(flagBadge),
         ),

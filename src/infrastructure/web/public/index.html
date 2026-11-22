@@ -27,6 +27,7 @@
             <a class="nav-link" href="#/revisar" data-nav="review">Por revisar
               <span class="badge rounded-pill text-bg-warning ms-1" id="nav-review-count">0</span></a>
           </li>
+          <li class="nav-item"><a class="nav-link" href="#/participantes" data-nav="people">Participantes</a></li>
           <li class="nav-item"><a class="nav-link" href="#/historial" data-nav="history">Historial de sincronizaciones</a></li>
         </ul>
 
@@ -57,6 +58,10 @@
     <div class="alert alert-warning d-flex flex-column flex-md-row gap-2" role="alert" id="sync-warning" hidden>
       <strong>La última sincronización falló; se muestran los últimos datos guardados.</strong>
       <span id="sync-warning-detail" class="small"></span>
+    </div>
+    <div class="alert alert-warning" role="status" id="retreat-banner" hidden>
+      <strong>Fin del retiro.</strong> <span id="retreat-banner-text"></span>
+      <a href="#/participantes" class="alert-link">Ver datos del retiro</a>
     </div>
     <div class="alert alert-info" role="status" id="demo-banner" hidden>
       <strong>Modo demostración.</strong> Las cartas son ficticias y se guardan solo en memoria.
@@ -203,6 +208,9 @@
     <!-- Participant detail -->
     <section id="view-participant" class="app-view" hidden aria-live="polite"></section>
 
+    <!-- Participants module -->
+    <section id="view-people" class="app-view" hidden aria-live="polite"></section>
+
     <!-- Review queue -->
     <section id="view-review" class="app-view" hidden aria-labelledby="review-title">
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 my-3">
@@ -222,6 +230,15 @@
         </div>
         <p class="text-body-secondary">Cartas que se dejaron sin asignar. Siguen guardadas: puedes asignarlas cuando quieras, por ejemplo después de dar de alta a su destinatario con «Asignar…» → «Añadir participante nuevo».</p>
         <div id="unassigned-list" class="d-flex flex-column gap-3"></div>
+      </section>
+
+      <section id="withdrawn-section" class="mt-5" aria-labelledby="withdrawn-title" hidden>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+          <h2 class="h4 mb-0" id="withdrawn-title">Participantes dados de baja</h2>
+          <span class="text-body-secondary" id="withdrawn-count"></span>
+        </div>
+        <p class="text-body-secondary">Cartas de participantes que ya no están en el retiro. Se conservan y no salen en el panel ni en los lotes de impresión.</p>
+        <div id="withdrawn-list" class="d-flex flex-column gap-3"></div>
       </section>
     </section>
 
@@ -312,18 +329,26 @@
           <div class="new-participant mt-3 pt-3 border-top">
             <button type="button" class="btn btn-link btn-sm px-0" id="new-participant-toggle" aria-expanded="false" aria-controls="new-participant-form">+ Añadir participante nuevo</button>
             <form id="new-participant-form" class="row g-2 align-items-end mt-1" hidden novalidate>
-              <div class="col-sm-5">
-                <label class="form-label small mb-1" for="new-participant-name">Nombre completo</label>
-                <input type="text" class="form-control form-control-sm" id="new-participant-name" maxlength="120" autocomplete="off" required>
+              <div class="col-sm-4">
+                <label class="form-label small mb-1" for="new-participant-name">Nombre *</label>
+                <input type="text" class="form-control form-control-sm" id="new-participant-name" maxlength="80" autocomplete="off" required>
               </div>
-              <div class="col-sm-5">
-                <label class="form-label small mb-1" for="new-participant-aliases">Otros nombres o apodos <span class="text-body-secondary">(opcional, separados por comas)</span></label>
+              <div class="col-sm-4">
+                <label class="form-label small mb-1" for="new-participant-surname">Primer apellido *</label>
+                <input type="text" class="form-control form-control-sm" id="new-participant-surname" maxlength="80" autocomplete="off" required>
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label small mb-1" for="new-participant-surname2">Segundo apellido</label>
+                <input type="text" class="form-control form-control-sm" id="new-participant-surname2" maxlength="80" autocomplete="off">
+              </div>
+              <div class="col-sm-9">
+                <label class="form-label small mb-1" for="new-participant-aliases">Apodos u otros nombres <span class="text-body-secondary">(opcional, separados por comas)</span></label>
                 <input type="text" class="form-control form-control-sm" id="new-participant-aliases" maxlength="400" autocomplete="off">
               </div>
-              <div class="col-sm-2 d-grid">
+              <div class="col-sm-3 d-grid">
                 <button type="submit" class="btn btn-outline-primary btn-sm" id="new-participant-create">Añadir</button>
               </div>
-              <p class="form-text small mb-0 col-12">Se guarda en la lista de participantes y queda marcado para esta carta. Las demás cartas pendientes que lo nombren se asignan solas.</p>
+              <p class="form-text small mb-0 col-12">Alta rápida: queda como <strong>ficha incompleta</strong> (faltan la edad y el contacto de emergencia; complétala en «Participantes») y marcado para esta carta. Las demás cartas pendientes que lo nombren se asignan solas.</p>
             </form>
           </div>
         </div>

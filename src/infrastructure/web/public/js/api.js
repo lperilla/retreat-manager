@@ -69,8 +69,21 @@ export const api = {
   resetAssignment: (/** @type {string} */ messageId) =>
     request(`/api/review/${encodeURIComponent(messageId)}/reset`, { method: 'POST' }),
   recompute: () => request('/api/assignments/recompute', { method: 'POST' }),
-  addParticipant: (/** @type {{ displayName: string, aliases?: string[] }} */ body) =>
-    request('/api/participants', { method: 'POST', body }),
+  // Participants module
+  catalogs: () => request('/api/catalogs'),
+  participants: (/** @type {{ q?: string, filter?: string }} */ params = {}) => request(`/api/participants${query(params)}`),
+  participant: (/** @type {string} */ id) => request(`/api/participants/${encodeURIComponent(id)}`),
+  createParticipant: (/** @type {Record<string, unknown>} */ body) => request('/api/participants', { method: 'POST', body }),
+  quickAddParticipant: (/** @type {{ givenNames: string, firstSurname: string, secondSurname?: string, aliases?: string[] }} */ body) =>
+    request('/api/participants', { method: 'POST', body: { ...body, quick: true } }),
+  updateParticipant: (/** @type {string} */ id, /** @type {Record<string, unknown>} */ body) =>
+    request(`/api/participants/${encodeURIComponent(id)}`, { method: 'PUT', body }),
+  withdrawParticipant: (/** @type {string} */ id) => request(`/api/participants/${encodeURIComponent(id)}/withdraw`, { method: 'POST' }),
+  reactivateParticipant: (/** @type {string} */ id) => request(`/api/participants/${encodeURIComponent(id)}/reactivate`, { method: 'POST' }),
+  deleteParticipant: (/** @type {string} */ id) => request(`/api/participants/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  retreat: () => request('/api/retreat'),
+  updateRetreat: (/** @type {{ name: string, startDate: string | null, endDate: string | null }} */ body) => request('/api/retreat', { method: 'PUT', body }),
+  closeRetreat: (/** @type {string} */ confirmName) => request('/api/retreat/close', { method: 'POST', body: { confirmName } }),
   startSync: (/** @type {'incremental' | 'full'} */ mode) => request('/api/sync', { method: 'POST', body: { mode } }),
   syncStatus: () => request('/api/sync/status'),
   syncRuns: (limit = 50) => request(`/api/sync/runs${query({ limit })}`),

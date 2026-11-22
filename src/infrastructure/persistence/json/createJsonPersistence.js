@@ -2,9 +2,10 @@ import { join } from 'node:path';
 
 import { JsonAssignmentOverrideRepository } from './JsonAssignmentOverrideRepository.js';
 import { JsonLetterStoreRepository } from './JsonLetterStoreRepository.js';
-import { JsonParticipantRepository } from './JsonParticipantRepository.js';
 import { JsonPrintStatusRepository } from './JsonPrintStatusRepository.js';
 import { JsonSyncStateRepository } from './JsonSyncStateRepository.js';
+import { JsonParticipantRecordRepository, JsonRetreatRepository } from '../../../modules/participants/infrastructure/JsonParticipantStores.js';
+import { ParticipantDirectory } from '../../../modules/participants/infrastructure/ParticipantDirectory.js';
 
 /**
  * @typedef {Object} PersistenceAdapters
@@ -12,6 +13,9 @@ import { JsonSyncStateRepository } from './JsonSyncStateRepository.js';
  * @property {import('../../../application/ports/LetterStoreRepositoryPort.js').LetterStoreRepositoryPort} letterStore
  * @property {import('../../../application/ports/SyncStateRepositoryPort.js').SyncStateRepositoryPort} syncStateRepository
  * @property {import('../../../application/ports/ParticipantRepositoryPort.js').ParticipantRepositoryPort} participantRepository
+ *           Letters' view of the participants of the active retreat (served by the participants module).
+ * @property {import('../../../modules/participants/application/ports.js').ParticipantRecordRepositoryPort} participantRecords
+ * @property {import('../../../modules/participants/application/ports.js').RetreatRepositoryPort} retreats
  * @property {import('../../../application/ports/PrintStatusRepositoryPort.js').PrintStatusRepositoryPort} printStatusRepository
  * @property {import('../../../application/ports/AssignmentOverrideRepositoryPort.js').AssignmentOverrideRepositoryPort} overrideRepository
  * @property {() => Promise<void>} close
@@ -29,6 +33,10 @@ import { JsonSyncStateRepository } from './JsonSyncStateRepository.js';
  */
 export function createJsonPersistence({ directory, clock, runsTtlDays = 90 }) {
   const file = (/** @type {string} */ name) => (directory ? join(directory, name) : null);
+  // participant_records.json, not participants.json: that name is the hand-written
+  // participants list (PARTICIPANTS_FILE) in the same data folder.
+  const participantRecords = new JsonParticipantRecordRepository({ filePath: file('participant_records.json') });
+  const retreats = new JsonRetreatRepository({ filePath: file('retreats.json') });
   return {
     kind: directory ? 'json' : 'memory',
     letterStore: new JsonLetterStoreRepository({ filePath: file('letters.json') }),
@@ -38,7 +46,9 @@ export function createJsonPersistence({ directory, clock, runsTtlDays = 90 }) {
       clock,
       runsTtlDays,
     }),
-    participantRepository: new JsonParticipantRepository({ filePath: file('participants.json') }),
+    participantRepository: new ParticipantDirectory({ records: participantRecords, retreats, clock }),
+    participantRecords,
+    retreats,
     printStatusRepository: new JsonPrintStatusRepository({ filePath: file('print_status.json') }),
     overrideRepository: new JsonAssignmentOverrideRepository({ filePath: file('assignment_overrides.json') }),
     async close() {},

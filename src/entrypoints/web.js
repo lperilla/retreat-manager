@@ -6,6 +6,7 @@ import { createContainer } from '../composition/container.js';
 import { PinoLogger } from '../infrastructure/logging/PinoLogger.js';
 import { createWebApp } from '../infrastructure/web/createWebApp.js';
 import { assertWebSecurity, listAccessUrls } from '../infrastructure/web/security/networkSecurity.js';
+import { RetentionScheduler } from '../infrastructure/web/RetentionScheduler.js';
 import { SyncScheduler } from '../infrastructure/web/SyncScheduler.js';
 import { WebRuntime } from '../infrastructure/web/WebRuntime.js';
 import { loadEnvironment } from './bootstrap.js';
@@ -27,8 +28,12 @@ async function main() {
     logger,
   });
 
+  // Deletes the retreat's personal data automatically when its retention period is over.
+  const retention = new RetentionScheduler({ getRetreatUseCase: () => runtime.container.useCases.retreat, logger });
+
   runtime.onContainerReady(async (container) => {
     scheduler.start();
+    retention.start();
     if (!container.config.demoMode) return;
     // Demo mode: release wave 1 right away so the dashboard is not empty.
     const state = await container.repositories.syncStateRepository.get();
@@ -68,6 +73,7 @@ async function main() {
     closing = true;
     logger.info({ signal }, 'Shutting down');
     scheduler.stop();
+    retention.stop();
     server.close();
     await runtime.close().catch((error) => logger.error({ err: describeError(error) }, 'Error while closing'));
     process.exit(0);

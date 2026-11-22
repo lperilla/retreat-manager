@@ -199,17 +199,49 @@ describe('web API', () => {
     assert.equal(runs.runs[0].status, 'success');
   });
 
-  it('adds a participant from the dashboard (201) and refuses duplicates (409)', async () => {
+  it('manages participants and the retreat through the participants module API', async () => {
     const app = await startApp();
-    const created = await app.post('/api/participants', { displayName: 'Luis Perilla', aliases: ['Luisito'] });
-    assert.equal(created.status, 201);
-    const body = await created.json();
-    assert.deepEqual(body.participant, { id: 'luis-perilla', displayName: 'Luis Perilla', aliases: ['Luisito'] });
-    const duplicate = await app.post('/api/participants', { displayName: 'luis perilla' });
+    // Quick registration from the letters screen: name only, reported as incomplete.
+    const quick = await app.post('/api/participants', { quick: true, givenNames: 'Luis', firstSurname: 'Perilla', aliases: ['Luisito'] });
+    assert.equal(quick.status, 201);
+    const created = (await quick.json()).participant;
+    assert.equal(created.id, 'luis-perilla');
+    assert.deepEqual(created.aliases, ['Luisito']);
+    assert.equal(created.complete, false);
+
+    const duplicate = await app.post('/api/participants', { quick: true, givenNames: 'luis', firstSurname: 'perilla' });
     assert.equal(duplicate.status, 409);
     assert.equal((await duplicate.json()).code, 'DUPLICATE_PARTICIPANT');
+    const incomplete = await app.post('/api/participants', { givenNames: 'Ana', firstSurname: 'Ruiz' });
+    assert.equal(incomplete.status, 400);
+    assert.equal((await incomplete.json()).code, 'PARTICIPANT_INCOMPLETE');
+
+    const edited = await app.fetch('/api/participants/luis-perilla', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ givenNames: 'Luis', firstSurname: 'Perilla', age: 40, emergencyContacts: [{ name: 'Ana', phone: '600123456' }] }),
+    });
+    assert.equal(edited.status, 200);
+    assert.equal((await edited.json()).participant.complete, true);
+
+    const list = await (await app.fetch('/api/participants?filter=all&q=perilla')).json();
+    assert.deepEqual(list.participants.map((/** @type {any} */ p) => p.id), ['luis-perilla']);
+    const catalogs = await (await app.fetch('/api/catalogs')).json();
+    assert.equal(catalogs.dietary.allergy.length, 15);
+
+    const retreat = await (await app.fetch('/api/retreat', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Retiro de prueba', startDate: '2026-11-20', endDate: '2026-11-22' }),
+    })).json();
+    assert.equal(retreat.name, 'Retiro de prueba');
+    assert.equal(retreat.retentionDays, 30);
+
+    const deleted = await app.fetch('/api/participants/luis-perilla', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    assert.equal(deleted.status, 200);
     const review = await (await app.fetch('/api/review')).json();
     assert.ok(Array.isArray(review.unassigned.letters));
+    assert.ok(Array.isArray(review.withdrawn.letters));
   });
 
   it('answers 429 with Retry-After during the cooldown and when the sync rate limit is exceeded', async () => {

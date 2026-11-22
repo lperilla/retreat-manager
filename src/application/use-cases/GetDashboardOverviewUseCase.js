@@ -1,5 +1,5 @@
 import { DEFAULTS, PrintStatusValue } from '../../domain/constants.js';
-import { indexParticipantsById } from '../../domain/entities/Participant.js';
+import { indexParticipantsById, isParticipantActive } from '../../domain/entities/Participant.js';
 import { isPendingPrint } from '../../domain/entities/PrintStatus.js';
 import { sortParticipantStats, summarizeRetreat } from '../../domain/services/counting.js';
 import { normalizeText } from '../../domain/services/text.js';
@@ -93,7 +93,10 @@ export class GetDashboardOverviewUseCase {
       minIntervalSeconds: this.#minIntervalSeconds,
       participantsById,
     });
-    const summary = summarizeRetreat({ participants, letters, lastSyncAt: state.lastSuccessAt, syncStatus: sync.status });
+    // Withdrawn participants leave the directory, the KPIs and the print batches; their
+    // letters are still counted as received and stay reachable from "Por revisar".
+    const active = participants.filter(isParticipantActive);
+    const summary = summarizeRetreat({ participants: active, letters, lastSyncAt: state.lastSuccessAt, syncStatus: sync.status });
     const statusById = new Map(statuses.map((s) => [s.participantId, s]));
 
     /** @type {DirectoryRow[]} */

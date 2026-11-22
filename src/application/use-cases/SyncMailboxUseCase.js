@@ -50,6 +50,7 @@ export class SyncMailboxUseCase {
   #lockTtlSeconds;
   #signatureOnlyMaxChars;
   #selectionKey;
+  #activeRetreat;
 
   /**
    * @param {{
@@ -67,6 +68,7 @@ export class SyncMailboxUseCase {
    *   lockTtlSeconds?: number,
    *   signatureOnlyMaxChars?: number,
    *   selectionKey?: string | null,
+   *   activeRetreat?: (() => Promise<{ id: string, mailFrom: Date | null } | null>) | null,
    * }} deps
    */
   constructor({
@@ -84,6 +86,7 @@ export class SyncMailboxUseCase {
     lockTtlSeconds = DEFAULTS.SYNC_LOCK_TTL_SECONDS,
     signatureOnlyMaxChars,
     selectionKey = null,
+    activeRetreat = null,
   }) {
     this.#mailSource = mailSource;
     this.#letters = letterStore;
@@ -99,6 +102,7 @@ export class SyncMailboxUseCase {
     this.#lockTtlSeconds = lockTtlSeconds;
     this.#signatureOnlyMaxChars = signatureOnlyMaxChars;
     this.#selectionKey = selectionKey;
+    this.#activeRetreat = activeRetreat;
   }
 
   /**
@@ -203,6 +207,18 @@ export class SyncMailboxUseCase {
         throw new Error('Mail source returned an invalid change set');
       }
 
+      // Letters belong to the active retreat. Mail received before its window (letters of a
+      // previous retreat whose data was already deleted) is never imported again.
+      const retreat = this.#activeRetreat ? await this.#activeRetreat() : null;
+      const mailFrom = retreat?.mailFrom ?? null;
+      if (mailFrom) {
+        const before = changes.letters.length;
+        changes = { ...changes, letters: changes.letters.filter((m) => new Date(m.receivedAt).getTime() >= mailFrom.getTime()) };
+        if (changes.letters.length < before) {
+          logger.info({ ignored: before - changes.letters.length }, 'Letters older than the current retreat ignored');
+        }
+      }
+
       const [participants, known] = await Promise.all([
         this.#participants.findAll(),
         this.#letters.getKnownMessageIds(),
@@ -230,7 +246,7 @@ export class SyncMailboxUseCase {
       const diff = syncDiff({ known, incoming, deletedMessageIds });
       const now = this.#clock.now();
       const toWrite = [
-        ...diff.added.map((letter) => mergeIncomingLetter(null, letter, { now, syncRunId })),
+        ...diff.added.map((letter) => mergeIncomingLetter(null, letter, { now, syncRunId, retreatId: retreat?.id ?? null })),
         // Novelty fields are insert-only in the store, so updated letters keep theirs.
         ...diff.updated.map((letter) => createLetter({ ...letter, deletedAt: null })),
       ];

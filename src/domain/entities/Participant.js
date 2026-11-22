@@ -2,10 +2,22 @@ import { COLLATION_LOCALE } from '../constants.js';
 import { AppError } from '../errors.js';
 
 /**
+ * How the letters module sees a participant (a projection of the participants module):
+ * enough to match letters, count them and print them.
+ *
+ * @typedef {Object} ParticipantNameParts
+ * @property {string}      givenNames     "José Antonio"
+ * @property {string}      firstSurname   "García" (may be empty for old single-field names)
+ * @property {string|null} secondSurname  "López"
+ *
  * @typedef {Object} Participant
  * @property {string}   id          URL-safe slug, unique per retreat.
  * @property {string}   displayName Name shown to staff and on printouts.
  * @property {string[]} aliases     Alternative names (nicknames, short forms).
+ * @property {ParticipantNameParts | null} nameParts  Structured name: enables name variants
+ *           in matching ("José García" for José Antonio García López). Null = displayName only.
+ * @property {'active' | 'withdrawn'} status  Withdrawn participants keep their letters, which
+ *           are marked "no está en el retiro" and left out of the dashboard and print batches.
  */
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -55,11 +67,11 @@ function invalid(reason) {
 
 /**
  * Creates a validated, immutable participant.
- * @param {{ id?: string, displayName: string, aliases?: string[] }} props
+ * @param {{ id?: string, displayName: string, aliases?: string[], nameParts?: ParticipantNameParts | null, status?: string }} props
  * @returns {Participant}
  */
 export function createParticipant(props) {
-  const { id, displayName, aliases = [] } = props ?? {};
+  const { id, displayName, aliases = [], nameParts = null, status = 'active' } = props ?? {};
   const name = typeof displayName === 'string' ? cleanName(displayName) : '';
   if (!name) throw invalid('displayName is required');
 
@@ -78,7 +90,17 @@ export function createParticipant(props) {
     cleanAliases.push(value);
   }
 
-  return Object.freeze({ id: slug, displayName: name, aliases: Object.freeze(cleanAliases) });
+  if (status !== 'active' && status !== 'withdrawn') throw invalid(`unknown status "${status}"`);
+  const parts =
+    nameParts && typeof nameParts.givenNames === 'string' && nameParts.givenNames.trim()
+      ? Object.freeze({
+          givenNames: cleanName(nameParts.givenNames),
+          firstSurname: cleanName(String(nameParts.firstSurname ?? '')),
+          secondSurname: nameParts.secondSurname ? cleanName(String(nameParts.secondSurname)) : null,
+        })
+      : null;
+
+  return Object.freeze({ id: slug, displayName: name, aliases: Object.freeze(cleanAliases), nameParts: parts, status });
 }
 
 /**
@@ -102,6 +124,14 @@ export function compareParticipantsByName(a, b) {
  */
 export function sortParticipantsByName(participants) {
   return [...participants].sort(compareParticipantsByName);
+}
+
+/**
+ * @param {Pick<Participant, 'status'> | null | undefined} participant
+ * @returns {boolean}
+ */
+export function isParticipantActive(participant) {
+  return Boolean(participant) && participant?.status !== 'withdrawn';
 }
 
 /**

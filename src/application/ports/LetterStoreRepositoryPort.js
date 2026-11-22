@@ -31,6 +31,7 @@ import { definePort } from './definePort.js';
  *   Marks active letters as seen: all of them, those of one participant, or the given ids.
  * @property {() => Promise<KnownLetterRef[]>} getKnownMessageIds  Includes soft-deleted letters.
  * @property {() => Promise<number>} deleteAll
+ * @property {(retreatId: string) => Promise<number>} assignRetreat  Stamps letters stored without a retreat (older versions).
  */
 
 export const LetterStoreRepositoryPort = definePort('LetterStoreRepositoryPort', [
@@ -44,4 +45,5 @@ export const LetterStoreRepositoryPort = definePort('LetterStoreRepositoryPort',
   'markSeen',
   'getKnownMessageIds',
   'deleteAll',
+  'assignRetreat',
 ]);

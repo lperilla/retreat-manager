@@ -2,6 +2,7 @@
 export const COLLECTIONS = Object.freeze({
   LETTERS: 'letters',
   PARTICIPANTS: 'participants',
+  RETREATS: 'retreats',
   ASSIGNMENT_OVERRIDES: 'assignment_overrides',
   PRINT_STATUS: 'print_status',
   SYNC_STATE: 'sync_state',

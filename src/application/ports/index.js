@@ -3,7 +3,6 @@ export { MailSourcePort, CursorExpiredError } from './MailSourcePort.js';
 export { LetterStoreRepositoryPort } from './LetterStoreRepositoryPort.js';
 export { SyncStateRepositoryPort } from './SyncStateRepositoryPort.js';
 export { ParticipantRepositoryPort } from './ParticipantRepositoryPort.js';
-export { ParticipantListFilePort } from './ParticipantListFilePort.js';
 export { PrintStatusRepositoryPort } from './PrintStatusRepositoryPort.js';
 export { AssignmentOverrideRepositoryPort } from './AssignmentOverrideRepositoryPort.js';
 export { ExportRendererPort } from './ExportRendererPort.js';

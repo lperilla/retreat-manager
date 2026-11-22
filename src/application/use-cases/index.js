@@ -1,4 +1,3 @@
-export { AddParticipantUseCase } from './AddParticipantUseCase.js';
 export { GetDashboardOverviewUseCase, DIRECTORY_FILTERS, DIRECTORY_SORTS } from './GetDashboardOverviewUseCase.js';
 export { GroupParticipantLettersUseCase } from './GroupParticipantLettersUseCase.js';
 export { PreparePrintViewUseCase } from './PreparePrintViewUseCase.js';

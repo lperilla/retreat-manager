@@ -16,13 +16,11 @@ import {
   LetterStoreRepositoryPort,
   LoggerPort,
   MailSourcePort,
-  ParticipantListFilePort,
   ParticipantRepositoryPort,
   PrintStatusRepositoryPort,
   SyncStateRepositoryPort,
 } from '../application/ports/index.js';
 import {
-  AddParticipantUseCase,
   ExportBatchLettersUseCase,
   GetAttachmentUseCase,
   GetDashboardOverviewUseCase,
@@ -45,7 +43,12 @@ import { PinoLogger } from '../infrastructure/logging/PinoLogger.js';
 import { DemoMailSource } from '../infrastructure/persistence/json/DemoMailSource.js';
 import { createJsonPersistence } from '../infrastructure/persistence/json/createJsonPersistence.js';
 import { DEMO_PARTICIPANTS } from '../infrastructure/persistence/json/demo/demoData.js';
-import { ParticipantsJsonFile, readParticipantsFile } from '../infrastructure/persistence/json/participantsFile.js';
+import { readParticipantsFile } from '../infrastructure/persistence/json/participantsFile.js';
+import { purgeData } from '../infrastructure/maintenance/purgeData.js';
+import { getOrCreateActiveRetreat } from '../modules/participants/application/activeRetreat.js';
+import { ParticipantRecordRepositoryPort, RetreatRepositoryPort } from '../modules/participants/application/ports.js';
+import { ParticipantsUseCase } from '../modules/participants/application/ParticipantsUseCase.js';
+import { RetreatUseCase } from '../modules/participants/application/RetreatUseCase.js';
 import { createMongoPersistence } from '../infrastructure/persistence/mongo/createMongoPersistence.js';
 import { FileExportStorage } from '../infrastructure/rendering/FileExportStorage.js';
 import { AttachmentsPdfRenderer } from '../infrastructure/rendering/AttachmentsPdfRenderer.js';
@@ -145,7 +148,6 @@ export function registerMailSourceFactory(kind, factory) {
  * @property {import('../application/ports/MailSourcePort.js').MailSourcePort} [mailSource]
  * @property {PersistenceAdapters} [persistence]
  * @property {import('../domain/entities/Participant.js').Participant[]} [participants]  Seeded at startup.
- * @property {import('../application/ports/ParticipantListFilePort.js').ParticipantListFilePort | null} [participantFile]  Where added participants are saved.
  * @property {import('../application/ports/ExportRendererPort.js').ExportRendererPort[]} [renderers]
  * @property {import('../application/ports/ExportStoragePort.js').ExportStoragePort} [exportStorage]
  * @property {import('../application/ports/AttachmentProcessorPort.js').AttachmentProcessorPort | null} [attachmentProcessor]
@@ -206,9 +208,11 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
   const participantRepository = ParticipantRepositoryPort.assert(persistence.participantRepository);
   const printStatusRepository = PrintStatusRepositoryPort.assert(persistence.printStatusRepository);
   const overrideRepository = AssignmentOverrideRepositoryPort.assert(persistence.overrideRepository);
+  const participantRecords = ParticipantRecordRepositoryPort.assert(persistence.participantRecords);
+  const retreats = RetreatRepositoryPort.assert(persistence.retreats);
 
   try {
-    await seedParticipants({ config, overrides, participantRepository, logger });
+    await prepareRetreat({ config, overrides, persistence, participantRepository, participantRecords, retreats, letterStore, clock, logger });
   } catch (error) {
     await persistence.close().catch(() => {});
     throw error;
@@ -226,14 +230,18 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
     assignmentStrategy,
     logger,
   });
-  // Participants added from the dashboard are written back to PARTICIPANTS_FILE (the list is
-  // reloaded from it at startup). Demo mode and injected lists have no file.
-  const participantFile =
-    overrides.participantFile !== undefined
-      ? overrides.participantFile && ParticipantListFilePort.assert(overrides.participantFile)
-      : config.demoMode || overrides.participants
-        ? null
-        : new ParticipantsJsonFile(config.participantsFile);
+  // Retreat ids are UUIDs of their own (the injectable idGenerator names sync runs).
+  const activeRetreat = () => getOrCreateActiveRetreat(retreats, { now: clock.now() });
+  /** Letters assigned to each participant (active letters only). */
+  const letterUsage = {
+    async countByParticipant() {
+      const counts = new Map();
+      for (const letter of await letterStore.findAll()) {
+        for (const id of letter.assignment.participantIds) counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+      return counts;
+    },
+  };
 
   const preparePrintView = new PreparePrintViewUseCase({
     participantRepository,
@@ -290,6 +298,7 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
       minIntervalSeconds: config.sync.minIntervalSeconds,
       lockTtlSeconds: config.sync.lockTtlSeconds,
       selectionKey: mailSelectionKey(config),
+      activeRetreat,
     }),
     getSyncStatus: new GetSyncStatusUseCase({
       syncStateRepository,
@@ -300,11 +309,30 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
     getNewLetters: new GetNewLettersUseCase({ letterStore, participantRepository }),
     markLettersSeen: new MarkLettersSeenUseCase({ letterStore, participantRepository }),
     recomputeAssignments,
-    addParticipant: new AddParticipantUseCase({
-      participantRepository,
-      participantFile,
+    // Participants module: the single source of participants of the retreat.
+    participants: new ParticipantsUseCase({
+      participantRecords,
+      retreats,
+      letterUsage,
       recomputeAssignments,
+      clock,
       logger,
+      timeZone: config.timeZone,
+    }),
+    retreat: new RetreatUseCase({
+      retreats,
+      participantRecords,
+      // Single active retreat: every letter, manual decision, print status and sync record
+      // belongs to it, so closing it deletes them all, plus local files with personal data.
+      purgeRetreatData: async (retreatId) => {
+        await purgeData({ persistence, directories: [config.cacheDir, config.exportDir], projectRoot: config.projectRoot });
+        await participantRecords.deleteByRetreat(retreatId);
+      },
+      countLetters: async () => (await letterStore.findAll({ includeDeleted: true })).length,
+      clock,
+      logger,
+      retentionDays: config.retreat.retentionDays,
+      timeZone: config.timeZone,
     }),
     getAttachment: new GetAttachmentUseCase({ letterStore, attachmentProcessor }),
   });
@@ -333,6 +361,8 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
       letterStore,
       syncStateRepository,
       participantRepository,
+      participantRecords,
+      retreats,
       printStatusRepository,
       overrideRepository,
     }),
@@ -378,16 +408,32 @@ async function createMailSource({ config, clock, logger }) {
 }
 
 /**
- * Participants come from (in order): explicit override, the demo dataset in demo mode, or
- * PARTICIPANTS_FILE when it exists. Otherwise the stored list is kept as is.
+ * Startup preparation of the active retreat (idempotent, safe for several processes):
+ * 1. the active retreat exists (the first one is created on the first run);
+ * 2. letters and participants stored by older versions are attached to it, keeping their ids;
+ * 3. participants are seeded only in demo mode / tests, or imported ONCE from
+ *    PARTICIPANTS_FILE when the retreat has none. Afterwards the participants module is the
+ *    single source: the file is never read again (nor overwrites dashboard changes).
  * @param {{
  *   config: import('./config.js').AppConfig,
  *   overrides: ContainerOverrides,
+ *   persistence: PersistenceAdapters,
  *   participantRepository: import('../application/ports/ParticipantRepositoryPort.js').ParticipantRepositoryPort,
+ *   participantRecords: import('../modules/participants/application/ports.js').ParticipantRecordRepositoryPort,
+ *   retreats: import('../modules/participants/application/ports.js').RetreatRepositoryPort,
+ *   letterStore: import('../application/ports/LetterStoreRepositoryPort.js').LetterStoreRepositoryPort,
+ *   clock: import('../application/ports/ClockPort.js').ClockPort,
  *   logger: import('../application/ports/LoggerPort.js').LoggerPort,
  * }} context
  */
-async function seedParticipants({ config, overrides, participantRepository, logger }) {
+async function prepareRetreat({ config, overrides, participantRepository, participantRecords, retreats, letterStore, clock, logger }) {
+  const retreat = await getOrCreateActiveRetreat(retreats, { now: clock.now() });
+  const stampedLetters = await letterStore.assignRetreat(retreat.id);
+  const adopted = await participantRecords.adoptLegacy(retreat.id, clock.now());
+  if (stampedLetters > 0 || adopted > 0) {
+    logger.info({ retreatId: retreat.id, letters: stampedLetters, participants: adopted }, 'Data from a previous version attached to the active retreat');
+  }
+
   if (overrides.participants) {
     await participantRepository.replaceAll(overrides.participants);
     return;
@@ -396,11 +442,11 @@ async function seedParticipants({ config, overrides, participantRepository, logg
     await participantRepository.replaceAll(/** @type {any} */ (DEMO_PARTICIPANTS));
     return;
   }
+  const existing = await participantRecords.findByRetreat(retreat.id);
+  if (existing.length > 0) return;
   const fromFile = await readParticipantsFile(config.participantsFile);
-  if (fromFile) {
+  if (fromFile && fromFile.length > 0) {
     await participantRepository.replaceAll(fromFile);
-    logger.info({ count: fromFile.length }, 'Participants loaded from PARTICIPANTS_FILE');
-  } else {
-    logger.warn('PARTICIPANTS_FILE not found; keeping the stored participant list');
+    logger.info({ count: fromFile.length }, 'Participants imported once from PARTICIPANTS_FILE (from now on they are managed in the dashboard)');
   }
 }

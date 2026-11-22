@@ -9,6 +9,7 @@ import { apiNotFound, errorHandler, requestLogger, requireJson } from './middlew
 import { rateLimit } from './middleware/rateLimit.js';
 import { securityHeaders } from './middleware/securityHeaders.js';
 import { createApiRouter } from './routes/apiRoutes.js';
+import { createParticipantsRouter } from '../../modules/participants/infrastructure/web/participantsRoutes.js';
 import { createPrintHandler } from './routes/printRoute.js';
 
 export const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), 'public');
@@ -83,6 +84,7 @@ export function createWebApp({ runtime, logger, accessToken, rateLimits = DEFAUL
     express.json({ limit: '100kb' }),
     requireJson(),
     createApiRouter({ runtime, limiters }),
+    createParticipantsRouter({ runtime }),
     apiNotFound(),
   );
 

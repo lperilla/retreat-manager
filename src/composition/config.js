@@ -26,6 +26,8 @@ const PERSISTENCE_KINDS = Object.freeze(['mongo', 'json']);
  * @property {{ uri: string, db: string, uriTest: string | null }} mongo
  * @property {{ intervalMinutes: number, minIntervalSeconds: number, lockTtlSeconds: number, runsTtlDays: number }} sync
  * @property {string}  logLevel
+ * @property {string}  projectRoot       Base folder of relative paths (safety checks when deleting folders).
+ * @property {{ retentionDays: number }} retreat  Days kept after the retreat's last day before its data is deleted.
  */
 
 /**
@@ -163,5 +165,9 @@ export function loadConfig(env = process.env, { rootDir = process.cwd() } = {}) 
       runsTtlDays: number(env, 'SYNC_RUNS_TTL_DAYS', 90, { min: 1, max: 3650 }),
     }),
     logLevel,
+    projectRoot: resolve(rootDir),
+    retreat: Object.freeze({
+      retentionDays: number(env, 'RETREAT_RETENTION_DAYS', 30, { min: 0, max: 365 }),
+    }),
   });
 }
