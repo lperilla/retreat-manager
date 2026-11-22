@@ -10,6 +10,7 @@ import { definePort } from './definePort.js';
  * @property {string} subject
  * @property {Date | string} receivedAt
  * @property {string} body          Plain text (HTML already converted and sanitized by the adapter).
+ * @property {string | null} [formattedBody]  Sanitized HTML keeping the original formatting (optional).
  * @property {Array<{ filename: string, mimeType: string, size: number, contentId?: string | null, attachmentId?: string | null }>} attachments
  * @property {Record<string, string>} headers  Raw headers used only by heuristics (never persisted).
  */

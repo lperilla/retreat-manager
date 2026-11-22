@@ -1,5 +1,6 @@
 import { isAppError } from '../../../domain/errors.js';
 import { escapeHtml } from '../../rendering/format.js';
+import { PRINT_CONTENT_SECURITY_POLICY } from '../middleware/securityHeaders.js';
 
 /**
  * @param {unknown} value
@@ -28,10 +29,12 @@ function errorPage(message) {
 }
 
 /**
- * GET /print?participantIds=a,b[&afterDate=YYYY-MM-DD][&includeAttachments=0][&autoprint=1]
+ * GET /print?participantIds=a,b[&afterDate=YYYY-MM-DD][&includeAttachments=0][&originalFormat=0][&autoprint=1]
  * Printable packet for the browser (one page per participant). Uses the same renderer as
  * the .html export, linking the stylesheet, the print script and the attachment images
  * (CSP forbids inline code; images are served by the authenticated attachment route).
+ * This page alone allows inline style ATTRIBUTES, so each letter keeps the sender's colours,
+ * fonts and sizes; they come from the sanitizer's allowlist (no url(), no scripts).
  * @param {{ runtime: import('../WebRuntime.js').WebRuntime, logger: import('../../../application/ports/LoggerPort.js').LoggerPort }} options
  * @returns {import('express').RequestHandler}
  */
@@ -48,9 +51,11 @@ export function createPrintHandler({ runtime, logger }) {
         scriptHref: '/js/print-page.js',
         toolbar: true,
         includeAttachments: req.query.includeAttachments !== '0',
+        originalFormat: req.query.originalFormat !== '0',
         attachmentUrl: (/** @type {string} */ messageId, /** @type {number} */ index, /** @type {string} */ variant) =>
           `/api/letters/${encodeURIComponent(messageId)}/attachments/${index}?variant=${variant}`,
       });
+      res.setHeader('Content-Security-Policy', PRINT_CONTENT_SECURITY_POLICY);
       res.type('html').send(html);
     } catch (error) {
       if (!isAppError(error)) logger.error({ err: String(error) }, 'Print view failed');

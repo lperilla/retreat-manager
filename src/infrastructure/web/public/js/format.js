@@ -71,12 +71,20 @@ export const lettersLabel = (n) => plural(n, 'carta', 'cartas');
  * @param {{ added: number, updated: number, deleted: number }} result
  */
 export function syncResultSummary(result) {
-  return [
+  const counts = [
     plural(result.added, 'carta nueva', 'cartas nuevas'),
     plural(result.updated, 'actualizada', 'actualizadas'),
     plural(result.deleted, 'eliminada', 'eliminadas'),
   ].join(' · ');
+  const reason = FULL_SYNC_REASONS[result.fullSyncReason];
+  return reason ? `${reason}. ${counts}` : counts;
 }
+
+/** Explains an automatic full sync (the ones the user did not ask for). */
+const FULL_SYNC_REASONS = /** @type {Record<string, string>} */ ({
+  'selection-changed': 'Sincronización completa automática: ha cambiado el filtro de Gmail (GMAIL_QUERY, GMAIL_LABEL_ID o GMAIL_START_DATE)',
+  'cursor-expired': 'Sincronización completa automática: Gmail ya no conservaba el historial desde la última vez',
+});
 
 /**
  * @param {number | null | undefined} ms

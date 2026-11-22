@@ -1,6 +1,7 @@
 import { describeError } from '../../application/services/errorDescription.js';
 import { AttachmentKind, CID_MARKER, classifyAttachment } from '../../domain/services/attachments.js';
 import { parseSenderName } from '../../domain/services/text.js';
+import { CID_IMAGE, sanitizeLetterHtml } from '../html/letterHtml.js';
 import { escapeHtml, formatBytes, formatDateTime, lettersLabel } from './format.js';
 import { PACKET_CSS } from './packetStyles.js';
 
@@ -10,6 +11,7 @@ const DEFAULT_MAX_EMBEDDED_BYTES = 40 * 1024 * 1024;
 /**
  * @typedef {Object} HtmlRenderOptions
  * @property {boolean} [includeAttachments]  Embed images, DOCX text and notes for other files (default true).
+ * @property {boolean} [originalFormat]      Keep each e-mail's own colours, fonts and sizes when it has them (default true).
  * @property {string}  [stylesheetHref]      Link a stylesheet instead of embedding it (served print view).
  * @property {string}  [scriptHref]          Optional external script (served print view: print button).
  * @property {boolean} [toolbar]             Show the on-screen toolbar with the print button.
@@ -20,7 +22,9 @@ const DEFAULT_MAX_EMBEDDED_BYTES = 40 * 1024 * 1024;
 /**
  * ExportRendererPort adapter: printable HTML packet, one section per participant with a
  * page break between participants. Every dynamic value is HTML-escaped; letter bodies are
- * rendered as text with `white-space: pre-wrap` (paragraphs, accents, ñ and emojis kept).
+ * rendered as text with `white-space: pre-wrap` (paragraphs, accents, ñ and emojis kept),
+ * or, with `originalFormat`, as the letter's sanitized HTML so it keeps its own colours,
+ * fonts and sizes (sanitized again here as defence in depth).
  *
  * With attachments included, images (EXIF-rotated JPEG) are embedded, `[cid:…]` markers are
  * replaced by the inline image, DOCX text is printed as part of the letter, and PDFs or
@@ -83,6 +87,7 @@ export class HtmlPacketRenderer {
     const context = {
       timeZone,
       includeAttachments: options.includeAttachments !== false && this.#attachments !== null,
+      originalFormat: options.originalFormat !== false,
       attachmentUrl: options.attachmentUrl ?? null,
       embeddedBytes: 0,
     };
@@ -105,7 +110,7 @@ export class HtmlPacketRenderer {
   }
 
   /**
-   * @typedef {{ timeZone: string, includeAttachments: boolean, attachmentUrl: HtmlRenderOptions['attachmentUrl'] | null, embeddedBytes: number }} RenderContext
+   * @typedef {{ timeZone: string, includeAttachments: boolean, originalFormat: boolean, attachmentUrl: HtmlRenderOptions['attachmentUrl'] | null, embeddedBytes: number }} RenderContext
    */
 
   /**
@@ -158,6 +163,7 @@ export class HtmlPacketRenderer {
    * @param {Set<number>} usedInline
    */
   async #renderBody(letter, context, usedInline) {
+    if (context.originalFormat && letter.formattedBody) return this.#renderFormattedBody(letter, context, usedInline);
     const text = letter.cleanBody;
     if (!context.includeAttachments) return `<div class="letter-body">${escapeHtml(text)}</div>`;
     const parts = [];
@@ -174,6 +180,34 @@ export class HtmlPacketRenderer {
     }
     parts.push(escapeHtml(text.slice(last)));
     return `<div class="letter-body">${parts.join('')}</div>`;
+  }
+
+  /**
+   * The e-mail's own formatting (sanitized HTML). `cid:` images become the attachment image
+   * (or disappear when attachments are not included; they are then listed by name).
+   * @param {import('../../domain/entities/Letter.js').Letter} letter
+   * @param {RenderContext} context
+   * @param {Set<number>} usedInline
+   */
+  async #renderFormattedBody(letter, context, usedInline) {
+    const html = sanitizeLetterHtml(/** @type {string} */ (letter.formattedBody));
+    const parts = [];
+    let last = 0;
+    for (const match of html.matchAll(new RegExp(CID_IMAGE.source, 'gi'))) {
+      parts.push(html.slice(last, match.index));
+      last = /** @type {number} */ (match.index) + match[0].length;
+      if (!context.includeAttachments) continue;
+      const contentId = match[1].replace(/&amp;/g, '&').toLowerCase();
+      const index = letter.attachments.findIndex(
+        (a) => a.contentId && a.contentId.toLowerCase() === contentId && classifyAttachment(a) === AttachmentKind.IMAGE,
+      );
+      if (index < 0) continue;
+      const image = await this.#imageSource(letter, index, context);
+      parts.push(image.src ? `<img class="letter-formatted-image" src="${escapeHtml(image.src)}" alt="${image.alt}">` : `<span class="attachment-note">${image.note}</span>`);
+      usedInline.add(index);
+    }
+    parts.push(html.slice(last));
+    return `<div class="letter-body letter-formatted">${parts.join('')}</div>`;
   }
 
   /**
@@ -220,22 +254,32 @@ export class HtmlPacketRenderer {
    * @param {string} className
    */
   async #imageHtml(letter, index, context, className) {
+    const image = await this.#imageSource(letter, index, context);
+    if (!image.src) return `<p class="attachment-note">${image.note}</p>`;
+    const lazy = context.attachmentUrl ? ' loading="lazy"' : '';
+    return `<figure class="${className}"><img src="${escapeHtml(image.src)}" alt="${image.alt}"${lazy}></figure>`;
+  }
+
+  /**
+   * Image source (served URL or embedded data: URI) or an escaped note explaining why not.
+   * @param {import('../../domain/entities/Letter.js').Letter} letter
+   * @param {number} index
+   * @param {RenderContext} context
+   * @returns {Promise<{ src: string, alt: string, note?: undefined } | { src?: undefined, alt: string, note: string }>}
+   */
+  async #imageSource(letter, index, context) {
     const attachment = letter.attachments[index];
     const alt = escapeHtml(`Imagen adjunta: ${attachment.filename}`);
-    if (context.attachmentUrl) {
-      const src = escapeHtml(context.attachmentUrl(letter.messageId, index, 'display'));
-      return `<figure class="${className}"><img src="${src}" alt="${alt}" loading="lazy"></figure>`;
-    }
+    if (context.attachmentUrl) return { src: context.attachmentUrl(letter.messageId, index, 'display'), alt };
     try {
       const content = await /** @type {any} */ (this.#attachments).getContent({ messageId: letter.messageId, attachment, variant: 'display' });
       if (context.embeddedBytes + content.data.length > this.#maxEmbeddedBytes) {
-        return `<p class="attachment-note">Imagen no incluida para limitar el tamaño del archivo: ${escapeHtml(attachment.filename)}</p>`;
+        return { alt, note: `Imagen no incluida para limitar el tamaño del archivo: ${escapeHtml(attachment.filename)}` };
       }
       context.embeddedBytes += content.data.length;
-      const src = `data:${content.mimeType};base64,${Buffer.from(content.data).toString('base64')}`;
-      return `<figure class="${className}"><img src="${src}" alt="${alt}"></figure>`;
+      return { src: `data:${content.mimeType};base64,${Buffer.from(content.data).toString('base64')}`, alt };
     } catch (error) {
-      return `<p class="attachment-note">No se pudo incluir la imagen «${escapeHtml(attachment.filename)}»: ${escapeHtml(friendlyReason(error))}</p>`;
+      return { alt, note: `No se pudo incluir la imagen «${escapeHtml(attachment.filename)}»: ${escapeHtml(friendlyReason(error))}` };
     }
   }
 

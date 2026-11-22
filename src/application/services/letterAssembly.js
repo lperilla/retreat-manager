@@ -39,6 +39,7 @@ export function assembleLetter(message, { participants, override = null, strateg
     subject,
     receivedAt: message.receivedAt,
     cleanBody: body,
+    formattedBody: message.formattedBody ?? null,
     attachments,
     assignment,
     flags,

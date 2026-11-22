@@ -16,13 +16,14 @@ export async function createGmailMailSource({ config, logger }) {
     tokenPath: config.gmail.tokenPath,
     logger,
   });
-  if (!config.gmail.query && !config.gmail.labelId) {
-    logger.warn('Neither GMAIL_QUERY nor GMAIL_LABEL_ID is set: every received message (except spam, trash, drafts and sent) will be treated as a letter');
+  if (!config.gmail.query && !config.gmail.labelId && !config.gmail.startAt) {
+    logger.warn('Neither GMAIL_QUERY, GMAIL_LABEL_ID nor GMAIL_START_DATE is set: every received message (except spam, trash, drafts and sent) will be treated as a letter');
   }
   return new GmailMailSource({
     gmail: /** @type {any} */ (createGmailClient(auth)),
     query: config.gmail.query,
     labelId: config.gmail.labelId,
+    startAt: config.gmail.startAt,
     concurrency: config.gmail.concurrency,
     logger,
   });

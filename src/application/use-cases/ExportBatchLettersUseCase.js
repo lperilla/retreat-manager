@@ -72,6 +72,7 @@ export class ExportBatchLettersUseCase {
    *   format: string,
    *   markAsPrinted?: boolean,
    *   includeAttachments?: boolean,
+   *   originalFormat?: boolean,
    *   afterDate?: string | null,
    * }} input
    */
@@ -86,7 +87,10 @@ export class ExportBatchLettersUseCase {
       participantIds: input.participantIds,
       afterDate: input.afterDate ?? null,
     });
-    const content = await renderer.render(payload, { includeAttachments: input.includeAttachments !== false });
+    const content = await renderer.render(payload, {
+      includeAttachments: input.includeAttachments !== false,
+      originalFormat: input.originalFormat !== false,
+    });
     const now = this.#clock.now();
     const filename = buildExportFilename(payload, renderer.extension, now, this.#timeZone);
     const { filePath } = await this.#storage.save(filename, content);

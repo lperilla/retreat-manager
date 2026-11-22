@@ -172,6 +172,46 @@ describe('GmailMailSource incremental sync', () => {
     assert.deepEqual(changes.letters.map((l) => l.messageId), ['letter']);
   });
 
+  it('lists from GMAIL_START_DATE on (any sender) and drops older mail locally', async () => {
+    const startAt = new Date('2026-11-01T00:00:00Z');
+    const after = `after:${startAt.getTime() / 1000 - 1}`;
+    const gmail = fakeGmail({
+      listPages: { [after]: [{ ids: ['recent', 'old'] }] },
+      messages: {
+        recent: gmailMessage('recent', { text: 'Querido Juan:', internalDate: String(startAt.getTime() + 60_000) }),
+        old: gmailMessage('old', { text: 'Querido Juan:', internalDate: String(startAt.getTime() - 60_000) }),
+      },
+      historyPages: [{ history: [{ messagesAdded: [{ message: { id: 'recent' } }, { message: { id: 'old' } }] }], historyId: '9' }],
+    });
+    const full = await source(gmail, { startAt }).fetchChanges(null);
+    const listCall = gmail.calls.find(([name]) => name === 'messages.list');
+    assert.equal(listCall?.[1].q, after);
+    assert.deepEqual(full.letters.map((l) => l.messageId), ['recent']);
+
+    const incremental = await source(gmail, { startAt }).fetchChanges('8');
+    assert.deepEqual(incremental.letters.map((l) => l.messageId), ['recent']);
+  });
+
+  it('passes the sanitized formatted body along with the plain text', async () => {
+    const gmail = fakeGmail({
+      listPages: { '': [{ ids: ['styled'] }] },
+      messages: {
+        styled: gmailMessage('styled', { text: 'Querido Juan', html: '<p style="color:#c00">Querido <b>Juan</b></p><script>x</script>' }),
+      },
+    });
+    const { letters } = await source(gmail).fetchChanges(null);
+    assert.equal(letters[0].body, 'Querido Juan');
+    assert.equal(letters[0].formattedBody, '<p style="color:#c00">Querido <b>Juan</b></p>');
+  });
+
+  it('combines GMAIL_QUERY with GMAIL_START_DATE in the full listing', async () => {
+    const startAt = new Date('2026-11-01T00:00:00Z');
+    const gmail = fakeGmail({ listPages: {} });
+    await source(gmail, { query: 'to:cartas@example.com', startAt }).fetchChanges(null);
+    const listCall = gmail.calls.find(([name]) => name === 'messages.list');
+    assert.equal(listCall?.[1].q, `(to:cartas@example.com) after:${startAt.getTime() / 1000 - 1}`);
+  });
+
   it('uses the label filter and label history when GMAIL_LABEL_ID is set', async () => {
     const gmail = fakeGmail({
       historyPages: [

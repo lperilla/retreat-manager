@@ -113,6 +113,10 @@ export const syncMailboxOutput = {
   mode: z.enum(['incremental', 'full']),
   requestedMode: z.enum(['incremental', 'full']),
   fallbackToFull: z.boolean(),
+  fullSyncReason: z
+    .enum(['requested', 'first-sync', 'cursor-expired', 'selection-changed'])
+    .nullable()
+    .describe('Why a full sync ran: requested, first sync, expired cursor, or the Gmail filter (GMAIL_QUERY / GMAIL_LABEL_ID / GMAIL_START_DATE) changed'),
   added: z.number().int(),
   updated: z.number().int(),
   deleted: z.number().int(),

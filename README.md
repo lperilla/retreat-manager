@@ -179,11 +179,14 @@ La aplicación pide **un único permiso: `gmail.readonly`** (lectura). No puede 
 `GMAIL_QUERY` admite **cualquier búsqueda de Gmail**, la misma que escribirías en el buscador. Las familias solo necesitan **una dirección normal**: no hace falta usar «+», alias ni etiquetas.
 
 - **Recomendado: un buzón dedicado**. Crea una cuenta solo para el retiro, por ejemplo `cartas.retiro.2026@gmail.com`, y pon `GMAIL_QUERY=to:cartas.retiro.2026@gmail.com`. Así se recogen todos los correos que reciba, aunque alguien los archive. Es la opción más sencilla para las familias y la más segura para la privacidad, porque la aplicación no ve otro correo.
-- **Si comparte buzón con otros correos**, filtra por contenido o por fecha. Por ejemplo `subject:carta after:2026/11/01`, o `{subject:carta subject:"para"} after:2026/11/01`.
+- **Desde una fecha, sea quien sea el remitente**: pon `GMAIL_START_DATE=2026-11-01` (formato `AAAA-MM-DD`) y deja `GMAIL_QUERY` vacío. Se leen todos los correos recibidos **desde ese día incluido**, a las 00:00 de tu zona horaria (`TZ`). Es mejor que `after:` dentro de `GMAIL_QUERY`, porque Gmail interpreta esas fechas en hora del Pacífico y podría dejar fuera las cartas de primera hora. Se puede combinar con `GMAIL_QUERY` o `GMAIL_LABEL_ID`.
+- **Si comparte buzón con otros correos**, filtra también por contenido. Por ejemplo `GMAIL_QUERY=subject:carta` junto a `GMAIL_START_DATE`, o `GMAIL_QUERY=-category:promotions -category:social` para descartar publicidad y redes sociales.
 - **Con etiqueta** (opcional): crea en Gmail un filtro que aplique una etiqueta (por ejemplo `cartas-retiro`) según el destinatario o el asunto, y pon `GMAIL_QUERY=label:cartas-retiro`. También puedes etiquetar a mano.
 - **`GMAIL_LABEL_ID`**: el id interno de una etiqueta (`Label_123…`). Si se configura, se ignora `GMAIL_QUERY`.
 
 En cualquier caso se descartan los borradores, el spam, la papelera y los mensajes enviados desde el propio buzón. Comprueba la búsqueda en Gmail antes de sincronizar: lo que devuelva el buscador es lo que se tratará como cartas.
+
+**Al cambiar el filtro** (`GMAIL_QUERY`, `GMAIL_LABEL_ID` o `GMAIL_START_DATE`) basta con reiniciar el panel (`.\start.cmd --restart`). La siguiente sincronización será **completa automáticamente**: recoge los correos antiguos que ahora sí entran y retira del panel los que ya no cumplen el filtro. El aviso lo indica: «Sincronización completa automática: ha cambiado el filtro de Gmail».
 
 ## Uso del panel
 
@@ -214,6 +217,15 @@ En cualquier caso se descartan los borradores, el spam, la papelera y los mensaj
 - Filtro «Mostrar cartas posteriores al día…», exclusivo y en la zona horaria configurada.
 
 **Por revisar**: cartas que no se han podido asignar con seguridad. Muestra la carta, los participantes sugeridos como botones (un clic asigna), **Asignar…** (elegir uno o varios) y **Dejar sin asignar**. Estas cartas no cuentan para nadie hasta que se asignan, y nunca se descartan.
+
+- Debajo, la sección **Sin asignar** reúne las cartas que se dejaron sin asignar, con **Asignar…** y **Volver a automático**. Así se pueden recuperar en cualquier momento.
+
+**Participantes nuevos** (las cartas llegan poco a poco y puede aparecer alguien que no estaba en la lista): en el diálogo **Asignar…**, pulsa **«+ Añadir participante nuevo»**. Si buscas un nombre que no existe, el diálogo también ofrece «Añadir «nombre» como participante».
+
+- Escribe el nombre completo y, si quieres, apodos separados por comas. Queda marcado para esa carta; pulsa **Asignar** para confirmar.
+- Se guarda en `PARTICIPANTS_FILE` (con copia del anterior en `participants.json.bak`), así que sigue ahí al reiniciar. En modo demostración solo dura mientras el panel está abierto.
+- Al añadirlo se recalculan las asignaciones: las cartas pendientes que lo nombran se le asignan solas. Las decisiones manuales, incluidas las cartas dejadas sin asignar, no se tocan.
+- No se admite un nombre o apodo que ya tenga otro participante (sin distinguir tildes ni mayúsculas).
 
 **Historial de sincronizaciones**: fecha, tipo, resultado, duración, cartas nuevas, actualizadas y eliminadas, y el error si lo hubo.
 
@@ -270,8 +282,11 @@ Desde la ficha de un participante, «Exportar» hace lo mismo solo para esa pers
 ## Impresión
 
 - **Imprimir lote** (barra inferior) o **Imprimir** (ficha) abre una pestaña con el paquete y lanza el diálogo de impresión del navegador.
-- **Cada carta empieza en una hoja nueva** y nunca comparte página con otra; si es larga, ocupa las hojas que necesite. Cada participante también empieza en página nueva.
+- **Cada carta empieza en una hoja nueva** y nunca comparte página con otra; si es larga, ocupa las hojas que necesite. Al imprimir solo salen las cartas: el nombre del participante y el número de cartas se ven en pantalla, pero no en papel (cada carta ya lleva «Para: …»).
 - Cada carta lleva arriba «Para: Nombre», así que se puede entregar suelta.
+- **Formato original**: si el correo se escribió con colores, fuentes, tamaños, negritas o alineación (por ejemplo, desde Gmail web u Outlook), la carta se imprime **con ese mismo aspecto**, y las imágenes insertadas en el texto salen en su sitio. Si el correo es solo texto (habitual desde el móvil), se imprime con la tipografía del paquete. El interruptor **«Formato original»** (barra de lote y ficha del participante, activado por defecto) permite imprimir o exportar todas con el mismo formato. Afecta a la impresión y al `.html`; el `.txt` y el `.json` llevan siempre el texto.
+  - **Seguridad**: el HTML del correo se filtra al sincronizar y otra vez al imprimir, con una lista cerrada de etiquetas y estilos. Solo quedan colores, fuentes, tamaños, énfasis, alineación, sangrías, listas, tablas e imágenes adjuntas (`cid:`). Se eliminan scripts, enlaces, imágenes remotas (que podrían rastrear a quien lee), `url()`, posicionamiento y hojas de estilo. Solo la página de impresión admite atributos `style` en línea; el resto del panel mantiene la política estricta.
+  - Las cartas ya descargadas obtienen su formato con una **Sincronización completa**. Los estilos definidos en hojas de estilo (`<style>`), que usan algunos programas, no se conservan.
 - La cabecera de cada carta nunca queda separada de su texto. Se usa tipografía con serifa a 11–12 pt e interlineado amplio, y las imágenes se ajustan al ancho.
 - Desactiva en el navegador «Encabezados y pies de página» y usa márgenes predeterminados y papel A4.
 - Al imprimir el panel directamente (Ctrl+P), se ocultan la navegación, los botones, las casillas y el widget de sincronización.
@@ -281,6 +296,7 @@ Desde la ficha de un participante, «Exportar» hace lo mismo solo para esa pers
 - **Primera vez, o «Sincronización completa»**: se anota el punto actual del buzón (`historyId`) **antes** de listar todos los mensajes de la búsqueda. Así, lo que llegue mientras se descarga se recoge en la siguiente sincronización.
 - **Incremental**: se piden a Gmail solo los cambios desde ese punto (`users.history.list`, todas las páginas) y se descargan únicamente los mensajes nuevos.
 - **Seguridad del cursor**: el punto guardado **solo avanza cuando las cartas ya están guardadas**. Si algo falla, se conserva el anterior, el estado queda como *Con error* y el panel sigue mostrando los últimos datos buenos. Si Gmail dice que el punto guardado ya no vale, se hace una sincronización completa automáticamente.
+- **Cambio de filtro**: el punto guardado recuerda con qué filtro se obtuvo (`GMAIL_QUERY`, `GMAIL_LABEL_ID`, `GMAIL_START_DATE`). Si el filtro ha cambiado, la siguiente sincronización es completa aunque se pida incremental. El resultado lo indica en `fullSyncReason` (`requested`, `first-sync`, `cursor-expired` o `selection-changed`), también en el MCP.
 - **Sin duplicados**: las cartas se guardan por id de mensaje, así que repetir la misma sincronización no duplica nada. Las cartas borradas en Gmail se marcan como borradas (no se eliminan) y dejan de contar.
 - **Novedades**: cada carta guarda cuándo se vio por primera vez y si el equipo ya la ha visto.
 - **Nunca se pierden** las asignaciones manuales ni el estado de impresión al sincronizar.
@@ -431,7 +447,7 @@ Los inserta en Gmail y escribe los 20 participantes de prueba en `data/participa
 
 - Pide un permiso **aparte y solo para insertar** (`gmail.insert`). En la pantalla de Google, marca la casilla «Insertar correo en tu buzón de Gmail». Ese permiso se guarda en `.run/seed-token.json`; la aplicación sigue siendo de solo lectura.
 - Comprueba que esa autorización es de la misma cuenta que `token.json` antes de insertar nada.
-- Todos los remitentes son `@familias-prueba.example`. Para usarlas, pon `GMAIL_QUERY=from:familias-prueba.example` y haz una «Sincronización completa». Para borrarlas, busca lo mismo en Gmail y elimina los resultados.
+- Todos los remitentes son `@familias-prueba.example`. Para usarlas, basta con que `GMAIL_START_DATE` sea anterior a su fecha (hasta 6 días antes del día en que se insertaron), o pon `GMAIL_QUERY=from:familias-prueba.example` para ver solo esas. Para borrarlas, busca lo mismo en Gmail y elimina los resultados.
 - Si se ejecuta dos veces, las cartas se duplican.
 
 ## Privacidad, retención y borrado
@@ -484,6 +500,7 @@ Todas están en `.env.example`, comentadas.
 | `PARTICIPANTS_FILE` | `./data/participants.json` | Lista de participantes. |
 | `GMAIL_QUERY` | — | Búsqueda de Gmail que selecciona las cartas. |
 | `GMAIL_LABEL_ID` | — | Alternativa: id interno de una etiqueta. |
+| `GMAIL_START_DATE` | — | Primer día (`AAAA-MM-DD`, en `TZ`) cuyos correos se leen, de cualquier remitente. |
 | `GOOGLE_CREDENTIALS_PATH` | `./credentials.json` | Cliente OAuth (Aplicación de escritorio). |
 | `GOOGLE_TOKEN_PATH` | `./token.json` | Token que escribe `npm run auth`. |
 | `GMAIL_CONCURRENCY` | `5` | Descargas simultáneas. |

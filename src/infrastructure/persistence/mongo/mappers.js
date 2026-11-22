@@ -47,6 +47,7 @@ export function letterContentFields(input) {
     subject: letter.subject,
     receivedAt: letter.receivedAt,
     cleanBody: letter.cleanBody,
+    formattedBody: letter.formattedBody,
     attachments: letter.attachments.map((a) => ({ ...a })),
     assignment: assignmentToDocument(letter.assignment),
     flags: flagsToDocument(letter.flags),
@@ -132,6 +133,7 @@ export function syncStateFields(input) {
   const state = createSyncState(input);
   return {
     historyId: state.historyId,
+    selectionKey: state.selectionKey,
     lastAttemptAt: state.lastAttemptAt,
     lastSuccessAt: state.lastSuccessAt,
     lastFullSyncAt: state.lastFullSyncAt,

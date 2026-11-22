@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 
 import { DEFAULTS } from '../domain/constants.js';
 import { AppError } from '../domain/errors.js';
-import { assertTimeZone } from '../domain/services/time.js';
+import { assertTimeZone, zonedWallClockToInstant } from '../domain/services/time.js';
 
 const LOG_LEVELS = Object.freeze(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']);
 const PERSISTENCE_KINDS = Object.freeze(['mongo', 'json']);
@@ -15,7 +15,8 @@ const PERSISTENCE_KINDS = Object.freeze(['mongo', 'json']);
  * @property {string|null} accessToken
  * @property {boolean} demoMode
  * @property {{ minConfidence: number, bodyScanChars: number }} assignment
- * @property {{ query: string, labelId: string | null, credentialsPath: string, tokenPath: string, concurrency: number }} gmail
+ * @property {{ query: string, labelId: string | null, startDate: string | null, startAt: Date | null, credentialsPath: string, tokenPath: string, concurrency: number }} gmail
+ *           `startDate` (YYYY-MM-DD, local day in `timeZone`) → `startAt`: first instant of that day.
  * @property {string}  exportDir
  * @property {string}  cacheDir
  * @property {number}  maxAttachmentMb
@@ -79,6 +80,24 @@ function number(env, name, fallback, { min, max, integer = true }) {
 }
 
 /**
+ * GMAIL_START_DATE: "YYYY-MM-DD", the first local day (in `timeZone`) whose mail is read.
+ * @param {Record<string, string | undefined>} env
+ * @param {string} timeZone
+ * @returns {{ startDate: string | null, startAt: Date | null }}
+ */
+function startDate(env, timeZone) {
+  const raw = text(env, 'GMAIL_START_DATE', '');
+  if (raw === '') return { startDate: null, startAt: null };
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const [year, month, day] = match ? match.slice(1).map(Number) : [];
+  const probe = match ? new Date(Date.UTC(year, month - 1, day)) : null;
+  if (!probe || probe.getUTCFullYear() !== year || probe.getUTCMonth() !== month - 1 || probe.getUTCDate() !== day) {
+    throw invalid('GMAIL_START_DATE', 'must be a date in the form YYYY-MM-DD');
+  }
+  return { startDate: raw, startAt: zonedWallClockToInstant({ year, month, day }, timeZone) };
+}
+
+/**
  * Parses and validates the environment. Relative paths are resolved against `rootDir`.
  * @param {Record<string, string | undefined>} [env]
  * @param {{ rootDir?: string }} [options]
@@ -118,6 +137,7 @@ export function loadConfig(env = process.env, { rootDir = process.cwd() } = {}) 
     gmail: Object.freeze({
       query: text(env, 'GMAIL_QUERY', ''),
       labelId: text(env, 'GMAIL_LABEL_ID', '') || null,
+      ...startDate(env, timeZone),
       credentialsPath: path('GOOGLE_CREDENTIALS_PATH', './credentials.json'),
       tokenPath: path('GOOGLE_TOKEN_PATH', './token.json'),
       concurrency: number(env, 'GMAIL_CONCURRENCY', 5, { min: 1, max: 20 }),

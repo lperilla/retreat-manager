@@ -199,6 +199,19 @@ describe('web API', () => {
     assert.equal(runs.runs[0].status, 'success');
   });
 
+  it('adds a participant from the dashboard (201) and refuses duplicates (409)', async () => {
+    const app = await startApp();
+    const created = await app.post('/api/participants', { displayName: 'Luis Perilla', aliases: ['Luisito'] });
+    assert.equal(created.status, 201);
+    const body = await created.json();
+    assert.deepEqual(body.participant, { id: 'luis-perilla', displayName: 'Luis Perilla', aliases: ['Luisito'] });
+    const duplicate = await app.post('/api/participants', { displayName: 'luis perilla' });
+    assert.equal(duplicate.status, 409);
+    assert.equal((await duplicate.json()).code, 'DUPLICATE_PARTICIPANT');
+    const review = await (await app.fetch('/api/review')).json();
+    assert.ok(Array.isArray(review.unassigned.letters));
+  });
+
   it('answers 429 with Retry-After during the cooldown and when the sync rate limit is exceeded', async () => {
     const cooled = await startApp({ env: { SYNC_MIN_INTERVAL_SECONDS: '30' } });
     assert.equal((await cooled.post('/api/sync', { mode: 'incremental' })).status, 202);
@@ -232,7 +245,7 @@ describe('web API', () => {
     assert.match(download.headers.get('content-disposition') ?? '', /attachment/);
     const html = await download.text();
     assert.ok(html.includes('Lucía Fernández'));
-    assert.ok(html.includes('page-break-after: always'));
+    assert.ok(html.includes('page-break-before: always'));
 
     assert.equal((await app.post('/api/exports', { participantIds: ['lucia-fernandez'], format: 'pdf' })).status, 400);
     assert.equal((await app.fetch('/api/exports/..%2F..%2Fpackage.json')).status, 400);
@@ -262,6 +275,9 @@ describe('web API', () => {
 
     const response = await app.fetch('/print?participantIds=lucia-fernandez');
     assert.equal(response.status, 200);
+    // Only the print view accepts inline style attributes (the sender's formatting).
+    assert.match(response.headers.get('content-security-policy') ?? '', /style-src-attr 'unsafe-inline'/);
+    assert.doesNotMatch((await app.fetch('/')).headers.get('content-security-policy') ?? '', /unsafe-inline/);
     const html = await response.text();
     assert.equal(html.includes('<script>alert(1)</script>'), false);
     assert.equal(html.includes('<img src=x'), false);

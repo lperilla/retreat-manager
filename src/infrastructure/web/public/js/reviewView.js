@@ -1,6 +1,7 @@
 /**
  * "Por revisar": letter preview, suggested participants as one-click buttons,
- * "Asignar" (choose participants) and "Dejar sin asignar".
+ * "Asignar" (choose participants) and "Dejar sin asignar". Below, the letters left
+ * "Sin asignar", which can still be assigned (or returned to automatic assignment).
  */
 import { api } from './api.js';
 import { openAssignModal } from './assignModal.js';
@@ -69,11 +70,52 @@ function reviewActions(letter) {
   ];
 }
 
+/**
+ * @param {any} letter
+ */
+function unassignedActions(letter) {
+  return [
+    h('span', { class: 'small text-body-secondary align-self-center me-auto', text: 'Dejada sin asignar. No cuenta para nadie.' }),
+    h('button', {
+      type: 'button',
+      class: 'btn btn-sm btn-primary',
+      text: 'Asignar…',
+      onClick: () => openAssignModal(letter, () => emit('data-changed')),
+    }),
+    h('button', {
+      type: 'button',
+      class: 'btn btn-sm btn-outline-secondary',
+      text: 'Volver a automático',
+      onClick: (/** @type {Event} */ event) =>
+        void act(
+          () => api.resetAssignment(letter.messageId),
+          'La carta vuelve a la asignación automática.',
+          /** @type {HTMLButtonElement} */ (event.currentTarget),
+        ),
+    }),
+  ];
+}
+
+/**
+ * @param {{ total: number, letters: any[] } | undefined} unassigned
+ */
+function renderUnassigned(unassigned) {
+  const section = $('#unassigned-section');
+  const total = unassigned?.total ?? 0;
+  section.hidden = total === 0;
+  $('#unassigned-count').textContent = total === 0 ? '' : lettersLabel(total);
+  replaceChildren(
+    $('#unassigned-list'),
+    (unassigned?.letters ?? []).map((/** @type {any} */ letter) => letterCard(letter, { actions: unassignedActions(letter) })),
+  );
+}
+
 export async function loadReview() {
   const queue = await api.reviewQueue();
   $('#review-count').textContent = queue.total === 0 ? '' : lettersLabel(queue.total);
   $('#nav-review-count').textContent = String(queue.total);
   const list = $('#review-list');
+  renderUnassigned(queue.unassigned);
   if (queue.total === 0) {
     replaceChildren(list, h('div', { class: 'alert alert-success mb-0', role: 'status', text: 'No hay cartas pendientes de revisar.' }));
     return;

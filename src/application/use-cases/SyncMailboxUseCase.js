@@ -1,7 +1,7 @@
 import { DEFAULTS, SyncMode } from '../../domain/constants.js';
 import { createLetter, mergeIncomingLetter } from '../../domain/entities/Letter.js';
 import { completeSyncRun, createSyncRun, failSyncRun, assertSyncMode } from '../../domain/entities/SyncRun.js';
-import { createSyncResult } from '../../domain/entities/SyncResult.js';
+import { FullSyncReason, createSyncResult } from '../../domain/entities/SyncResult.js';
 import {
   cooldownRemainingSeconds,
   markSyncFailed,
@@ -49,6 +49,7 @@ export class SyncMailboxUseCase {
   #minIntervalSeconds;
   #lockTtlSeconds;
   #signatureOnlyMaxChars;
+  #selectionKey;
 
   /**
    * @param {{
@@ -65,6 +66,7 @@ export class SyncMailboxUseCase {
    *   minIntervalSeconds?: number,
    *   lockTtlSeconds?: number,
    *   signatureOnlyMaxChars?: number,
+   *   selectionKey?: string | null,
    * }} deps
    */
   constructor({
@@ -81,6 +83,7 @@ export class SyncMailboxUseCase {
     minIntervalSeconds = DEFAULTS.SYNC_MIN_INTERVAL_SECONDS,
     lockTtlSeconds = DEFAULTS.SYNC_LOCK_TTL_SECONDS,
     signatureOnlyMaxChars,
+    selectionKey = null,
   }) {
     this.#mailSource = mailSource;
     this.#letters = letterStore;
@@ -95,6 +98,7 @@ export class SyncMailboxUseCase {
     this.#minIntervalSeconds = minIntervalSeconds;
     this.#lockTtlSeconds = lockTtlSeconds;
     this.#signatureOnlyMaxChars = signatureOnlyMaxChars;
+    this.#selectionKey = selectionKey;
   }
 
   /**
@@ -168,8 +172,21 @@ export class SyncMailboxUseCase {
       const initialState = await this.#syncState.get();
       await this.#syncState.save(markSyncStarted(initialState, { now: startedAt }));
 
-      const cursor = requestedMode === SyncMode.FULL ? null : initialState.historyId;
+      // The cursor only describes the mail selection it was built with (query, label, start
+      // date). When that selection changes, an incremental sync would miss older matching
+      // mail and keep letters that no longer match, so a full listing runs instead.
+      const selectionChanged =
+        this.#selectionKey !== null && initialState.historyId !== null && initialState.selectionKey !== this.#selectionKey;
+      /** @type {string | null} */
+      let fullSyncReason = null;
+      if (requestedMode === SyncMode.FULL) fullSyncReason = FullSyncReason.REQUESTED;
+      else if (initialState.historyId === null) fullSyncReason = FullSyncReason.FIRST_SYNC;
+      else if (selectionChanged) fullSyncReason = FullSyncReason.SELECTION_CHANGED;
+      const cursor = fullSyncReason === null ? initialState.historyId : null;
       if (cursor === null) mode = SyncMode.FULL;
+      if (fullSyncReason === FullSyncReason.SELECTION_CHANGED) {
+        logger.info('Mail source selection changed since the last sync; running a full sync');
+      }
       logger.info({ requestedMode, mode }, 'Mailbox sync started');
 
       let changes;
@@ -179,6 +196,7 @@ export class SyncMailboxUseCase {
         if (!(error instanceof CursorExpiredError) || cursor === null) throw error;
         logger.warn('Sync cursor expired; falling back to a full sync');
         mode = SyncMode.FULL;
+        fullSyncReason = FullSyncReason.CURSOR_EXPIRED;
         changes = await this.#mailSource.fetchChanges(null);
       }
       if (!changes || !Array.isArray(changes.letters) || typeof changes.nextCursor !== 'string') {
@@ -223,6 +241,7 @@ export class SyncMailboxUseCase {
       const result = createSyncResult({
         mode,
         requestedMode,
+        fullSyncReason,
         added: diff.added.length,
         updated: diff.updated.length,
         unchanged: diff.unchanged.length,
@@ -234,7 +253,14 @@ export class SyncMailboxUseCase {
 
       // The batch is persisted: only now may the cursor advance.
       const latest = await this.#syncState.get();
-      await this.#syncState.save(markSyncSucceeded(latest, { now: finishedAt, nextCursor: changes.nextCursor, result }));
+      await this.#syncState.save(
+        markSyncSucceeded(latest, {
+          now: finishedAt,
+          nextCursor: changes.nextCursor,
+          result,
+          ...(this.#selectionKey !== null ? { selectionKey: this.#selectionKey } : {}),
+        }),
+      );
       await this.#syncState.appendRun(
         completeSyncRun(createSyncRun({ id: syncRunId, type: mode, startedAt }), {
           finishedAt,

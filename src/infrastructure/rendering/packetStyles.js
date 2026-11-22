@@ -43,6 +43,13 @@ body {
 .letter-meta { margin: 0; color: #555; font-size: 10pt; }
 .letter-subject { margin: .2rem 0 0; font-size: 13pt; font-weight: 700; }
 .letter-body { white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal; hyphens: manual; }
+/* The e-mail's own formatting: its HTML sets colours, fonts and sizes; only spacing is normalized. */
+.letter-formatted { white-space: normal; }
+.letter-formatted p { margin: 0 0 .75em; }
+.letter-formatted blockquote { margin: .5em 0 .5em 1em; padding-left: .75em; border-left: 3px solid #ddd6c8; }
+.letter-formatted table { max-width: 100%; border-collapse: collapse; }
+.letter-formatted td, .letter-formatted th { padding: .15em .4em; vertical-align: top; }
+.letter-formatted img, .letter-formatted-image { display: inline-block; max-width: 100%; height: auto; }
 .letter-attachments { margin: .75rem 0 0; padding-left: 1.25rem; color: #555; font-size: 10pt; }
 .letter-attachments img { display: block; max-width: 100%; height: auto; margin: .5rem 0; }
 .empty { color: #666; font-style: italic; }
@@ -60,15 +67,20 @@ img { max-width: 100%; height: auto; }
   body { background: #fff; font-size: 11.5pt; line-height: 1.55; }
   .no-print, .packet-toolbar { display: none !important; }
   .packet { max-width: none; padding: 0; margin: 0; }
-  .participant { margin: 0; break-after: page; page-break-after: always; }
-  .participant:last-child { break-after: auto; page-break-after: auto; }
-  .participant-header { break-after: avoid; page-break-after: avoid; }
-  .letter, .participant > .empty { box-shadow: none; border-radius: 0; padding: 0; margin: 0; }
-  /* Never share a sheet with another letter: every letter after the first starts a new page. */
-  .letter + .letter { break-before: page; page-break-before: always; }
+  .participant { margin: 0; }
+  /* On paper only the letters are printed: no participant title, letter count or empty notice
+     (each letter already says «Para: …»). On screen they stay, to find your way around. */
+  .participant-header, .participant > .empty { display: none !important; }
+  .letter { box-shadow: none; border-radius: 0; padding: 0; margin: 0; }
+  /* Never share a sheet with another letter: every letter starts a new page (a forced break
+     before the very first one is ignored by browsers, so there is no blank first page). */
+  .letter { break-before: page; page-break-before: always; }
   .letter-header { break-inside: avoid; page-break-inside: avoid; break-after: avoid; page-break-after: avoid; }
   .letter-attachments img, .letter-image, .letter-inline-image { break-inside: avoid; page-break-inside: avoid; }
   .letter-document { background: none; }
+  .letter-formatted-image { break-inside: avoid; page-break-inside: avoid; }
+  /* Keep the colours chosen by the sender (backgrounds and coloured text) when printing. */
+  .letter-formatted, .letter-formatted * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   a { color: inherit; text-decoration: none; }
 }
 `;

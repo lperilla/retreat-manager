@@ -1,3 +1,4 @@
+import { AssignmentStatus } from '../../domain/constants.js';
 import { createAssignmentOverride } from '../../domain/entities/AssignmentOverride.js';
 import { indexParticipantsById } from '../../domain/entities/Participant.js';
 import { AppError } from '../../domain/errors.js';
@@ -35,11 +36,26 @@ export class ReviewAssignmentUseCase {
     this.#clock = clock;
   }
 
-  /** Active NEEDS_REVIEW letters (chronological) with ranked suggestions. */
+  /**
+   * Active NEEDS_REVIEW letters (chronological) with ranked suggestions, plus the letters
+   * left "Sin asignar", which stay reachable so they can be assigned later (for example
+   * once their recipient has been added as a participant).
+   */
   async listQueue() {
-    const [letters, participants] = await Promise.all([this.#letters.findNeedingReview(), this.#participants.findAll()]);
+    const [letters, all, participants] = await Promise.all([
+      this.#letters.findNeedingReview(),
+      this.#letters.findAll(),
+      this.#participants.findAll(),
+    ]);
     const participantsById = indexParticipantsById(participants);
-    return { total: letters.length, letters: letters.map((letter) => presentLetter(letter, { participantsById })) };
+    const unassigned = all
+      .filter((letter) => !letter.deletedAt && letter.assignment.status === AssignmentStatus.UNASSIGNED)
+      .sort((a, b) => a.receivedAt.getTime() - b.receivedAt.getTime());
+    return {
+      total: letters.length,
+      letters: letters.map((letter) => presentLetter(letter, { participantsById })),
+      unassigned: { total: unassigned.length, letters: unassigned.map((letter) => presentLetter(letter, { participantsById })) },
+    };
   }
 
   /**

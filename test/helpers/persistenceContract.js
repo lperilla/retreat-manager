@@ -55,6 +55,7 @@ export function definePersistenceContract(name, factory, { skip = false } = {}) 
           messageId: 'full',
           subject: 'Carta para Begoña Núñez',
           cleanBody: 'Querida Begoña:\n\nQué ilusión 😊\n\n¡Ánimo!',
+          formattedBody: '<p style="color:#c00">Querida <b>Begoña</b>:</p>',
           attachments: [{ filename: 'carta.pdf', mimeType: 'application/pdf', size: 1234, attachmentId: 'att-1' }],
           flags: [{ type: 'HAS_ATTACHMENTS', confidence: 1, reason: 'Incluye 1 adjunto' }],
           assignment: assignedTo(['juan-perez']),
@@ -65,6 +66,7 @@ export function definePersistenceContract(name, factory, { skip = false } = {}) 
         const stored = await letterStore.findById('full');
         assert.ok(stored);
         assert.equal(stored.cleanBody, letter.cleanBody);
+        assert.equal(stored.formattedBody, letter.formattedBody);
         assert.equal(stored.subject, letter.subject);
         assert.ok(stored.receivedAt instanceof Date);
         assert.equal(stored.receivedAt.toISOString(), letter.receivedAt.toISOString());
@@ -195,6 +197,7 @@ export function definePersistenceContract(name, factory, { skip = false } = {}) 
         await syncStateRepository.save(
           createSyncState({
             historyId: 'h-42',
+            selectionKey: "gmail:{\"query\":\"\"}",
             status: 'failed',
             lastError: 'Gmail 503',
             lastAttemptAt: '2026-11-21T09:59:00Z',
@@ -205,6 +208,7 @@ export function definePersistenceContract(name, factory, { skip = false } = {}) 
         );
         const saved = await syncStateRepository.get();
         assert.equal(saved.historyId, 'h-42');
+        assert.equal(saved.selectionKey, "gmail:{\"query\":\"\"}");
         assert.equal(saved.status, 'failed');
         assert.equal(saved.lastError, 'Gmail 503');
         assert.equal(saved.lastSuccessAt?.toISOString(), '2026-11-21T09:00:00.000Z');

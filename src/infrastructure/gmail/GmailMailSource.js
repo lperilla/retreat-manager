@@ -26,10 +26,10 @@ const EXCLUDED_LABELS = new Set(['DRAFT', 'SPAM', 'TRASH']);
  * MailSourcePort adapter for Gmail (read-only scope).
  *
  * - Full sync: captures the mailbox `historyId` with `users.getProfile` BEFORE listing, then
- *   lists every message matching GMAIL_QUERY (or GMAIL_LABEL_ID). The captured id becomes the
+ *   lists every message matching GMAIL_QUERY (or GMAIL_LABEL_ID) received from GMAIL_START_DATE on. The captured id becomes the
  *   next cursor, so mail arriving during the download is picked up by the next incremental.
  * - Incremental: `users.history.list` from the stored cursor with full pagination. History
- *   reports every mailbox change, so new messages are post-filtered (label, query, drafts,
+ *   reports every mailbox change, so new messages are post-filtered (label, query, start date, drafts,
  *   spam, trash, sent-only). HTTP 404 → CursorExpiredError (the sync falls back to full).
  * - Every call is retried with exponential backoff on 429/5xx; message downloads run with a
  *   concurrency cap.
@@ -40,6 +40,7 @@ export class GmailMailSource {
   #gmail;
   #query;
   #labelId;
+  #startAt;
   #concurrency;
   #retry;
   #logger;
@@ -49,15 +50,17 @@ export class GmailMailSource {
    *   gmail: GmailClient,
    *   query?: string,
    *   labelId?: string | null,
+   *   startAt?: Date | null,
    *   concurrency?: number,
    *   retry?: import('./retry.js').RetryOptions,
    *   logger: import('../../application/ports/LoggerPort.js').LoggerPort,
    * }} options
    */
-  constructor({ gmail, query = '', labelId = null, concurrency = 5, retry = {}, logger }) {
+  constructor({ gmail, query = '', labelId = null, startAt = null, concurrency = 5, retry = {}, logger }) {
     this.#gmail = gmail;
     this.#query = query.trim();
     this.#labelId = labelId || null;
+    this.#startAt = startAt ?? null;
     this.#concurrency = concurrency;
     this.#logger = logger.child({ component: 'gmail' });
     this.#retry = {
@@ -89,7 +92,7 @@ export class GmailMailSource {
     const historyId = profile.data.historyId;
     if (!historyId) throw new Error('Gmail profile did not return a historyId');
 
-    const ids = await this.#listMessageIds(this.#query);
+    const ids = await this.#listMessageIds(this.#listingQuery());
     const messages = await this.#fetchMessages(ids);
     const letters = messages.filter((m) => m !== null && this.#isCandidate(m.raw)).map((m) => /** @type {any} */ (m).letter);
     this.#logger.info({ listed: ids.length, letters: letters.length }, 'Gmail full listing downloaded');
@@ -273,11 +276,23 @@ export class GmailMailSource {
    * @param {any} message
    * @returns {boolean}
    */
+  /**
+   * Query of the full listing: GMAIL_QUERY plus `after:<epoch seconds>` for GMAIL_START_DATE
+   * (one second earlier: the exact bound is enforced locally on `internalDate`).
+   * @returns {string}
+   */
+  #listingQuery() {
+    if (!this.#startAt) return this.#query;
+    const after = `after:${Math.floor(this.#startAt.getTime() / 1000) - 1}`;
+    return this.#query ? `(${this.#query}) ${after}` : after;
+  }
+
   #isCandidate(message) {
     const labels = new Set(message.labelIds ?? []);
     for (const label of EXCLUDED_LABELS) if (labels.has(label)) return false;
     if (labels.has('SENT') && !labels.has('INBOX')) return false;
     if (this.#labelId && !labels.has(this.#labelId)) return false;
+    if (this.#startAt && Number(message.internalDate ?? Date.now()) < this.#startAt.getTime()) return false;
     return true;
   }
 }
@@ -323,7 +338,7 @@ export function findAttachmentPart(payload, attachment) {
  */
 export function toIncomingMessage(message) {
   const headers = headerMap(message.payload);
-  const { body, attachments } = extractMessageContent(message.payload);
+  const { body, formattedBody, attachments } = extractMessageContent(message.payload);
   const internal = Number(message.internalDate);
   const fromHeaderDate = headers.date ? Date.parse(headers.date) : Number.NaN;
   const receivedAt = Number.isFinite(internal) && internal > 0 ? new Date(internal) : new Date(Number.isNaN(fromHeaderDate) ? 0 : fromHeaderDate);
@@ -335,6 +350,7 @@ export function toIncomingMessage(message) {
     subject: headers.subject ?? '',
     receivedAt,
     body,
+    formattedBody,
     attachments,
     headers,
   };

@@ -1,11 +1,15 @@
 /**
  * Recursive MIME traversal of Gmail `format: "full"` payloads.
- * - Body: prefer `text/plain`; otherwise convert `text/html` to clean text.
- * - HTML is reduced with sanitize-html using an EMPTY allowlist (no tags, no scripts, no
- *   images, no remote content survive); no HTML is ever persisted.
+ * - Body: prefer `text/plain`; otherwise convert `text/html` to clean text (sanitize-html
+ *   with an EMPTY allowlist). The plain text drives assignment, search and TXT/JSON exports.
+ * - Formatted body: the `text/html` parts sanitized with a strict allowlist that keeps the
+ *   look of the letter (colours, fonts, sizes, emphasis, alignment, `cid:` images) for
+ *   printing; null when the HTML adds no formatting (see infrastructure/html/letterHtml.js).
  * - Attachments: metadata only (content is fetched on demand later).
  */
 import sanitizeHtml from 'sanitize-html';
+
+import { toFormattedBody } from '../html/letterHtml.js';
 
 /**
  * @typedef {Object} GmailPart
@@ -21,6 +25,7 @@ import sanitizeHtml from 'sanitize-html';
  * @typedef {Object} ExtractedContent
  * @property {string} body
  * @property {'text/plain' | 'text/html' | 'none'} bodySource
+ * @property {string | null} formattedBody  Sanitized HTML that keeps the letter's formatting.
  * @property {Array<{ filename: string, mimeType: string, size: number, contentId: string | null, attachmentId: string | null }>} attachments
  */
 
@@ -183,11 +188,12 @@ export function extractMessageContent(payload) {
 
   if (payload) visit(payload);
 
+  const formattedBody = html.length > 0 ? toFormattedBody(html) : null;
   const plainText = plain.join('\n\n').replace(/\r\n?/g, '\n').trim();
-  if (plainText) return { body: plainText, bodySource: 'text/plain', attachments };
+  if (plainText) return { body: plainText, bodySource: 'text/plain', formattedBody, attachments };
   const htmlText = html.map(htmlToText).filter(Boolean).join('\n\n');
-  if (htmlText) return { body: htmlText, bodySource: 'text/html', attachments };
-  return { body: '', bodySource: 'none', attachments };
+  if (htmlText) return { body: htmlText, bodySource: 'text/html', formattedBody, attachments };
+  return { body: '', bodySource: 'none', formattedBody, attachments };
 }
 
 /**

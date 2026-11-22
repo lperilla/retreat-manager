@@ -3,10 +3,15 @@ import { describe, it } from 'node:test';
 
 import { CursorExpiredError } from '../../src/application/ports/MailSourcePort.js';
 import { AssignmentStatus, SignalType, SyncMode, SyncRunStatus, SyncStatus } from '../../src/domain/constants.js';
+import { loadConfig } from '../../src/composition/config.js';
+import { mailSelectionKey } from '../../src/composition/container.js';
 import { createSyncState } from '../../src/domain/entities/SyncState.js';
 import { createJsonPersistence } from '../../src/infrastructure/persistence/json/createJsonPersistence.js';
 import { JsonLetterStoreRepository } from '../../src/infrastructure/persistence/json/JsonLetterStoreRepository.js';
 import { FakeClock, ScriptedMailSource, buildTestContainer, deferred, makeMessage } from '../helpers/applicationFakes.js';
+
+/** @param {Record<string, string>} [env] */
+const selectionKeyFor = (env = {}) => mailSelectionKey(loadConfig({ PERSISTENCE: 'json', TZ: 'Europe/Madrid', ...env }));
 
 const changes = (letters, nextCursor, extra = {}) => ({ letters, deletedMessageIds: [], nextCursor, ...extra });
 
@@ -90,7 +95,7 @@ describe('SyncMailboxUseCase', () => {
   it('falls back to a full sync when the cursor has expired', async () => {
     const clock = new FakeClock();
     const persistence = createJsonPersistence({ directory: null, clock });
-    await persistence.syncStateRepository.save(createSyncState({ historyId: 'h-stale' }));
+    await persistence.syncStateRepository.save(createSyncState({ historyId: 'h-stale', selectionKey: selectionKeyFor() }));
     const mailSource = new ScriptedMailSource((cursor) => {
       if (cursor === 'h-stale') throw new CursorExpiredError('History too old', { cursor });
       return changes([makeMessage({ subject: 'Carta para Pedro' })], 'h-fresh', { isFullListing: true });
@@ -101,8 +106,46 @@ describe('SyncMailboxUseCase', () => {
     assert.deepEqual(mailSource.calls, ['h-stale', null]);
     assert.equal(result.mode, SyncMode.FULL);
     assert.equal(result.fallbackToFull, true);
+    assert.equal(result.fullSyncReason, 'cursor-expired');
     assert.equal(result.added, 1);
     assert.equal((await container.repositories.syncStateRepository.get()).historyId, 'h-fresh');
+  });
+
+  it('runs a full sync automatically when the Gmail filter changed, then goes back to incremental', async () => {
+    const clock = new FakeClock();
+    const persistence = createJsonPersistence({ directory: null, clock });
+    const oldKey = selectionKeyFor({ GMAIL_QUERY: 'from:familias-prueba.example' });
+    await persistence.syncStateRepository.save(createSyncState({ historyId: 'h-old', selectionKey: oldKey }));
+    const mailSource = new ScriptedMailSource((cursor) =>
+      cursor === null
+        ? changes([makeMessage({ subject: 'Carta para Pedro' })], 'h-new', { isFullListing: true })
+        : changes([], 'h-next'),
+    );
+    const env = { GMAIL_START_DATE: '2026-11-01' };
+    const { container } = await buildTestContainer({ mailSource, persistence, clock, env });
+
+    const first = await container.useCases.syncMailbox.execute({ mode: SyncMode.INCREMENTAL });
+    assert.equal(first.mode, SyncMode.FULL);
+    assert.equal(first.fallbackToFull, true);
+    assert.equal(first.fullSyncReason, 'selection-changed');
+    const saved = await container.repositories.syncStateRepository.get();
+    assert.equal(saved.selectionKey, selectionKeyFor(env));
+    assert.notEqual(saved.selectionKey, oldKey);
+
+    const second = await container.useCases.syncMailbox.execute({ mode: SyncMode.INCREMENTAL });
+    assert.equal(second.mode, SyncMode.INCREMENTAL);
+    assert.equal(second.fullSyncReason, null);
+    assert.deepEqual(mailSource.calls, [null, 'h-new']);
+  });
+
+  it('records why a full sync ran when it was requested or the first one', async () => {
+    const mailSource = new ScriptedMailSource(() => changes([], 'h-1', { isFullListing: true }));
+    const { container } = await buildTestContainer({ mailSource });
+    const first = await container.useCases.syncMailbox.execute({ mode: SyncMode.INCREMENTAL });
+    assert.equal(first.fullSyncReason, 'first-sync');
+    const requested = await container.useCases.syncMailbox.execute({ mode: SyncMode.FULL });
+    assert.equal(requested.fullSyncReason, 'requested');
+    assert.equal(requested.fallbackToFull, false);
   });
 
   it('refuses a concurrent run while the lock is held', async () => {

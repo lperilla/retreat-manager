@@ -100,6 +100,28 @@ export async function loadParticipant(participantId) {
       }),
       h('label', { class: 'form-check-label', for: 'participant-include-attachments', text: 'Incluir adjuntos' }),
     ),
+    h(
+      'div',
+      { class: 'form-check form-switch align-self-center mb-0' },
+      h('input', {
+        class: 'form-check-input',
+        type: 'checkbox',
+        role: 'switch',
+        id: 'participant-original-format',
+        checked: state.originalFormat,
+        onChange: (/** @type {Event} */ event) => {
+          state.originalFormat = /** @type {HTMLInputElement} */ (event.target).checked;
+          const batchSwitch = /** @type {HTMLInputElement | null} */ (document.getElementById('batch-original-format'));
+          if (batchSwitch) batchSwitch.checked = state.originalFormat;
+        },
+      }),
+      h('label', {
+        class: 'form-check-label',
+        for: 'participant-original-format',
+        title: 'Mantiene los colores, fuentes y tamaños de cada correo al imprimir y exportar a .html',
+        text: 'Formato original',
+      }),
+    ),
     h('button', {
       type: 'button',
       class: 'btn btn-outline-secondary',

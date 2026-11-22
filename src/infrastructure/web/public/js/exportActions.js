@@ -50,7 +50,7 @@ export async function exportLetters(participantIds, format, afterDate = null) {
     return;
   }
   try {
-    const result = await api.createExport({ participantIds, format, afterDate, includeAttachments: state.includeAttachments });
+    const result = await api.createExport({ participantIds, format, afterDate, includeAttachments: state.includeAttachments, originalFormat: state.originalFormat });
     triggerDownload(result.downloadUrl, result.filename);
     toast(`Exportación lista: ${plural(result.participantCount, 'participante', 'participantes')}, ${lettersLabel(result.letterCount)}.`);
     await offerMarkPrinted(result.participantIds);
@@ -72,6 +72,7 @@ export async function printLetters(participantIds, afterDate = null) {
   const params = new URLSearchParams({ participantIds: participantIds.join(','), autoprint: '1' });
   if (afterDate) params.set('afterDate', afterDate);
   if (!state.includeAttachments) params.set('includeAttachments', '0');
+  if (!state.originalFormat) params.set('originalFormat', '0');
   window.open(`/print?${params.toString()}`, '_blank', 'noopener');
   await offerMarkPrinted(participantIds);
 }

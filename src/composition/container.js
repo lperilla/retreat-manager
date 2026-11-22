@@ -16,11 +16,13 @@ import {
   LetterStoreRepositoryPort,
   LoggerPort,
   MailSourcePort,
+  ParticipantListFilePort,
   ParticipantRepositoryPort,
   PrintStatusRepositoryPort,
   SyncStateRepositoryPort,
 } from '../application/ports/index.js';
 import {
+  AddParticipantUseCase,
   ExportBatchLettersUseCase,
   GetAttachmentUseCase,
   GetDashboardOverviewUseCase,
@@ -43,7 +45,7 @@ import { PinoLogger } from '../infrastructure/logging/PinoLogger.js';
 import { DemoMailSource } from '../infrastructure/persistence/json/DemoMailSource.js';
 import { createJsonPersistence } from '../infrastructure/persistence/json/createJsonPersistence.js';
 import { DEMO_PARTICIPANTS } from '../infrastructure/persistence/json/demo/demoData.js';
-import { readParticipantsFile } from '../infrastructure/persistence/json/participantsFile.js';
+import { ParticipantsJsonFile, readParticipantsFile } from '../infrastructure/persistence/json/participantsFile.js';
 import { createMongoPersistence } from '../infrastructure/persistence/mongo/createMongoPersistence.js';
 import { FileExportStorage } from '../infrastructure/rendering/FileExportStorage.js';
 import { HtmlPacketRenderer } from '../infrastructure/rendering/HtmlPacketRenderer.js';
@@ -105,6 +107,18 @@ const mailSourceFactories = new Map([
 ]);
 
 /**
+ * Identifies the mail selection (Gmail query, label and start date, or demo mode). The sync
+ * remembers it with its cursor and runs a full listing when it changes.
+ * @param {import('./config.js').AppConfig} config
+ * @returns {string}
+ */
+export function mailSelectionKey(config) {
+  if (config.demoMode) return 'demo';
+  const { query, labelId, startDate } = config.gmail;
+  return `gmail:${JSON.stringify({ query, labelId, startDate })}`;
+}
+
+/**
  * Registers (or replaces) a persistence adapter factory.
  * @param {string} kind
  * @param {(context: PersistenceContext) => Promise<PersistenceAdapters>} factory
@@ -130,6 +144,7 @@ export function registerMailSourceFactory(kind, factory) {
  * @property {import('../application/ports/MailSourcePort.js').MailSourcePort} [mailSource]
  * @property {PersistenceAdapters} [persistence]
  * @property {import('../domain/entities/Participant.js').Participant[]} [participants]  Seeded at startup.
+ * @property {import('../application/ports/ParticipantListFilePort.js').ParticipantListFilePort | null} [participantFile]  Where added participants are saved.
  * @property {import('../application/ports/ExportRendererPort.js').ExportRendererPort[]} [renderers]
  * @property {import('../application/ports/ExportStoragePort.js').ExportStoragePort} [exportStorage]
  * @property {import('../application/ports/AttachmentProcessorPort.js').AttachmentProcessorPort | null} [attachmentProcessor]
@@ -198,6 +213,22 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
     bodyScanChars: config.assignment.bodyScanChars,
   });
 
+  const recomputeAssignments = new RecomputeAssignmentsUseCase({
+    letterStore,
+    overrideRepository,
+    participantRepository,
+    assignmentStrategy,
+    logger,
+  });
+  // Participants added from the dashboard are written back to PARTICIPANTS_FILE (the list is
+  // reloaded from it at startup). Demo mode and injected lists have no file.
+  const participantFile =
+    overrides.participantFile !== undefined
+      ? overrides.participantFile && ParticipantListFilePort.assert(overrides.participantFile)
+      : config.demoMode || overrides.participants
+        ? null
+        : new ParticipantsJsonFile(config.participantsFile);
+
   const preparePrintView = new PreparePrintViewUseCase({
     participantRepository,
     letterStore,
@@ -252,6 +283,7 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
       ownerPrefix: `${role}@${hostname()}:${process.pid}`,
       minIntervalSeconds: config.sync.minIntervalSeconds,
       lockTtlSeconds: config.sync.lockTtlSeconds,
+      selectionKey: mailSelectionKey(config),
     }),
     getSyncStatus: new GetSyncStatusUseCase({
       syncStateRepository,
@@ -261,11 +293,11 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
     }),
     getNewLetters: new GetNewLettersUseCase({ letterStore, participantRepository }),
     markLettersSeen: new MarkLettersSeenUseCase({ letterStore, participantRepository }),
-    recomputeAssignments: new RecomputeAssignmentsUseCase({
-      letterStore,
-      overrideRepository,
+    recomputeAssignments,
+    addParticipant: new AddParticipantUseCase({
       participantRepository,
-      assignmentStrategy,
+      participantFile,
+      recomputeAssignments,
       logger,
     }),
     getAttachment: new GetAttachmentUseCase({ letterStore, attachmentProcessor }),

@@ -136,6 +136,13 @@ export function createApiRouter({ runtime, limiters }) {
     res.json(await useCases().reviewAssignment.resetToAutomatic({ messageId: req.params.messageId }));
   });
 
+  // Participants added while letters keep arriving ---------------------------------
+  router.post('/participants', async (req, res) => {
+    res.status(201).json(
+      await useCases().addParticipant.execute({ displayName: req.body?.displayName, aliases: req.body?.aliases ?? [] }),
+    );
+  });
+
   router.post('/assignments/recompute', async (_req, res) => {
     res.json(await useCases().recomputeAssignments.execute());
   });
@@ -167,6 +174,7 @@ export function createApiRouter({ runtime, limiters }) {
       format: req.body?.format,
       markAsPrinted: req.body?.markAsPrinted === true,
       includeAttachments: req.body?.includeAttachments !== false,
+      originalFormat: req.body?.originalFormat !== false,
       afterDate: req.body?.afterDate ?? null,
     });
     res.status(201).json({

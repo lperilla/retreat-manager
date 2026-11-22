@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
 import { loadConfig } from '../../src/composition/config.js';
-import { createContainer } from '../../src/composition/container.js';
+import { createContainer, mailSelectionKey } from '../../src/composition/container.js';
 import { NullLogger } from '../../src/infrastructure/logging/NullLogger.js';
 import { describeError, redactSecrets } from '../../src/application/services/errorDescription.js';
 import { AppError } from '../../src/domain/errors.js';
@@ -28,6 +28,15 @@ describe('loadConfig', () => {
     assert.equal(config.accessToken, null);
   });
 
+  it('reads GMAIL_START_DATE as the first local day (TZ) and includes it in the mail selection key', () => {
+    const config = loadConfig({ GMAIL_START_DATE: '2026-11-01', TZ: 'Europe/Madrid' });
+    assert.equal(config.gmail.startDate, '2026-11-01');
+    assert.equal(config.gmail.startAt?.toISOString(), '2026-10-31T23:00:00.000Z');
+    assert.equal(loadConfig({}).gmail.startAt, null);
+    assert.notEqual(mailSelectionKey(config), mailSelectionKey(loadConfig({})));
+    assert.equal(mailSelectionKey(loadConfig({ DEMO_MODE: 'true' })), 'demo');
+  });
+
   it('parses and validates values', () => {
     const config = loadConfig({ DEMO_MODE: 'yes', PORT: '8080', PERSISTENCE: 'JSON', ASSIGNMENT_MIN_CONFIDENCE: '0.8' });
     assert.equal(config.demoMode, true);
@@ -35,7 +44,15 @@ describe('loadConfig', () => {
     assert.equal(config.persistence, 'json');
     assert.equal(config.assignment.minConfidence, 0.8);
 
-    const bad = [{ PORT: '99999' }, { TZ: 'Mars/Base' }, { PERSISTENCE: 'sqlite' }, { DEMO_MODE: 'maybe' }, { LOG_LEVEL: 'loud' }];
+    const bad = [
+      { PORT: '99999' },
+      { TZ: 'Mars/Base' },
+      { PERSISTENCE: 'sqlite' },
+      { DEMO_MODE: 'maybe' },
+      { LOG_LEVEL: 'loud' },
+      { GMAIL_START_DATE: '22/11/2026' },
+      { GMAIL_START_DATE: '2026-02-30' },
+    ];
     for (const env of bad) {
       assert.throws(() => loadConfig(env), { code: 'CONFIG_ERROR' }, JSON.stringify(env));
     }

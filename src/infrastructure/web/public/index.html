@@ -211,6 +211,15 @@
       </div>
       <p class="text-body-secondary">Cartas que no se han podido asignar con seguridad. No cuentan para nadie hasta que las asignes; nunca se descartan.</p>
       <div id="review-list" class="d-flex flex-column gap-3"></div>
+
+      <section id="unassigned-section" class="mt-5" aria-labelledby="unassigned-title" hidden>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+          <h2 class="h4 mb-0" id="unassigned-title">Sin asignar</h2>
+          <span class="text-body-secondary" id="unassigned-count"></span>
+        </div>
+        <p class="text-body-secondary">Cartas que se dejaron sin asignar. Siguen guardadas: puedes asignarlas cuando quieras, por ejemplo después de dar de alta a su destinatario con «Asignar…» → «Añadir participante nuevo».</p>
+        <div id="unassigned-list" class="d-flex flex-column gap-3"></div>
+      </section>
     </section>
 
     <!-- Sync history -->
@@ -253,6 +262,10 @@
         <input class="form-check-input" type="checkbox" role="switch" id="batch-include-attachments" checked>
         <label class="form-check-label" for="batch-include-attachments">Incluir adjuntos</label>
       </div>
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" role="switch" id="batch-original-format" checked>
+        <label class="form-check-label" for="batch-original-format" title="Mantiene los colores, fuentes y tamaños de cada correo al imprimir y exportar a .html">Formato original</label>
+      </div>
       <button type="button" class="btn btn-link btn-sm text-white ms-auto" id="batch-clear">Deseleccionar</button>
     </div>
   </div>
@@ -292,6 +305,23 @@
             <legend class="visually-hidden">Participantes destinatarios</legend>
             <div class="assign-options" id="assign-options"></div>
           </fieldset>
+          <div class="new-participant mt-3 pt-3 border-top">
+            <button type="button" class="btn btn-link btn-sm px-0" id="new-participant-toggle" aria-expanded="false" aria-controls="new-participant-form">+ Añadir participante nuevo</button>
+            <form id="new-participant-form" class="row g-2 align-items-end mt-1" hidden novalidate>
+              <div class="col-sm-5">
+                <label class="form-label small mb-1" for="new-participant-name">Nombre completo</label>
+                <input type="text" class="form-control form-control-sm" id="new-participant-name" maxlength="120" autocomplete="off" required>
+              </div>
+              <div class="col-sm-5">
+                <label class="form-label small mb-1" for="new-participant-aliases">Otros nombres o apodos <span class="text-body-secondary">(opcional, separados por comas)</span></label>
+                <input type="text" class="form-control form-control-sm" id="new-participant-aliases" maxlength="400" autocomplete="off">
+              </div>
+              <div class="col-sm-2 d-grid">
+                <button type="submit" class="btn btn-outline-primary btn-sm" id="new-participant-create">Añadir</button>
+              </div>
+              <p class="form-text small mb-0 col-12">Se guarda en la lista de participantes y queda marcado para esta carta. Las demás cartas pendientes que lo nombren se asignan solas.</p>
+            </form>
+          </div>
         </div>
         <div class="modal-footer justify-content-between">
           <div class="d-flex gap-2">

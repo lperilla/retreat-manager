@@ -302,5 +302,10 @@ export function initDashboard() {
   includeAttachments.addEventListener('change', () => {
     state.includeAttachments = includeAttachments.checked;
   });
+  const originalFormat = /** @type {HTMLInputElement} */ ($('#batch-original-format'));
+  originalFormat.checked = state.originalFormat;
+  originalFormat.addEventListener('change', () => {
+    state.originalFormat = originalFormat.checked;
+  });
   $('#mark-all-seen').addEventListener('click', (event) => void markSeen({}, /** @type {HTMLButtonElement} */ (event.currentTarget)));
 }

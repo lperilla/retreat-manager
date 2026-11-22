@@ -69,10 +69,12 @@ export const api = {
   resetAssignment: (/** @type {string} */ messageId) =>
     request(`/api/review/${encodeURIComponent(messageId)}/reset`, { method: 'POST' }),
   recompute: () => request('/api/assignments/recompute', { method: 'POST' }),
+  addParticipant: (/** @type {{ displayName: string, aliases?: string[] }} */ body) =>
+    request('/api/participants', { method: 'POST', body }),
   startSync: (/** @type {'incremental' | 'full'} */ mode) => request('/api/sync', { method: 'POST', body: { mode } }),
   syncStatus: () => request('/api/sync/status'),
   syncRuns: (limit = 50) => request(`/api/sync/runs${query({ limit })}`),
-  createExport: (/** @type {{ participantIds: string[], format: string, afterDate?: string | null, includeAttachments?: boolean }} */ body) =>
+  createExport: (/** @type {{ participantIds: string[], format: string, afterDate?: string | null, includeAttachments?: boolean, originalFormat?: boolean }} */ body) =>
     request('/api/exports', { method: 'POST', body }),
   attachmentText: (/** @type {string} */ messageId, /** @type {number} */ index) =>
     request(`/api/letters/${encodeURIComponent(messageId)}/attachments/${index}/text`),

@@ -30,6 +30,7 @@ import { createAssignment, isAssigned, needsReviewAssignment } from './Assignmen
  * @property {string}           subject
  * @property {Date}             receivedAt
  * @property {string}           cleanBody    Full plain-text body (never truncated).
+ * @property {string|null}      formattedBody  Sanitized HTML with the original formatting (printing only), or null.
  * @property {AttachmentMeta[]} attachments
  * @property {import('./Assignment.js').Assignment} assignment
  * @property {LetterFlag[]}     flags
@@ -143,19 +144,21 @@ export function createFlag(flag) {
 /**
  * Fingerprint of the content coming from the mail source. It deliberately ignores
  * assignment, flags and novelty fields so that recomputation never looks like an update.
- * @param {Pick<Letter, 'subject' | 'from' | 'to' | 'receivedAt' | 'cleanBody' | 'attachments'>} letter
+ * The formatted body only takes part when present, so letters without one keep their hash.
+ * @param {Pick<Letter, 'subject' | 'from' | 'to' | 'receivedAt' | 'cleanBody' | 'attachments'> & { formattedBody?: string | null }} letter
  * @returns {string}
  */
 export function computeContentHash(letter) {
-  const payload = JSON.stringify([
+  const parts = [
     text(letter.subject),
     text(letter.from),
     text(letter.to),
     letter.receivedAt instanceof Date ? letter.receivedAt.toISOString() : text(letter.receivedAt),
     text(letter.cleanBody),
     (letter.attachments ?? []).map((a) => [a.filename, a.mimeType, a.size, a.contentId ?? null]),
-  ]);
-  return hash53(payload);
+  ];
+  if (letter.formattedBody) parts.push(String(letter.formattedBody));
+  return hash53(JSON.stringify(parts));
 }
 
 /**
@@ -188,6 +191,7 @@ export function createLetter(props) {
     subject: text(source.subject),
     receivedAt: requiredDate(source.receivedAt, 'receivedAt'),
     cleanBody: text(source.cleanBody).replace(/\r\n?/g, '\n'),
+    formattedBody: source.formattedBody ? String(source.formattedBody) : null,
     attachments: Object.freeze((source.attachments ?? []).map(createAttachmentMeta)),
   };
 

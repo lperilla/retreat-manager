@@ -41,13 +41,14 @@ describe('HtmlPacketRenderer', () => {
     assert.ok(html.includes('white-space: pre-wrap'));
   });
 
-  it('puts a page break between participants and avoids breaking letter headers', async () => {
+  it('hides the participant title, letter count and empty notice on paper and avoids breaking letter headers', async () => {
     const html = await new HtmlPacketRenderer().render(payload());
     assert.equal((html.match(/<section class="participant">/g) ?? []).length, 2);
-    assert.ok(html.includes('break-after: page'));
-    assert.ok(html.includes('page-break-after: always'));
+    assert.match(html, /\.participant-header, \.participant > \.empty \{ display: none !important; \}/);
     assert.ok(html.includes('break-inside: avoid'));
+    // Still on screen, to find your way around the packet.
     assert.ok(html.includes('No hay cartas para este participante.'));
+    assert.ok(html.includes('<h1>Juan Pérez</h1>'));
   });
 
   it('prints every letter on its own sheet with its own recipient line', async () => {
@@ -61,7 +62,7 @@ describe('HtmlPacketRenderer', () => {
         sections: [{ participant: { id: 'juan-perez', displayName: 'Juan Pérez' }, letters, letterCount: 3 }],
       }),
     );
-    assert.match(html, /\.letter \+ \.letter \{ break-before: page; page-break-before: always; \}/);
+    assert.match(html, /\.letter \{ break-before: page; page-break-before: always; \}/);
     assert.equal((html.match(/<article class="letter">/g) ?? []).length, 3);
     assert.equal((html.match(/<p class="letter-recipient">Para: Juan Pérez<\/p>/g) ?? []).length, 3);
   });

@@ -85,6 +85,7 @@ export function presentSyncResult(result, participantsById = new Map()) {
     mode: result.mode,
     requestedMode: result.requestedMode,
     fallbackToFull: result.fallbackToFull,
+    fullSyncReason: result.fullSyncReason,
     added: result.added,
     updated: result.updated,
     unchanged: result.unchanged,

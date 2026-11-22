@@ -17,6 +17,16 @@ export const CONTENT_SECURITY_POLICY = [
 ].join('; ');
 
 /**
+ * Print view: same policy plus inline style ATTRIBUTES (never <style> blocks or scripts), so
+ * letters keep the sender's formatting. Those attributes only come from the letter HTML
+ * sanitizer, whose allowlist accepts colours, fonts, sizes and alignment, never url().
+ */
+export const PRINT_CONTENT_SECURITY_POLICY = CONTENT_SECURITY_POLICY.replace(
+  "style-src 'self'",
+  "style-src 'self'; style-src-attr 'unsafe-inline'",
+);
+
+/**
  * @returns {import('express').RequestHandler}
  */
 export function securityHeaders() {

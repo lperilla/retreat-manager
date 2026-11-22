@@ -8,6 +8,7 @@ import { definePort } from './definePort.js';
  *
  * @typedef {Object} RenderOptions
  * @property {boolean} [includeAttachments]  Embed printable attachments when the format supports it.
+ * @property {boolean} [originalFormat]      Keep each e-mail's own formatting when the format supports it.
  *
  * @typedef {Object} ExportRendererPort
  * @property {string} format     'html' | 'txt' | 'json'

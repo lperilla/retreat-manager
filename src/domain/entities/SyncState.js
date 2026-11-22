@@ -13,6 +13,7 @@ import { createSyncResult } from './SyncResult.js';
  * @typedef {Object} SyncState
  * @property {string}           id
  * @property {string|null}      historyId       Cursor for incremental sync.
+ * @property {string|null}      selectionKey    Mail selection (query, label, start date) the cursor belongs to.
  * @property {Date|null}        lastAttemptAt
  * @property {Date|null}        lastSuccessAt
  * @property {Date|null}        lastFullSyncAt
@@ -63,6 +64,7 @@ export function createSyncState(props = {}) {
   return Object.freeze({
     id: props.id ?? SYNC_STATE_ID,
     historyId: props.historyId ? String(props.historyId) : null,
+    selectionKey: props.selectionKey ? String(props.selectionKey) : null,
     lastAttemptAt: optionalDate(props.lastAttemptAt, 'lastAttemptAt'),
     lastSuccessAt: optionalDate(props.lastSuccessAt, 'lastSuccessAt'),
     lastFullSyncAt: optionalDate(props.lastFullSyncAt, 'lastFullSyncAt'),
@@ -147,13 +149,14 @@ export function markSyncStarted(state, { now }) {
 /**
  * Advances the cursor. Call ONLY after the batch has been persisted successfully.
  * @param {SyncState} state
- * @param {{ now: Date, nextCursor: string | null, result: import('./SyncResult.js').SyncResult }} context
+ * @param {{ now: Date, nextCursor: string | null, result: import('./SyncResult.js').SyncResult, selectionKey?: string | null }} context
  * @returns {Readonly<SyncState>}
  */
-export function markSyncSucceeded(state, { now, nextCursor, result }) {
+export function markSyncSucceeded(state, { now, nextCursor, result, selectionKey }) {
   return createSyncState({
     ...state,
     historyId: nextCursor ?? state.historyId,
+    selectionKey: selectionKey === undefined ? state.selectionKey : selectionKey,
     lastSuccessAt: now,
     lastFullSyncAt: result.mode === SyncMode.FULL ? now : state.lastFullSyncAt,
     status: SyncStatus.IDLE,

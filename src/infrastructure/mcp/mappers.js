@@ -104,6 +104,7 @@ export function toMcpSyncResult(result, names, lastSuccessAt) {
     mode: result.mode,
     requestedMode: result.requestedMode,
     fallbackToFull: result.fallbackToFull,
+    fullSyncReason: result.fullSyncReason ?? null,
     added: result.added,
     updated: result.updated,
     deleted: result.deleted,

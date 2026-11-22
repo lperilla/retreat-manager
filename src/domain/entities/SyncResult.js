@@ -6,12 +6,22 @@ import { assertSyncMode } from './SyncRun.js';
  * @property {number} newLetters
  */
 
+/** Why a synchronization ran as a full listing. */
+export const FullSyncReason = Object.freeze({
+  REQUESTED: 'requested',
+  FIRST_SYNC: 'first-sync',
+  CURSOR_EXPIRED: 'cursor-expired',
+  SELECTION_CHANGED: 'selection-changed',
+});
+const FULL_SYNC_REASONS = new Set(Object.values(FullSyncReason));
+
 /**
  * Outcome of a successful synchronization.
  * @typedef {Object} SyncResult
  * @property {string}             mode                  Mode actually executed.
  * @property {string}             requestedMode         Mode requested by the caller.
- * @property {boolean}            fallbackToFull        True when an expired cursor forced a full sync.
+ * @property {boolean}            fallbackToFull        True when an incremental request ran as a full sync.
+ * @property {string|null}        fullSyncReason        Why a full sync ran (see FullSyncReason), null for incrementals.
  * @property {number}             added
  * @property {number}             updated
  * @property {number}             unchanged
@@ -42,6 +52,7 @@ export function createSyncResult(props) {
     mode,
     requestedMode,
     fallbackToFull: source.fallbackToFull ?? requestedMode !== mode,
+    fullSyncReason: mode === 'full' && FULL_SYNC_REASONS.has(/** @type {string} */ (source.fullSyncReason)) ? /** @type {string} */ (source.fullSyncReason) : null,
     added: count(source.added),
     updated: count(source.updated),
     unchanged: count(source.unchanged),

@@ -12,6 +12,8 @@ export const state = {
   sync: null,
   /** "Incluir adjuntos" in exports and print views (default on). */
   includeAttachments: true,
+  /** "Formato original": keep each e-mail's colours, fonts and sizes when printing (default on). */
+  originalFormat: true,
 };
 
 /** @type {Map<string, Set<(detail?: any) => void>>} */
