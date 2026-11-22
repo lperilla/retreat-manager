@@ -96,10 +96,15 @@ main:focus { outline: none; }
 
 /* ---------------------------------------------------------------- Top bar */
 /* Always visible: fixed at the top while scrolling. */
-.app-navbar { position: sticky; top: 0; z-index: 1030; background: var(--ui-surface); border-bottom: 1px solid var(--ui-border); padding-top: .5rem; padding-bottom: .5rem; }
-.app-navbar .navbar-brand { font-weight: 650; font-size: 1rem; color: var(--ui-text); display: inline-flex; align-items: center; gap: .55rem; }
+.app-navbar { position: sticky; top: 0; z-index: 1030; background: var(--ui-surface); border-bottom: 1px solid var(--ui-border); padding-top: .65rem; padding-bottom: .65rem; }
+/* App header: logo and name clearly larger than the menu. */
+.app-navbar .navbar-brand { font-weight: 650; font-size: 1.3rem; letter-spacing: -.02em; color: var(--ui-text); display: inline-flex; align-items: center; gap: .7rem; margin-right: 1.5rem; padding: 0; }
 /* Logo: two walkers (the disciples on the road to Emmaus). */
-.brand-logo { width: 28px; height: 28px; flex: none; }
+.brand-logo { width: 36px; height: 36px; flex: none; }
+@media (max-width: 575.98px) {
+  .app-navbar .navbar-brand { font-size: 1.15rem; gap: .6rem; }
+  .brand-logo { width: 32px; height: 32px; }
+}
 .login-logo { display: block; width: 48px; height: 48px; }
 .app-navbar .nav-link { color: var(--ui-muted); font-weight: 500; border-radius: var(--ui-radius-sm); padding: .4rem .75rem !important; transition: color var(--ui-ease), background-color var(--ui-ease); }
 .app-navbar .nav-link:hover { color: var(--ui-text); background: var(--ui-subtle); }
