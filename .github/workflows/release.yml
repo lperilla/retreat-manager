@@ -1,7 +1,8 @@
 name: Release
 
-# Builds the desktop installers (Windows .exe, Linux .deb and .AppImage) with the same
-# Docker-based script used locally, and publishes them when a v* tag is pushed.
+# Builds the desktop installers and publishes them when a v* tag is pushed:
+#   - Windows .exe on a native Windows runner (NSIS needs no Wine there)
+#   - Linux .deb and .AppImage on Ubuntu, with the same Docker script used locally
 on:
   push:
     tags: ['v*']
@@ -11,9 +12,40 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/RetreatManager-Setup-*.exe
+          if-no-files-found: error
+
+  linux:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/build-desktop.sh linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            dist/retreat-manager_*_amd64.deb
+            dist/RetreatManager-*-x86_64.AppImage
+          if-no-files-found: error
+
+  release:
+    needs: [windows, linux]
+    runs-on: ubuntu-latest
     permissions:
       contents: write # needed to create the GitHub release
     steps:
@@ -31,8 +63,10 @@ jobs:
             exit 1
           fi
 
-      - name: Build installers (Docker + Wine)
-        run: ./scripts/build-desktop.sh all
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
 
       - name: Check the artifacts and write checksums
         working-directory: dist
@@ -45,11 +79,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: installers-${{ steps.version.outputs.value }}
-          path: |
-            dist/RetreatManager-Setup-${{ steps.version.outputs.value }}.exe
-            dist/retreat-manager_${{ steps.version.outputs.value }}_amd64.deb
-            dist/RetreatManager-${{ steps.version.outputs.value }}-x86_64.AppImage
-            dist/SHA256SUMS
+          path: dist/*
           if-no-files-found: error
 
       - name: Publish release
