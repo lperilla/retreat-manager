@@ -22,7 +22,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - run: npm run dist
+      - run: npm run dist -- --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: windows
