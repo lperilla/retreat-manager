@@ -224,7 +224,17 @@ function openWindow(origin) {
   mainWindow.setTitle(title());
   // Pages of this server (for example the print view) open inside the app; anything else in the browser.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith(origin)) return { action: 'allow' };
+    // `noopener` windows do not inherit the preload: without it the print view has no `desktopApp`
+    // and falls back to window.print(), whose dialog has no preview and generates no PDF.
+    if (url.startsWith(origin)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          icon: ICON,
+          webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: join(HERE, 'preload.cjs') },
+        },
+      };
+    }
     void shell.openExternal(url);
     return { action: 'deny' };
   });

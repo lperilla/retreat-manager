@@ -20,13 +20,13 @@ read -r -d '' BUILD <<'EOF' || true
 set -e
 npm ci --no-audit --no-fund
 if [ "$TARGET" != windows ]; then
-  npx electron-builder --linux deb AppImage --x64
+  npx electron-builder --config electron-builder.linux.yml --linux deb AppImage --x64
 fi
 if [ "$TARGET" != linux ]; then
   # Image library for Windows (same version as the Linux one in package-lock.json).
   SHARP_WIN=$(node -p "require('./package-lock.json').packages['node_modules/@img/sharp-win32-x64'].version")
   npm install --no-save --no-audit --no-fund --force "@img/sharp-win32-x64@$SHARP_WIN"
-  npx electron-builder --win nsis --x64
+  npx electron-builder --config electron-builder.win.yml --win nsis --x64
 fi
 # The container runs as root: give the packages back to the user of this computer.
 chown -R "$HOST_UID:$HOST_GID" dist

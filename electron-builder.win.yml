@@ -1,0 +1,31 @@
+extends: ./electron-builder.base.yml
+files:
+  - desktop/**/*
+  - src/**/*
+  - package.json
+  - "!**/*.md"
+  - "!**/*.map"
+  - "!**/*.d.ts"
+  - "!**/*.d.mts"
+  - "!**/*.d.cts"
+  # sharp: solo el binario de Windows
+  - "!node_modules/@img/sharp-linux*/**"
+  - "!node_modules/@img/sharp-libvips-linux*/**"
+  - "!node_modules/@img/sharp-darwin*/**"
+  - "!node_modules/@img/sharp-libvips-darwin*/**"
+  - "!node_modules/@img/sharp-wasm32/**"
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.png
+  artifactName: RetreatManager-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Retreat Manager
+  language: "1034"
+  artifactName: RetreatManager-Setup-${version}.${ext}

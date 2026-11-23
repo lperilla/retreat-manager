@@ -1,0 +1,14 @@
+# Configuración común. Cada plataforma la extiende (electron-builder.win.yml / .linux.yml)
+# y añade sus propios filtros para no empaquetar binarios de otras plataformas.
+appId: com.retreat.manager
+productName: Retreat Manager
+copyright: Retreat Manager
+directories:
+  output: dist
+  buildResources: build
+asar: true
+compression: maximum
+electronLanguages: [es, en-US]
+asarUnpack:
+  - node_modules/sharp/**/*
+  - node_modules/@img/**/*
