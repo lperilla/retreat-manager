@@ -64,6 +64,9 @@ async function startApp({ env = {}, accessToken = null, rateLimits = DEFAULT_RAT
     base,
     /** @param {string} path @param {RequestInit} [init] */
     fetch: (path, init = {}) => fetch(`${base}${path}`, { redirect: 'manual', ...init }),
+    /** @param {string} path @param {unknown} body */
+    put: (path, body = {}) =>
+      fetch(`${base}${path}`, { method: 'PUT', redirect: 'manual', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
     /** @param {string} path @param {unknown} body @param {Record<string, string>} [headers] */
     post: (path, body = {}, headers = {}) =>
       fetch(`${base}${path}`, {
@@ -86,6 +89,78 @@ async function waitForSync(app) {
   }
   throw new Error('sync did not finish');
 }
+
+describe('mailbox API (labels, print marks, audit)', () => {
+  it('lists and filters mail, traces the user from X-Actor and reports labels as disabled by default', async () => {
+    const app = await startApp();
+    await app.post('/api/sync', { mode: 'full' });
+    await waitForSync(app);
+
+    const all = await (await app.fetch('/api/mail?limit=5')).json();
+    assert.equal(all.messages.length, 5);
+    assert.ok(all.total > 5);
+
+    const assigned = await app.post('/api/review/demo-w1-03/assign', { participantIds: ['maria-lopez'] }, { 'X-Actor': 'Carmen Ruiz' });
+    assert.equal(assigned.status, 200);
+    const mine = await (await app.fetch('/api/mail?participantId=maria-lopez&printed=false')).json();
+    assert.ok(mine.messages.some((m) => m.messageId === 'demo-w1-03'));
+
+    const marked = await app.post('/api/mail/demo-w1-03/printed', { printed: true }, { 'X-Actor': 'Luis' });
+    assert.equal(marked.status, 200);
+    const printed = await (await app.fetch('/api/mail?printed=true&participantId=maria-lopez')).json();
+    assert.ok(printed.messages.some((m) => m.messageId === 'demo-w1-03' && m.labels.includes('Impreso')));
+
+    const audit = await (await app.fetch('/api/mail/audit?messageId=demo-w1-03')).json();
+    assert.deepEqual(audit.entries.map((e) => `${e.actor}:${e.action}`).sort(), ['Carmen Ruiz:assignment.set', 'Luis:print.marked']);
+
+    const status = await (await app.fetch('/api/mail/labels/status')).json();
+    assert.equal(status.enabled, false);
+    const sync = await app.post('/api/mail/labels/sync', {});
+    assert.equal(sync.status, 409);
+    assert.equal((await sync.json()).code, 'LABELS_DISABLED');
+
+    const bad = await app.fetch('/api/mail?from=ayer');
+    assert.equal(bad.status, 400);
+  });
+});
+
+describe('settings API', () => {
+  it('saves valid settings to data/settings.json, rejects invalid ones and keeps secrets out', async () => {
+    const app = await startApp({ env: { DATA_DIR: join(exportDir, 'settings-data') } });
+    const initial = await (await app.fetch('/api/settings')).json();
+    assert.equal(initial.values.labelPrefix, '');
+    assert.equal(initial.values.printedLabel, 'Impreso');
+    assert.equal(initial.demoMode, true);
+
+    const saved = await app.put('/api/settings', { values: { labelsEnabled: true, labelPrefix: 'Retiro', printedLabel: 'Hecho', requestsPerSecond: 4, concurrency: 2 } });
+    assert.equal(saved.status, 200);
+    const body = await saved.json();
+    assert.equal(body.values.labelPrefix, 'Retiro');
+    assert.equal(body.values.requestsPerSecond, 4);
+    assert.equal(body.reloaded, false); // demo mode keeps its in-memory data
+    // Demo mode applies nothing live, so every changed field waits for a restart.
+    assert.deepEqual([...body.restartPending].sort(), ['concurrency', 'labelPrefix', 'labelsEnabled', 'printedLabel', 'requestsPerSecond']);
+    assert.equal(body.canRestart, false); // not started through start.cmd
+    assert.deepEqual(
+      { prefix: body.defaults.labelPrefix, printed: body.defaults.printedLabel, rps: body.defaults.requestsPerSecond, conc: body.defaults.concurrency, interval: body.defaults.syncIntervalMinutes, labels: body.defaults.labelsEnabled },
+      { prefix: '', printed: 'Impreso', rps: 10, conc: 5, interval: 0, labels: false },
+    );
+    const refused = await app.post('/api/restart', {});
+    assert.equal(refused.status, 409);
+    assert.equal((await refused.json()).code, 'RESTART_UNAVAILABLE');
+
+    const file = JSON.parse(await readFile(join(exportDir, 'settings-data', 'settings.json'), 'utf8'));
+    assert.equal(file.values.GMAIL_PRINTED_LABEL, 'Hecho');
+    assert.equal(JSON.stringify(file).includes('ACCESS_TOKEN'), false);
+
+    // An empty prefix is valid (no prefix); a bad number is refused and nothing changes.
+    assert.equal((await app.put('/api/settings', { values: { labelPrefix: '' } })).status, 200);
+    const bad = await app.put('/api/settings', { values: { concurrency: 999 } });
+    assert.equal(bad.status, 400);
+    assert.equal((await (await app.fetch('/api/settings')).json()).values.concurrency, 2);
+    assert.equal((await app.put('/api/settings', { values: { labelsEnabled: 'yes' } })).status, 400);
+  });
+});
 
 describe('web security', () => {
   it('sends strict security headers (CSP without inline code, nosniff, no framing)', async () => {

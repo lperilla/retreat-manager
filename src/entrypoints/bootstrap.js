@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 
 import { loadConfig } from '../composition/config.js';
+import { readSettingsEnv, settingsPath } from '../infrastructure/settings/settingsFile.js';
 
 /** Absolute path of the repository root (two levels above this file). */
 export const PROJECT_ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -24,5 +25,8 @@ export const PROJECT_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 export function loadEnvironment({ env = process.env, rootDir = PROJECT_ROOT } = {}) {
   const envFile = env.RETREAT_ENV_FILE || join(rootDir, '.env');
   dotenv.config({ path: envFile, quiet: true, processEnv: /** @type {Record<string, string>} */ (env) });
-  return loadConfig(env, { rootDir });
+  // Settings saved from the dashboard (data/settings.json) override the same variables of .env.
+  const base = loadConfig(env, { rootDir });
+  const saved = readSettingsEnv(settingsPath(base.dataDir));
+  return Object.keys(saved).length > 0 ? loadConfig({ ...env, ...saved }, { rootDir }) : base;
 }

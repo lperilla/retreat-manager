@@ -10,12 +10,13 @@ import { loadHistory } from './historyView.js';
 import { loadParticipant } from './participantView.js';
 import { loadParticipants } from './participantsView.js';
 import { loadReview } from './reviewView.js';
+import { initSettings, loadSettings } from './settingsView.js';
 import { ASSIGNMENT_STATUS_LABELS } from './labels.js';
 import { initSyncWidget, refreshSyncStatus } from './syncWidget.js';
 import { on, state } from './state.js';
 import { confirmDialog, showSummary, toast, toastError } from './ui.js';
 
-const VIEWS = ['dashboard', 'participant', 'people', 'review', 'history'];
+const VIEWS = ['dashboard', 'participant', 'people', 'review', 'history', 'settings'];
 
 /** @returns {{ view: string, param: string | null, mode?: 'list' | 'detail' | 'new' | 'edit' | 'rooms' | 'tables' }} */
 function parseRoute() {
@@ -31,6 +32,7 @@ function parseRoute() {
   }
   if (first === 'revisar') return { view: 'review', param: null };
   if (first === 'historial') return { view: 'history', param: null };
+  if (first === 'configuracion') return { view: 'settings', param: null };
   return { view: 'dashboard', param: null };
 }
 
@@ -40,7 +42,7 @@ function parseRoute() {
 function showView(view) {
   for (const name of VIEWS) $(`#view-${name}`).hidden = name !== view;
   // Top menu = modules (Cartas, Participantes); each module shows its options as tabs.
-  const module = view === 'people' ? 'people' : 'letters';
+  const module = view === 'people' ? 'people' : view === 'settings' ? 'settings' : 'letters';
   for (const link of document.querySelectorAll('[data-nav]')) {
     const active = /** @type {HTMLElement} */ (link).dataset.nav === module;
     link.classList.toggle('active', active);
@@ -81,7 +83,7 @@ async function route({ focus = true } = {}) {
       replaceChildren($('#directory-body'), h('tr', {}, h('td', { colspan: '5' }, skeleton(5))));
     }
   }
-  const titles = { dashboard: 'Cartas · Gestión del retiro', review: 'Por revisar · Gestión del retiro', history: 'Historial · Gestión del retiro' };
+  const titles = { dashboard: 'Cartas · Gestión del retiro', review: 'Por revisar · Gestión del retiro', history: 'Historial · Gestión del retiro', settings: 'Configuración · Gestión del retiro' };
   if (view !== 'participant' && view !== 'people') document.title = titles[/** @type {keyof typeof titles} */ (view)];
   try {
     if (view === 'dashboard') await loadDashboard();
@@ -89,6 +91,7 @@ async function route({ focus = true } = {}) {
     else if (view === 'people') await loadParticipants({ mode: mode ?? 'list', id: param });
     else if (view === 'review') await loadReview();
     else if (view === 'history') await loadHistory();
+    else if (view === 'settings') await loadSettings();
   } catch (error) {
     if (token === routeToken) toastError(error);
   }
@@ -209,6 +212,7 @@ async function boot() {
   initSyncWidget();
   initAssignModal();
   initDashboard();
+  initSettings();
   $('#recompute').addEventListener('click', (event) => void recompute(/** @type {HTMLButtonElement} */ (event.currentTarget)));
   window.addEventListener('hashchange', () => void route());
   on('data-changed', () => void route({ focus: false }));

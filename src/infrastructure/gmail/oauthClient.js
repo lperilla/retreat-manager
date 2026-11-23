@@ -4,8 +4,23 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { AppError } from '../../domain/errors.js';
 import { OAuth2 } from './googleClient.js';
 
-/** The ONLY scope requested: read-only access to Gmail. */
+/** Default scope: read-only access to Gmail. */
 export const GMAIL_SCOPES = Object.freeze(['https://www.googleapis.com/auth/gmail.readonly']);
+
+/**
+ * Scope requested only when label synchronization is enabled (GMAIL_LABELS_ENABLED): the
+ * minimum that lets the app read mail AND change labels on messages. It cannot send or
+ * permanently delete mail.
+ */
+export const GMAIL_LABEL_SCOPES = Object.freeze(['https://www.googleapis.com/auth/gmail.modify']);
+
+/**
+ * @param {{ labels?: boolean }} [options]
+ * @returns {readonly string[]}
+ */
+export function gmailScopesFor({ labels = false } = {}) {
+  return labels ? GMAIL_LABEL_SCOPES : GMAIL_SCOPES;
+}
 
 /**
  * @typedef {Object} ClientSecrets
@@ -84,9 +99,10 @@ export async function writeTokenFile(tokenPath, tokens) {
  *   credentialsPath: string,
  *   tokenPath: string,
  *   logger: import('../../application/ports/LoggerPort.js').LoggerPort,
+ *   labels?: boolean,
  * }} options
  */
-export async function loadAuthorizedClient({ credentialsPath, tokenPath, logger }) {
+export async function loadAuthorizedClient({ credentialsPath, tokenPath, logger, labels = false }) {
   const secrets = await readClientSecrets(credentialsPath);
   let tokens;
   try {
@@ -101,9 +117,13 @@ export async function loadAuthorizedClient({ credentialsPath, tokenPath, logger 
     throw notConfigured('token.json has no tokens; run "npm run auth" again', { file: tokenPath });
   }
   const scopes = String(tokens.scope ?? GMAIL_SCOPES[0]).split(/\s+/).filter(Boolean);
-  const unexpected = scopes.filter((scope) => !GMAIL_SCOPES.includes(scope));
+  const allowed = gmailScopesFor({ labels });
+  const unexpected = scopes.filter((scope) => !allowed.includes(scope));
   if (unexpected.length > 0) {
-    logger.warn({ unexpected }, 'token.json grants more scopes than gmail.readonly; re-run "npm run auth" to reduce them');
+    logger.warn({ unexpected }, `token.json grants more scopes than ${allowed[0].split('/').pop()}; re-run "npm run auth" to reduce them`);
+  }
+  if (labels && !scopes.includes(GMAIL_LABEL_SCOPES[0])) {
+    logger.warn('Gmail labels are enabled but token.json lacks the gmail.modify scope; run "npm run auth" again to grant it');
   }
 
   const client = new OAuth2(secrets.clientId, secrets.clientSecret);

@@ -32,6 +32,7 @@
               <span class="badge text-bg-warning ms-1" id="nav-review-count" title="Cartas por revisar">0</span></a>
           </li>
           <li class="nav-item"><a class="nav-link" href="#/participantes" data-nav="people">Participantes</a></li>
+          <li class="nav-item"><a class="nav-link" href="#/configuracion" data-nav="settings">Configuración</a></li>
         </ul>
 
         <div class="sync-widget d-flex flex-wrap align-items-center gap-2" id="sync-widget">
@@ -260,6 +261,89 @@
         </div>
         <p class="text-center text-body-secondary py-4 mb-0" id="history-empty" hidden>Todavía no hay sincronizaciones.</p>
       </div>
+    </section>
+
+    <!-- Settings -->
+    <section id="view-settings" class="app-view" hidden aria-labelledby="settings-title">
+      <h1 class="h3 mb-3" id="settings-title">Configuración</h1>
+      <form id="settings-form" class="card" novalidate>
+        <div class="card-body">
+          <div class="alert alert-warning" id="settings-demo" role="status" hidden>
+            Estás en modo demostración: los cambios se guardan, pero se aplicarán al salir de este modo o al reiniciar la aplicación.
+          </div>
+
+          <div class="alert alert-info d-flex flex-wrap align-items-center gap-2" id="settings-restart" role="status" hidden>
+            <span id="settings-restart-text"></span>
+            <button type="button" class="btn btn-sm btn-primary ms-auto" id="settings-restart-btn">Reiniciar ahora</button>
+          </div>
+
+          <h2 class="h5">Etiquetas de Gmail</h2>
+          <p class="text-body-secondary small">La aplicación puede crear una etiqueta por participante y una etiqueta «Impreso» en los correos del buzón.</p>
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" id="set-labelsEnabled">
+            <label class="form-check-label" for="set-labelsEnabled">Activar etiquetas de Gmail</label>
+            <div class="form-text">Necesita el permiso de modificar etiquetas: tras activarlo, ejecuta <code>npm run auth</code> una vez.</div>
+          </div>
+          <div class="alert alert-warning" id="settings-scope" role="alert" hidden>
+            El acceso actual a Gmail es solo de lectura. Ejecuta <code>npm run auth</code> en el ordenador del servidor para conceder el permiso de etiquetas.
+          </div>
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label class="form-label" for="set-labelPrefix">Prefijo de las etiquetas de participante (opcional)</label>
+              <input type="text" class="form-control" id="set-labelPrefix" maxlength="100" autocomplete="off" placeholder="Sin prefijo">
+              <div class="form-text" id="set-labelPrefix-example"></div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="set-printedLabel">Etiqueta de cartas impresas</label>
+              <input type="text" class="form-control" id="set-printedLabel" maxlength="100" autocomplete="off">
+            </div>
+          </div>
+
+          <h2 class="h5">Qué correos se leen</h2>
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label class="form-label" for="set-query">Búsqueda de Gmail</label>
+              <input type="text" class="form-control" id="set-query" maxlength="500" autocomplete="off" placeholder="Ej.: to:cartas@ejemplo.com">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="set-startDate">Leer desde el día</label>
+              <input type="date" class="form-control" id="set-startDate">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="set-labelId">Id de etiqueta de Gmail</label>
+              <input type="text" class="form-control" id="set-labelId" maxlength="200" autocomplete="off" placeholder="Label_123">
+            </div>
+            <div class="col-12 form-text mt-0">Si cambias alguno de estos tres campos, la siguiente sincronización vuelve a leer todo el buzón.</div>
+          </div>
+
+          <h2 class="h5">Ritmo y sincronización</h2>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label" for="set-requestsPerSecond">Descargas por segundo (máximo)</label>
+              <input type="number" class="form-control" id="set-requestsPerSecond" min="0" max="100" step="1">
+              <div class="form-text">Bájalo si Gmail responde «Quota exceeded». 0 = sin límite.</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="set-concurrency">Descargas simultáneas</label>
+              <input type="number" class="form-control" id="set-concurrency" min="1" max="20" step="1">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="set-syncIntervalMinutes">Buscar cartas nuevas cada (minutos)</label>
+              <input type="number" class="form-control" id="set-syncIntervalMinutes" min="0" max="1440" step="1">
+              <div class="form-text">0 = solo a mano. Este cambio se aplica al reiniciar la aplicación.</div>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer d-flex flex-wrap align-items-center gap-2">
+          <button type="submit" class="btn btn-primary" id="settings-save">Guardar</button>
+          <button type="button" class="btn btn-outline-secondary" id="settings-reset">Descartar cambios</button>
+          <button type="button" class="btn btn-outline-secondary" id="settings-defaults" title="Rellena el formulario con los valores por defecto; no se guarda hasta pulsar Guardar">Valores por defecto</button>
+          <span class="text-body-secondary small" id="settings-status" role="status"></span>
+        </div>
+      </form>
+      <p class="small text-body-secondary mt-3">
+        El código de acceso, la base de datos y las credenciales de Google no se cambian desde aquí: se configuran en el archivo <code>.env</code> del servidor.
+      </p>
     </section>
   </main>
 

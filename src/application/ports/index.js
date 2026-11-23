@@ -9,5 +9,8 @@ export { ExportRendererPort } from './ExportRendererPort.js';
 export { ExportStoragePort } from './ExportStoragePort.js';
 export { AttachmentProcessorPort } from './AttachmentProcessorPort.js';
 export { AttachmentSourcePort } from './AttachmentSourcePort.js';
+export { MailLabelPort } from './MailLabelPort.js';
+export { LabelStateRepositoryPort } from './LabelStateRepositoryPort.js';
+export { AuditLogRepositoryPort } from './AuditLogRepositoryPort.js';
 export { LoggerPort } from './LoggerPort.js';
 export { ClockPort } from './ClockPort.js';

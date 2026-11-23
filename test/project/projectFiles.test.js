@@ -28,7 +28,7 @@ describe('.env.example', () => {
   it('documents every variable read by the configuration and by docker-compose.yml', async () => {
     const example = parseEnvFile(await read('.env.example'));
     const config = await read('src/composition/config.js');
-    const fromConfig = [...config.matchAll(/(?:text|bool|number)\(env, '([A-Z0-9_]+)'|path\('([A-Z0-9_]+)'/g)].map((m) => m[1] ?? m[2]);
+    const fromConfig = [...config.matchAll(/(?:text|optionalText|bool|number)\(env, '([A-Z0-9_]+)'|path\('([A-Z0-9_]+)'/g)].map((m) => m[1] ?? m[2]);
     const compose = await read('docker-compose.yml');
     const fromCompose = [...compose.matchAll(/\$\{([A-Z0-9_]+)/g)].map((m) => m[1]);
 

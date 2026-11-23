@@ -1,6 +1,8 @@
 import { join } from 'node:path';
 
 import { JsonAssignmentOverrideRepository } from './JsonAssignmentOverrideRepository.js';
+import { JsonAuditLogRepository } from './JsonAuditLogRepository.js';
+import { JsonLabelStateRepository } from './JsonLabelStateRepository.js';
 import { JsonLetterStoreRepository } from './JsonLetterStoreRepository.js';
 import { JsonPrintStatusRepository } from './JsonPrintStatusRepository.js';
 import { JsonSyncStateRepository } from './JsonSyncStateRepository.js';
@@ -24,6 +26,8 @@ import { JsonAssignmentRepository, JsonPlaceRepository } from '../../../modules/
  * @property {import('../../../modules/accommodation/application/ports.js').AssignmentRepositoryPort} tableAssignments
  * @property {import('../../../application/ports/PrintStatusRepositoryPort.js').PrintStatusRepositoryPort} printStatusRepository
  * @property {import('../../../application/ports/AssignmentOverrideRepositoryPort.js').AssignmentOverrideRepositoryPort} overrideRepository
+ * @property {import('../../../application/ports/LabelStateRepositoryPort.js').LabelStateRepositoryPort} labelStateRepository
+ * @property {import('../../../application/ports/AuditLogRepositoryPort.js').AuditLogRepositoryPort} auditLogRepository
  * @property {() => Promise<void>} close
  */
 
@@ -61,6 +65,8 @@ export function createJsonPersistence({ directory, clock, runsTtlDays = 90 }) {
     tableAssignments: new JsonAssignmentRepository({ filePath: file('table_assignments.json') }),
     printStatusRepository: new JsonPrintStatusRepository({ filePath: file('print_status.json') }),
     overrideRepository: new JsonAssignmentOverrideRepository({ filePath: file('assignment_overrides.json') }),
+    labelStateRepository: new JsonLabelStateRepository({ filePath: file('mail_label_states.json') }),
+    auditLogRepository: new JsonAuditLogRepository({ filePath: file('audit_log.json') }),
     async close() {},
   };
 }

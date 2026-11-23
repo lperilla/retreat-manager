@@ -51,6 +51,7 @@ export class SyncMailboxUseCase {
   #signatureOnlyMaxChars;
   #selectionKey;
   #activeRetreat;
+  #onSynced;
 
   /**
    * @param {{
@@ -69,6 +70,7 @@ export class SyncMailboxUseCase {
    *   signatureOnlyMaxChars?: number,
    *   selectionKey?: string | null,
    *   activeRetreat?: (() => Promise<{ id: string, mailFrom: Date | null } | null>) | null,
+   *   onSynced?: ((result: import('../../domain/entities/SyncResult.js').SyncResult) => Promise<void>) | null,
    * }} deps
    */
   constructor({
@@ -87,7 +89,9 @@ export class SyncMailboxUseCase {
     signatureOnlyMaxChars,
     selectionKey = null,
     activeRetreat = null,
+    onSynced = null,
   }) {
+    this.#onSynced = onSynced;
     this.#mailSource = mailSource;
     this.#letters = letterStore;
     this.#syncState = syncStateRepository;
@@ -290,6 +294,14 @@ export class SyncMailboxUseCase {
         { mode, added: result.added, updated: result.updated, deleted: result.deleted, durationMs: result.durationMs },
         'Mailbox sync finished',
       );
+      // Follow-up work (Gmail labels) never turns a finished sync into a failed one.
+      if (this.#onSynced) {
+        try {
+          await this.#onSynced(result);
+        } catch (error) {
+          logger.warn({ err: describeError(error) }, 'Post-sync step failed');
+        }
+      }
       return result;
     } catch (error) {
       const message = describeError(error);

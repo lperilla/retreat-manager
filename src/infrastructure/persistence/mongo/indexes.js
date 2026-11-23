@@ -23,6 +23,8 @@ export function indexSpecs({ runsTtlDays }) {
     { collection: COLLECTIONS.LETTERS, key: { seenByStaff: 1 }, name: 'seen_by_staff' },
     { collection: COLLECTIONS.LETTERS, key: { receivedAt: 1 }, name: 'received_at' },
     { collection: COLLECTIONS.LETTERS, key: { retreatId: 1 }, name: 'retreat' },
+    { collection: COLLECTIONS.AUDIT_LOG, key: { messageId: 1, at: -1 }, name: 'message_at' },
+    { collection: COLLECTIONS.AUDIT_LOG, key: { at: -1 }, name: 'at' },
     { collection: COLLECTIONS.PARTICIPANTS, key: { retreatId: 1, status: 1 }, name: 'retreat_status' },
     { collection: COLLECTIONS.RETREATS, key: { status: 1, createdAt: 1 }, name: 'status_created_at' },
     { collection: COLLECTIONS.ROOMS, key: { retreatId: 1 }, name: 'retreat' },

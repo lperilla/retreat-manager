@@ -1,9 +1,19 @@
-import { stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { basename } from 'node:path';
 
 import express from 'express';
 
+import { normalizeActor } from '../../../application/services/MailChangeRecorder.js';
+import { loadConfig } from '../../../composition/config.js';
 import { AppError } from '../../../domain/errors.js';
+import {
+  SETTING_FIELDS,
+  readSettingsEnv,
+  settingsFromConfig,
+  settingsInputToEnv,
+  settingsPath,
+  writeSettingsEnv,
+} from '../../settings/settingsFile.js';
 
 /**
  * @param {unknown} value
@@ -26,6 +36,8 @@ function queryString(value) {
 export function createApiRouter({ runtime, limiters }) {
   const router = express.Router();
   const useCases = () => runtime.container.useCases;
+  // Who is making the change: header sent by the dashboard (there is one shared access token, no accounts).
+  const actorOf = (/** @type {import('express').Request} */ req) => normalizeActor(req.get('x-actor') ?? req.body?.actor);
 
   router.get('/app-info', (_req, res) => {
     res.json(runtime.info());
@@ -61,7 +73,7 @@ export function createApiRouter({ runtime, limiters }) {
   });
 
   router.post('/print-status', async (req, res) => {
-    res.json(await useCases().updatePrintStatus.execute({ participantIds: req.body?.participantIds, status: req.body?.status, messageIds: req.body?.messageIds }));
+    res.json(await useCases().updatePrintStatus.execute({ participantIds: req.body?.participantIds, status: req.body?.status, messageIds: req.body?.messageIds, actor: actorOf(req) }));
   });
 
   // Letters ---------------------------------------------------------------------
@@ -125,20 +137,132 @@ export function createApiRouter({ runtime, limiters }) {
       await useCases().reviewAssignment.assign({
         messageId: req.params.messageId,
         participantIds: req.body?.participantIds,
+        actor: actorOf(req),
       }),
     );
   });
 
   router.post('/review/:messageId/unassign', async (req, res) => {
-    res.json(await useCases().reviewAssignment.leaveUnassigned({ messageId: req.params.messageId }));
+    res.json(await useCases().reviewAssignment.leaveUnassigned({ messageId: req.params.messageId, actor: actorOf(req) }));
   });
 
   router.post('/review/:messageId/reset', async (req, res) => {
-    res.json(await useCases().reviewAssignment.resetToAutomatic({ messageId: req.params.messageId }));
+    res.json(await useCases().reviewAssignment.resetToAutomatic({ messageId: req.params.messageId, actor: actorOf(req) }));
   });
 
   router.post('/assignments/recompute', async (_req, res) => {
     res.json(await useCases().recomputeAssignments.execute());
+  });
+
+  // Settings (Configuración) -----------------------------------------------------
+  /** What the screen needs: effective values plus a warning when the Gmail token lacks the label permission. */
+  const settingsView = async () => {
+    const config = runtime.config;
+    let tokenHasLabelScope = null;
+    try {
+      const token = JSON.parse(await readFile(config.gmail.tokenPath, 'utf8'));
+      tokenHasLabelScope = String(token.scope ?? '').split(/\s+/).includes('https://www.googleapis.com/auth/gmail.modify');
+    } catch {
+      // No token yet (demo or not authorized): nothing to report.
+    }
+    const demoMode = Boolean(runtime.containerOrNull?.config.demoMode);
+    const values = settingsFromConfig(config);
+    const started = settingsFromConfig(runtime.startConfig);
+    // Changes that only take effect after a restart: always the automatic interval, and everything in demo mode.
+    const restartPending = SETTING_FIELDS.filter((field) => (field.restart || demoMode) && started[field.key] !== values[field.key]).map((field) => field.key);
+    return {
+      values,
+      defaults: settingsFromConfig(loadConfig({ TZ: config.timeZone }, { rootDir: config.projectRoot })),
+      restartRequired: SETTING_FIELDS.filter((field) => field.restart).map((field) => field.key),
+      restartPending,
+      canRestart: runtime.canRestart,
+      demoMode,
+      tokenHasLabelScope,
+    };
+  };
+
+  router.get('/settings', async (_req, res) => {
+    res.json(await settingsView());
+  });
+
+  router.post('/restart', limiters.sync, async (req, res) => {
+    if (!runtime.canRestart) throw new AppError('RESTART_UNAVAILABLE', 409);
+    runtime.logger.info({ actor: actorOf(req) }, 'Restart requested from the dashboard');
+    res.status(202).json({ restarting: true });
+    // Restart only after the answer has been sent.
+    res.on('finish', () => setTimeout(() => runtime.requestRestart(), 300));
+  });
+
+  router.put('/settings', async (req, res) => {
+    const file = settingsPath(runtime.config.dataDir);
+    const saved = { ...readSettingsEnv(file), ...settingsInputToEnv(req.body?.values ?? {}) };
+    // The same rules as the environment: an invalid value is rejected before anything is saved.
+    const current = runtime.config;
+    let validated;
+    try {
+      validated = loadConfig({ TZ: current.timeZone, ...saved }, { rootDir: current.projectRoot });
+    } catch (error) {
+      const details = /** @type {{ details?: { variable?: string, reason?: string } }} */ (error)?.details;
+      throw new AppError('VALIDATION_ERROR', 400, `Configuración no válida${details?.variable ? ` (${details.variable}: ${details.reason})` : ''}.`);
+    }
+    // Only the editable fields change; everything else (paths, database, access code) stays as started.
+    const next = Object.freeze({
+      ...current,
+      gmail: Object.freeze({
+        ...current.gmail,
+        query: validated.gmail.query,
+        labelId: validated.gmail.labelId,
+        startDate: validated.gmail.startDate,
+        startAt: validated.gmail.startAt,
+        concurrency: validated.gmail.concurrency,
+        requestsPerSecond: validated.gmail.requestsPerSecond,
+        labels: validated.gmail.labels,
+      }),
+      sync: Object.freeze({ ...current.sync, intervalMinutes: validated.sync.intervalMinutes }),
+    });
+    const { reloaded } = await runtime.reload(next);
+    await writeSettingsEnv(file, saved);
+    runtime.logger.info({ actor: actorOf(req), reloaded }, 'Settings saved from the dashboard');
+    res.json({ ...(await settingsView()), reloaded });
+  });
+
+  // Mailbox: letters with labels, print state and Gmail trace --------------------
+  router.get('/mail', async (req, res) => {
+    res.json(
+      await useCases().listMail.execute({
+        participantId: queryString(req.query.participantId),
+        label: queryString(req.query.label),
+        sender: queryString(req.query.sender),
+        from: queryString(req.query.from),
+        to: queryString(req.query.to),
+        printed: queryString(req.query.printed),
+        hasAttachments: queryString(req.query.hasAttachments),
+        limit: queryString(req.query.limit),
+        offset: queryString(req.query.offset),
+      }),
+    );
+  });
+
+  router.post('/mail/:messageId/printed', async (req, res) => {
+    res.json(await useCases().updatePrintStatus.setLetterPrinted({ messageId: req.params.messageId, printed: req.body?.printed, actor: actorOf(req) }));
+  });
+
+  router.get('/mail/audit', async (req, res) => {
+    const entries = await runtime.container.repositories.auditLogRepository.find({
+      messageId: queryString(req.query.messageId) ?? null,
+      actor: queryString(req.query.actor) ?? null,
+      limit: Number.parseInt(queryString(req.query.limit) ?? '100', 10) || 100,
+    });
+    res.json({ entries: entries.map((e) => ({ ...e, at: e.at.toISOString() })) });
+  });
+
+  router.get('/mail/labels/status', async (_req, res) => {
+    res.json(await useCases().syncMailLabels.status());
+  });
+
+  router.post('/mail/labels/sync', limiters.sync, async (req, res) => {
+    const messageIds = Array.isArray(req.body?.messageIds) ? req.body.messageIds.filter((id) => typeof id === 'string') : null;
+    res.json(await useCases().syncMailLabels.execute({ actor: actorOf(req), messageIds, force: req.body?.force === true }));
   });
 
   // Synchronization ---------------------------------------------------------------
@@ -170,6 +294,7 @@ export function createApiRouter({ runtime, limiters }) {
       includeAttachments: req.body?.includeAttachments !== false,
       originalFormat: req.body?.originalFormat !== false,
       afterDate: req.body?.afterDate ?? null,
+      actor: actorOf(req),
     });
     res.status(201).json({
       filename: result.filename,

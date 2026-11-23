@@ -8,6 +8,9 @@ import { randomUUID } from 'node:crypto';
 
 import {
   AssignmentOverrideRepositoryPort,
+  AuditLogRepositoryPort,
+  LabelStateRepositoryPort,
+  MailLabelPort,
   AttachmentProcessorPort,
   AttachmentSourcePort,
   ClockPort,
@@ -27,14 +30,17 @@ import {
   GetNewLettersUseCase,
   GetSyncStatusUseCase,
   GroupParticipantLettersUseCase,
+  ListMailUseCase,
   MarkLettersSeenUseCase,
   PreparePrintViewUseCase,
   RecomputeAssignmentsUseCase,
   ReviewAssignmentUseCase,
   SearchRawLettersUseCase,
+  SyncMailLabelsUseCase,
   SyncMailboxUseCase,
   UpdatePrintStatusUseCase,
 } from '../application/use-cases/index.js';
+import { MailChangeRecorder } from '../application/services/MailChangeRecorder.js';
 import { AppError } from '../domain/errors.js';
 import { ContentAssignmentStrategy } from '../domain/services/assignment.js';
 import { AttachmentProcessor } from '../infrastructure/attachments/AttachmentProcessor.js';
@@ -148,6 +154,8 @@ export function registerMailSourceFactory(kind, factory) {
  * @property {import('../application/ports/ClockPort.js').ClockPort} [clock]
  * @property {() => string} [idGenerator]
  * @property {import('../application/ports/MailSourcePort.js').MailSourcePort} [mailSource]
+ * @property {import('../application/ports/MailLabelPort.js').MailLabelPort | null} [labelPort]
+ *           Gmail label adapter; only used when GMAIL_LABELS_ENABLED=true. Omitted = taken from the mail source.
  * @property {PersistenceAdapters} [persistence]
  * @property {import('../domain/entities/Participant.js').Participant[]} [participants]  Seeded at startup.
  * @property {import('../application/ports/ExportRendererPort.js').ExportRendererPort[]} [renderers]
@@ -210,6 +218,8 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
   const participantRepository = ParticipantRepositoryPort.assert(persistence.participantRepository);
   const printStatusRepository = PrintStatusRepositoryPort.assert(persistence.printStatusRepository);
   const overrideRepository = AssignmentOverrideRepositoryPort.assert(persistence.overrideRepository);
+  const labelStateRepository = LabelStateRepositoryPort.assert(persistence.labelStateRepository);
+  const auditLogRepository = AuditLogRepositoryPort.assert(persistence.auditLogRepository);
   const participantRecords = ParticipantRecordRepositoryPort.assert(persistence.participantRecords);
   const retreats = RetreatRepositoryPort.assert(persistence.retreats);
   const rooms = PlaceRepositoryPort.assert(persistence.rooms);
@@ -261,6 +271,27 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
     logger,
   });
 
+  // Gmail labels (opt-in: they need a broader OAuth scope than reading).
+  const labelPortCandidate = config.gmail.labels.enabled ? (overrides.labelPort ?? /** @type {any} */ (mailSource).labelPort ?? null) : null;
+  const labelPort = labelPortCandidate ? MailLabelPort.assert(labelPortCandidate) : null;
+  if (config.gmail.labels.enabled && !labelPort) {
+    logger.warn('GMAIL_LABELS_ENABLED is set but the mail source cannot change labels (demo mode?); label sync is off');
+  }
+  const syncMailLabels = new SyncMailLabelsUseCase({
+    letterStore,
+    participantRepository,
+    printStatusRepository,
+    labelStateRepository,
+    labelPort,
+    auditLog: auditLogRepository,
+    clock,
+    idGenerator,
+    logger,
+    prefix: config.gmail.labels.participantPrefix,
+    printedLabel: config.gmail.labels.printedLabel,
+  });
+  const changes = new MailChangeRecorder({ auditLog: auditLogRepository, labelSync: syncMailLabels, clock, idGenerator, logger });
+
   const preparePrintView = new PreparePrintViewUseCase({
     participantRepository,
     letterStore,
@@ -293,8 +324,9 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
       clock,
       logger,
       timeZone: config.timeZone,
+      changes,
     }),
-    updatePrintStatus: new UpdatePrintStatusUseCase({ participantRepository, letterStore, printStatusRepository, clock }),
+    updatePrintStatus: new UpdatePrintStatusUseCase({ participantRepository, letterStore, printStatusRepository, clock, changes }),
     searchRawLetters: new SearchRawLettersUseCase({ letterStore, participantRepository }),
     reviewAssignment: new ReviewAssignmentUseCase({
       letterStore,
@@ -302,6 +334,17 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
       participantRepository,
       assignmentStrategy,
       clock,
+      changes,
+    }),
+    syncMailLabels,
+    listMail: new ListMailUseCase({
+      letterStore,
+      participantRepository,
+      printStatusRepository,
+      labelStateRepository,
+      prefix: config.gmail.labels.participantPrefix,
+      printedLabel: config.gmail.labels.printedLabel,
+      timeZone: config.timeZone,
     }),
     syncMailbox: new SyncMailboxUseCase({
       mailSource,
@@ -318,6 +361,8 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
       lockTtlSeconds: config.sync.lockTtlSeconds,
       selectionKey: mailSelectionKey(config),
       activeRetreat,
+      // After each sync, new and re-assigned letters get their Gmail labels (only the differences).
+      onSynced: syncMailLabels.enabled ? () => syncMailLabels.execute({ actor: 'sync' }).then(() => undefined) : null,
     }),
     getSyncStatus: new GetSyncStatusUseCase({
       syncStateRepository,
@@ -392,6 +437,8 @@ export async function createContainer({ config = loadConfig(), role = 'cli', ove
       tableAssignments,
       printStatusRepository,
       overrideRepository,
+      labelStateRepository,
+      auditLogRepository,
     }),
     useCases,
     async close() {

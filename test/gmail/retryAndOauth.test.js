@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
 import { NullLogger } from '../../src/infrastructure/logging/NullLogger.js';
-import { GMAIL_SCOPES, loadAuthorizedClient, readClientSecrets } from '../../src/infrastructure/gmail/oauthClient.js';
+import { GMAIL_SCOPES, gmailScopesFor, loadAuthorizedClient, readClientSecrets } from '../../src/infrastructure/gmail/oauthClient.js';
 import { runLoopbackAuthorization } from '../../src/infrastructure/gmail/oauthFlow.js';
 import { createLimiter, isRetryable, withRetry } from '../../src/infrastructure/gmail/retry.js';
 import { httpError } from '../helpers/gmailFakes.js';
@@ -76,6 +76,11 @@ describe('OAuth client', () => {
 
   it('requests only the gmail.readonly scope', () => {
     assert.deepEqual([...GMAIL_SCOPES], ['https://www.googleapis.com/auth/gmail.readonly']);
+  });
+
+  it('asks for gmail.modify only when labels are enabled', () => {
+    assert.deepEqual([...gmailScopesFor()], [...GMAIL_SCOPES]);
+    assert.deepEqual([...gmailScopesFor({ labels: true })], ['https://www.googleapis.com/auth/gmail.modify']);
   });
 
   it('reports MAIL_SOURCE_NOT_CONFIGURED for missing or invalid credentials and tokens', async () => {
