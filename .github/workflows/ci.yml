@@ -1,0 +1,45 @@
+name: CI
+
+# Validates every pull request (and main): installs from the lockfile, runs the tests and
+# checks that the desktop app still packages.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+
+  package:
+    name: Package desktop app
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      # Unpacked build only (no installers): catches broken packaging config or missing files.
+      - run: npx electron-builder --linux dir --x64
+      - name: Check the asar is present
+        run: test -f dist/linux-unpacked/resources/app.asar
