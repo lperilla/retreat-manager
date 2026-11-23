@@ -270,7 +270,7 @@ Con cuentas @gmail.com en modo de prueba, el permiso caduca cada 7 días ([paso 
 
 ### «Quota exceeded» al buscar cartas
 
-Gmail limita las descargas por minuto. Espera un par de minutos y vuelve a buscar. Si pasa a menudo, en **Configuración → Descargas por segundo** pon `5`.
+Gmail limita las descargas por minuto. Espera un par de minutos y vuelve a buscar. Si pasa a menudo, en **Configuración → Descargas por segundo** pon `3` (el valor por defecto es `5`).
 
 ### «El permiso concedido no permite modificar etiquetas»
 

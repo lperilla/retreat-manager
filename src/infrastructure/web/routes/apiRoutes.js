@@ -279,6 +279,10 @@ export function createApiRouter({ runtime, limiters }) {
     res.json(await useCases().syncMailLabels.execute({ actor: actorOf(req), messageIds, force: req.body?.force === true }));
   });
 
+  router.post('/mail/labels/reset', limiters.sync, async (req, res) => {
+    res.json(await useCases().syncMailLabels.reset({ actor: actorOf(req) }));
+  });
+
   // Synchronization ---------------------------------------------------------------
   router.post('/sync', limiters.sync, async (req, res) => {
     const started = await useCases().syncMailbox.start({ mode: req.body?.mode ?? 'incremental' });

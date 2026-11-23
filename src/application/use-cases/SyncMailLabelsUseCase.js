@@ -79,7 +79,7 @@ export class SyncMailLabelsUseCase {
 
   /**
    * Serialized: concurrent calls wait for the running one (no duplicated Gmail calls).
-   * @param {{ actor?: unknown, messageIds?: string[] | null, force?: boolean }} [input]
+   * @param {{ actor?: unknown, messageIds?: string[] | null, force?: boolean, reset?: boolean }} [input]
    */
   async execute(input = {}) {
     while (this.#running) await this.#running.catch(() => {});
@@ -93,12 +93,51 @@ export class SyncMailLabelsUseCase {
   }
 
   /**
-   * @param {{ actor?: unknown, messageIds?: string[] | null, force?: boolean }} input
+   * Initializes the labels: deletes in Gmail every label managed by the app (the parent
+   * label and its children, the printed label and any label recorded in the local state),
+   * forgets the local state and applies everything again from the local database.
+   * Use it when Gmail and the app disagree (e.g. a fresh install over an old mailbox).
+   * @param {{ actor?: unknown }} [input]
    */
-  async #run({ actor, messageIds = null, force = false }) {
+  async reset(input = {}) {
+    return this.execute({ ...input, reset: true, force: true });
+  }
+
+  /** Names of the labels this app manages in Gmail (for the reset). */
+  async #managedNames(labelPort, states) {
+    const names = new Set([this.#printedLabel]);
+    if (this.#prefix) names.add(this.#prefix);
+    for (const state of states) {
+      state.labels.forEach((name) => names.add(name));
+      if (state.printedLabel) names.add(state.printedLabel);
+    }
+    if (typeof labelPort.listLabelNames === 'function') {
+      const prefix = this.#prefix.toLowerCase();
+      for (const name of await labelPort.listLabelNames()) {
+        const lower = name.toLowerCase();
+        if (prefix && (lower === prefix || lower.startsWith(`${prefix}/`))) names.add(name);
+      }
+    }
+    // Children before parents.
+    return [...names].sort((a, b) => b.length - a.length);
+  }
+
+  /**
+   * @param {{ actor?: unknown, messageIds?: string[] | null, force?: boolean, reset?: boolean }} input
+   */
+  async #run({ actor, messageIds = null, force = false, reset = false }) {
     if (!this.#labels) throw new AppError('LABELS_DISABLED', 409);
     const labelPort = this.#labels;
     const who = normalizeActor(actor, 'sync');
+
+    if (reset) {
+      const names = await this.#managedNames(labelPort, await this.#states.findAll());
+      if (typeof labelPort.deleteLabels === 'function') {
+        const deleted = await labelPort.deleteLabels(names);
+        this.#logger.info({ deleted: deleted.length }, 'Gmail labels removed before re-applying them');
+      }
+      await this.#states.deleteAll();
+    }
     const only = messageIds ? new Set(messageIds) : null;
 
     const [allLetters, participants, printStatuses, states] = await Promise.all([

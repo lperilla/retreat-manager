@@ -287,6 +287,10 @@
           <div class="alert alert-warning" id="settings-scope" role="alert" hidden>
             El acceso actual a Gmail es solo de lectura. Ejecuta <code>npm run auth</code> en el ordenador del servidor para conceder el permiso de etiquetas.
           </div>
+          <div class="mb-3">
+            <button type="button" class="btn btn-sm btn-outline-danger" id="settings-labels-reset">Inicializar etiquetas</button>
+            <div class="form-text">Borra en Gmail las etiquetas de la aplicación y las vuelve a crear y aplicar desde los datos locales. Úsalo si no coinciden con Gmail.</div>
+          </div>
           <div class="row g-3 mb-4">
             <div class="col-md-6">
               <label class="form-label" for="set-labelPrefix">Etiqueta padre de los participantes (opcional)</label>

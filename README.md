@@ -617,7 +617,7 @@ Todas están en `.env.example`, comentadas.
 | `GOOGLE_CREDENTIALS_PATH` | `./credentials.json` | Cliente OAuth (Aplicación de escritorio). |
 | `GOOGLE_TOKEN_PATH` | `./token.json` | Token que escribe `npm run auth`. |
 | `GMAIL_CONCURRENCY` | `5` | Descargas simultáneas. |
-| `GMAIL_MAX_REQUESTS_PER_SECOND` | `10` | Ritmo máximo de descargas (0 = sin límite). Bájalo si Gmail responde «Quota exceeded». |
+| `GMAIL_MAX_REQUESTS_PER_SECOND` | `5` | Ritmo máximo de descargas (0 = sin límite). Bájalo si Gmail responde «Quota exceeded». |
 | `GMAIL_LABELS_ENABLED` | `false` | Activa las etiquetas de Gmail (pide el permiso `gmail.modify`). |
 | `GMAIL_LABEL_PREFIX` | vacío | Prefijo opcional de las etiquetas de participante (`Prefijo/Nombre`). Vacío = solo el nombre. |
 | `GMAIL_PRINTED_LABEL` | `Impreso` | Etiqueta que se añade a las cartas impresas. |

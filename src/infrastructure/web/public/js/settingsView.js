@@ -39,7 +39,7 @@ const HELP = {
   labelId:
     'Qué es: el identificador interno de una etiqueta que ya existe en Gmail (algo como Label_1234567890). Qué hace: si lo pones, solo se leen los correos que tengan esa etiqueta, y la búsqueda de arriba se ignora. Para qué sirve: leer solo una carpeta concreta del buzón. Vacío = no se usa.',
   requestsPerSecond:
-    'Qué es: el número máximo de correos que se descargan de Gmail por segundo. Qué hace: reparte las descargas para no superar el límite por minuto de Gmail. Para qué sirve: evitar el error «Quota exceeded» en sincronizaciones grandes. Si aparece, bájalo (por ejemplo a 5). 0 = sin límite.',
+    'Qué es: el número máximo de correos que se descargan de Gmail por segundo. Qué hace: reparte las descargas para no superar el límite por minuto de Gmail. Para qué sirve: evitar el error «Quota exceeded» en sincronizaciones grandes. Si aparece, bájalo (por ejemplo a 3). 0 = sin límite.',
   concurrency:
     'Qué es: cuántos correos se descargan a la vez. Qué hace: más descargas simultáneas acaban antes pero gastan más cuota de Gmail. Para qué sirve: ajustar la velocidad; si Gmail se queja de cuota, bájalo a 2.',
   syncIntervalMinutes:
@@ -190,6 +190,24 @@ export function initSettings() {
         toastError(error);
       }
     });
+  });
+  $('#settings-labels-reset').addEventListener('click', () => {
+    void (async () => {
+      const accepted = await confirmDialog({
+        title: 'Inicializar etiquetas',
+        body: 'Se borrarán de Gmail las etiquetas de la aplicación (etiqueta padre, participantes e «Impreso») y se volverán a crear y aplicar a los correos. Puede tardar varios minutos.',
+        confirmLabel: 'Inicializar',
+      });
+      if (!accepted) return;
+      await withBusy(/** @type {HTMLButtonElement} */ ($('#settings-labels-reset')), async () => {
+        try {
+          const result = await api.resetLabels();
+          toast(`Etiquetas inicializadas: ${result.applied} correos etiquetados${result.failed ? `, ${result.failed} con error` : ''}.`);
+        } catch (error) {
+          toastError(error);
+        }
+      });
+    })();
   });
   $('#settings-restart-btn').addEventListener('click', () => {
     void (async () => {
