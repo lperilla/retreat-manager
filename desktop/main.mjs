@@ -13,7 +13,6 @@ import dotenv from 'dotenv';
 import { BrowserWindow, Menu, ipcMain, Notification, app, clipboard, dialog, session, shell } from 'electron';
 
 import { applyDefaults, clientUrls, lanAddresses, loadDesktopConfig, newAccessToken, saveDesktopConfig, serverDefaults } from './config.mjs';
-import { authorizeGmail } from './gmailAuth.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const TITLE = 'Retreat Manager';
@@ -89,6 +88,8 @@ async function connectGmail({ firstRun = false } = {}) {
       detail: 'Inicia sesión con la cuenta de Gmail donde llegan las cartas y acepta los permisos. Después vuelve a esta aplicación.',
       buttons: ['Continuar'],
     });
+    // Loaded when used: it pulls in the Google client, which is not needed to start the window.
+    const { authorizeGmail } = await import('./gmailAuth.mjs');
     const result = await authorizeGmail({ home: home(), credentialsFile: picked.filePaths[0], openUrl: (url) => void shell.openExternal(url) });
     await dialog.showMessageBox({
       type: 'info',
@@ -159,7 +160,7 @@ function buildMenu() {
 
 /** Small window shown while the server loads, so the app does not look frozen. */
 function showSplash() {
-  if (START_MINIMIZED) return;
+  if (START_MINIMIZED || splash) return;
   splash = new BrowserWindow({
     width: 440,
     height: 260,
@@ -261,6 +262,8 @@ ipcMain.handle('print-preview', async (event) => {
 async function run() {
   const folder = home();
   mkdirSync(folder, { recursive: true });
+  // Banner first, before the rest of the startup work (on the first run a dialog comes first instead).
+  if (existsSync(join(folder, 'token.json'))) showSplash();
 
   let config = loadDesktopConfig(configFile());
   if (!config.accessToken) {
