@@ -1,4 +1,6 @@
-import { PDFDocument, StandardFonts, degrees, rgb } from 'pdf-lib';
+// pdf-lib is large: loaded the first time a PDF packet is rendered, not when the app starts.
+/** @type {typeof import('pdf-lib')} */
+let pdfLib;
 
 import { describeError } from '../../application/services/errorDescription.js';
 import { AttachmentKind, classifyAttachment } from '../../domain/services/attachments.js';
@@ -70,6 +72,8 @@ export class AttachmentsPdfRenderer {
     const attachments = this.#attachments;
     if (!attachments) throw new AppError('ATTACHMENTS_UNAVAILABLE', 503);
 
+    pdfLib ??= await import('pdf-lib');
+    const { PDFDocument, StandardFonts } = pdfLib;
     const merged = await PDFDocument.create();
     merged.setTitle(
       payload.participantCount === 1
@@ -132,17 +136,17 @@ function stampFooter(page, font, text) {
   const maxWidth = (rotation === 90 || rotation === 270 ? height : width) - 2 * 24;
   let line = text;
   while (line.length > 8 && font.widthOfTextAtSize(line, size) > maxWidth) line = `${line.slice(0, -2)}…`;
-  const options = { size, font, color: rgb(0.45, 0.45, 0.45) };
+  const options = { size, font, color: pdfLib.rgb(0.45, 0.45, 0.45) };
   // Place the text along the edge that is at the bottom once the viewer applies /Rotate.
-  if (rotation === 90) page.drawText(line, { ...options, x: x + 12, y: y + 24, rotate: degrees(90) });
-  else if (rotation === 180) page.drawText(line, { ...options, x: x + width - 24, y: y + height - 12, rotate: degrees(180) });
-  else if (rotation === 270) page.drawText(line, { ...options, x: x + width - 12, y: y + height - 24, rotate: degrees(270) });
+  if (rotation === 90) page.drawText(line, { ...options, x: x + 12, y: y + 24, rotate: pdfLib.degrees(90) });
+  else if (rotation === 180) page.drawText(line, { ...options, x: x + width - 24, y: y + height - 12, rotate: pdfLib.degrees(180) });
+  else if (rotation === 270) page.drawText(line, { ...options, x: x + width - 12, y: y + height - 24, rotate: pdfLib.degrees(270) });
   else page.drawText(line, { ...options, x: x + 24, y: y + 12 });
 }
 
 /**
  * Note page for a PDF that could not be merged.
- * @param {PDFDocument} document
+ * @param {import('pdf-lib').PDFDocument} document
  * @param {{ font: import('pdf-lib').PDFFont, bold: import('pdf-lib').PDFFont }} fonts
  * @param {{ recipient: string, sender: string, filename: string }} label
  * @param {string} reason
@@ -150,7 +154,7 @@ function stampFooter(page, font, text) {
 function addNotePage(document, { font, bold }, label, reason) {
   const page = document.addPage(A4);
   const top = A4[1] - MARGIN;
-  page.drawText(toWinAnsi(`Para: ${label.recipient}`), { x: MARGIN, y: top, size: 11, font, color: rgb(0.48, 0.36, 0.18) });
+  page.drawText(toWinAnsi(`Para: ${label.recipient}`), { x: MARGIN, y: top, size: 11, font, color: pdfLib.rgb(0.48, 0.36, 0.18) });
   page.drawText('No se ha podido incluir este PDF adjunto', { x: MARGIN, y: top - 28, size: 16, font: bold });
   const lines = [`Archivo: ${label.filename}`, `De: ${label.sender}`, `Motivo: ${reason}`, '', 'Ábrelo desde la carta en el panel e imprímelo aparte.'];
   lines.forEach((text, index) => {

@@ -4,13 +4,13 @@
  * install). The other computers, tablets and phones use a web browser with the address this
  * app shows (window title, notification at start and Archivo → Datos de conexión).
  */
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { hostname, networkInterfaces } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import dotenv from 'dotenv';
-import { BrowserWindow, Menu, Notification, app, clipboard, dialog, session, shell } from 'electron';
+import { BrowserWindow, Menu, ipcMain, Notification, app, clipboard, dialog, session, shell } from 'electron';
 
 import { applyDefaults, clientUrls, lanAddresses, loadDesktopConfig, newAccessToken, saveDesktopConfig, serverDefaults } from './config.mjs';
 import { authorizeGmail } from './gmailAuth.mjs';
@@ -22,8 +22,14 @@ const ICON = join(HERE, '..', 'build', 'icon.png');
 const home = () => join(app.getPath('userData'), 'server');
 const configFile = () => join(app.getPath('userData'), 'desktop.json');
 
+// `Retreat Manager.exe --minimized`: the server starts and the window stays minimized
+// (e.g. a shortcut in the Windows Startup folder, or the server computer that nobody uses).
+const START_MINIMIZED = process.argv.includes('--minimized');
+
 /** @type {import('electron').BrowserWindow | null} */
 let mainWindow = null;
+/** @type {import('electron').BrowserWindow | null} */
+let splash = null;
 /** @type {Awaited<ReturnType<import('../src/entrypoints/startWeb.js').startWeb>> | null} */
 let web = null;
 let quitting = false;
@@ -151,17 +157,48 @@ function buildMenu() {
   );
 }
 
+/** Small window shown while the server loads, so the app does not look frozen. */
+function showSplash() {
+  if (START_MINIMIZED) return;
+  splash = new BrowserWindow({
+    width: 380,
+    height: 160,
+    frame: false,
+    resizable: false,
+    movable: true,
+    alwaysOnTop: true,
+    show: false,
+    icon: ICON,
+    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
+  });
+  const html =
+    '<body style="margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+    'font:16px system-ui,sans-serif;background:#1b4965;color:#fff"><b style="font-size:20px">Retreat Manager</b>' +
+    '<span style="margin-top:10px;opacity:.85">Iniciando el servidor…</span></body>';
+  void splash.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  splash.once('ready-to-show', () => splash?.show());
+  splash.on('closed', () => {
+    splash = null;
+  });
+}
+
+function closeSplash() {
+  if (splash && !splash.isDestroyed()) splash.close();
+  splash = null;
+}
+
 /** @param {string} origin */
 function openWindow(origin) {
   const main = urls().main;
   mainWindow = new BrowserWindow({
+    show: false,
     width: 1360,
     height: 900,
     minWidth: 900,
     minHeight: 600,
     title: TITLE,
     icon: ICON,
-    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
+    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: join(HERE, 'preload.cjs') },
   });
   // The title always shows the address for the other devices.
   const title = () => (main ? `${TITLE} — los demás entran en ${main}` : TITLE);
@@ -184,8 +221,28 @@ function openWindow(origin) {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+  // Shown when the page is painted (no white flash); minimized when asked to.
+  mainWindow.once('ready-to-show', () => {
+    closeSplash();
+    if (START_MINIMIZED) {
+      mainWindow?.showInactive();
+      mainWindow?.minimize();
+    } else {
+      mainWindow?.show();
+    }
+  });
   void mainWindow.loadURL(origin);
 }
+
+// Electron cannot show a print preview, so the page is rendered to a PDF and opened in the system viewer,
+// which has preview, printer choice and "save as".
+ipcMain.handle('print-preview', async (event) => {
+  const pdf = await event.sender.printToPDF({ printBackground: true, preferCSSPageSize: true });
+  const file = join(app.getPath('temp'), `retreat-manager-${Date.now()}.pdf`);
+  writeFileSync(file, pdf);
+  const error = await shell.openPath(file);
+  if (error) dialog.showErrorBox(TITLE, `No se pudo abrir el PDF: ${error}`);
+});
 
 async function run() {
   const folder = home();
@@ -205,10 +262,12 @@ async function run() {
   if (firstRun) await connectGmail({ firstRun: true });
 
   const logFile = join(folder, 'logs', 'servidor.log');
-  const { startWeb } = await import('../src/entrypoints/startWeb.js');
+  showSplash();
   try {
+    const { startWeb } = await import('../src/entrypoints/startWeb.js');
     web = await startWeb({ logFile, restartHandler: relaunch });
   } catch (error) {
+    closeSplash();
     const busy = /** @type {NodeJS.ErrnoException} */ (error).code === 'EADDRINUSE';
     fail(
       busy ? `El puerto ${process.env.PORT} ya está en uso (¿la aplicación ya está abierta, o hay otro programa usando ese puerto?).` : 'No se ha podido iniciar el servidor.',

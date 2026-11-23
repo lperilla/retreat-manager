@@ -2,9 +2,6 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
-import mammoth from 'mammoth';
-import sharp from 'sharp';
-
 import { describeError } from '../../application/services/errorDescription.js';
 import { AttachmentKind, DOCX_MIME, classifyAttachment } from '../../domain/services/attachments.js';
 import { AppError } from '../../domain/errors.js';
@@ -183,6 +180,8 @@ export class AttachmentProcessor {
       if (cached) return cached;
       let output;
       try {
+        // sharp (native) is loaded on first use, not at startup.
+        const { default: sharp } = await import('sharp');
         output = await sharp(original, { limitInputPixels: MAX_INPUT_PIXELS, animated: false })
           .rotate()
           .resize({ width: maxPx, height: maxPx, fit: 'inside', withoutEnlargement: true })
@@ -217,6 +216,7 @@ export class AttachmentProcessor {
     }
     let text;
     try {
+      const { default: mammoth } = await import('mammoth');
       const result = await mammoth.extractRawText({ buffer: original });
       text = normalizeExtractedText(result.value);
     } catch (error) {

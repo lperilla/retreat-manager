@@ -1,5 +1,3 @@
-import ExcelJS from 'exceljs';
-
 import { slugify } from '../../../domain/entities/Participant.js';
 import { zonedParts } from '../../../domain/services/time.js';
 import { ACCESSIBILITY_NEEDS, DIETARY_CODES, DietaryType } from '../domain/catalogs.js';
@@ -42,6 +40,8 @@ export class ParticipantsXlsxExporter {
    * @returns {Promise<{ filename: string, buffer: Buffer }>}
    */
   async build(data) {
+    // exceljs is large: loaded when a spreadsheet is exported, not at startup.
+    const { default: ExcelJS } = await import('exceljs');
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Gestión del retiro';
     workbook.created = data.generatedAt;

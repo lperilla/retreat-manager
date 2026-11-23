@@ -1,11 +1,11 @@
 /**
- * Gmail-only entry point of the `googleapis` package.
+ * Gmail-only Google client (`@googleapis/gmail`).
  *
- * `import { google } from 'googleapis'` loads all ~340 Google APIs (≈1.3 s warm, up to ~20 s
- * on a cold Windows start with antivirus scanning). The package ships one module per API;
- * loading only Gmail takes ~150 ms. This is the single place that knows that path.
+ * The full `googleapis` package ships ~340 API modules (thousands of files: slow to install and
+ * to scan with an antivirus). Only Gmail is used, so only its package is installed.
+ * This is the single place that knows that package.
  */
-import { auth, gmail } from 'googleapis/build/src/apis/gmail/index.js';
+import { auth, gmail } from '@googleapis/gmail';
 
 /** OAuth2 client class (google-auth-library). */
 export const OAuth2 = auth.OAuth2;
