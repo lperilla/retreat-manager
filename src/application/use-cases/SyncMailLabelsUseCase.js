@@ -3,6 +3,7 @@ import { createMailLabelState } from '../../domain/entities/MailLabelState.js';
 import { AppError } from '../../domain/errors.js';
 import { desiredLabels } from '../../domain/services/mailLabels.js';
 import { normalizeActor } from '../services/MailChangeRecorder.js';
+import { describeError } from '../services/errorDescription.js';
 
 const CHUNK = 100;
 
@@ -110,9 +111,12 @@ export class SyncMailLabelsUseCase {
     const printStatusById = new Map(printStatuses.map((s) => [s.participantId, s]));
     const stateById = new Map(states.map((s) => [s.messageId, s]));
 
-    const summary = { checked: 0, applied: 0, unchanged: 0, failed: 0, errors: /** @type {Array<{ messageId: string, error: string }>} */ ([]) };
+    const summary = { checked: 0, applied: 0, unchanged: 0, failed: 0, deletedLabels: /** @type {string[]} */ ([]), errors: /** @type {Array<{ messageId: string, error: string }>} */ ([]) };
     /** @type {Array<{ letter: any, desired: { labels: string[], printed: boolean }, change: import('../ports/MailLabelPort.js').LabelChange, added: string[], removed: string[] }>} */
     const pending = [];
+    const allDesired = new Set([this.#printedLabel]);
+    /** Label names removed from messages in this run (candidates to delete when nobody uses them). */
+    const removedNames = new Set();
     /** @type {import('../../domain/entities/MailLabelState.js').MailLabelState[]} */
     const cleared = [];
 
@@ -122,12 +126,14 @@ export class SyncMailLabelsUseCase {
       const desired = desiredLabels({ letter, participantsById, printStatusById, prefix: this.#prefix });
       const state = stateById.get(letter.messageId) ?? null;
       const applied = new Set(state?.labels ?? []);
+      for (const name of desired.labels) allDesired.add(name);
       const want = new Set(desired.labels);
       const add = [...want].filter((name) => force || !applied.has(name));
       const remove = [...applied].filter((name) => !want.has(name));
-      const printedApplied = state?.printed === true;
-      if (desired.printed && (force || !printedApplied)) add.push(this.#printedLabel);
-      if (!desired.printed && printedApplied) remove.push(this.#printedLabel);
+      // The printed label may have been renamed since it was applied: the old name is removed too.
+      const printedApplied = state?.printed ? (state.printedLabel ?? this.#printedLabel) : null;
+      if (desired.printed && (force || printedApplied !== this.#printedLabel)) add.push(this.#printedLabel);
+      if (printedApplied && (!desired.printed || printedApplied !== this.#printedLabel)) remove.push(printedApplied);
 
       if (add.length === 0 && remove.length === 0) {
         summary.unchanged += 1;
@@ -153,7 +159,10 @@ export class SyncMailLabelsUseCase {
         const result = resultById.get(id);
         if (result?.ok) {
           summary.applied += 1;
-          toSave.push(createMailLabelState({ messageId: id, labels: item.desired.labels, printed: item.desired.printed, syncedAt: now, updatedBy: who, error: null }));
+          const saved = createMailLabelState({ messageId: id, labels: item.desired.labels, printed: item.desired.printed, printedLabel: item.desired.printed ? this.#printedLabel : null, syncedAt: now, updatedBy: who, error: null });
+          toSave.push(saved);
+          stateById.set(id, saved);
+          item.removed.forEach((name) => removedNames.add(name));
           entries.push(
             createAuditEntry({
               id: this.#idGenerator(),
@@ -174,6 +183,7 @@ export class SyncMailLabelsUseCase {
               messageId: id,
               labels: previous?.labels ?? [],
               printed: previous?.printed ?? false,
+              printedLabel: previous?.printedLabel ?? null,
               syncedAt: previous?.syncedAt ?? null,
               updatedBy: who,
               error,
@@ -183,6 +193,19 @@ export class SyncMailLabelsUseCase {
       }
       await this.#states.saveMany(toSave);
       if (entries.length > 0) await this.#audit.appendMany(entries);
+    }
+
+    // Labels the app applied before (old prefix / old printed name) that no message carries any more
+    // are deleted from Gmail so they do not pile up as empty labels.
+    const stillUsed = new Set([...stateById.values()].flatMap((s) => [...s.labels, ...(s.printed ? [s.printedLabel ?? this.#printedLabel] : [])]));
+    const retired = [...removedNames].filter((name) => !stillUsed.has(name) && !allDesired.has(name));
+    if (retired.length > 0 && typeof labelPort.deleteLabels === 'function') {
+      try {
+        const deleted = await labelPort.deleteLabels(retired);
+        summary.deletedLabels = deleted;
+      } catch (error) {
+        this.#logger.warn({ err: describeError(error) }, 'Old Gmail labels could not be deleted');
+      }
     }
 
     this.#logger.info({ checked: summary.checked, applied: summary.applied, unchanged: summary.unchanged, failed: summary.failed }, 'Gmail labels synchronized');

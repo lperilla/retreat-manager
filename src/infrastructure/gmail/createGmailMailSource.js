@@ -33,7 +33,7 @@ export async function createGmailMailSource({ config, logger }) {
   });
   // Label changes are opt-in (they need a broader OAuth scope than reading).
   if (config.gmail.labels.enabled) {
-    source.labelPort = new GmailLabelService({ gmail, logger, concurrency: config.gmail.concurrency });
+    source.labelPort = new GmailLabelService({ gmail, logger, concurrency: config.gmail.concurrency, printedLabel: config.gmail.labels.printedLabel, parentLabel: config.gmail.labels.participantPrefix });
   }
   return source;
 }

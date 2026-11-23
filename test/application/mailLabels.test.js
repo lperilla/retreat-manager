@@ -4,7 +4,8 @@ import { describe, it } from 'node:test';
 import { AppError } from '../../src/domain/errors.js';
 import { GmailLabelService } from '../../src/infrastructure/gmail/GmailLabelService.js';
 import { NullLogger } from '../../src/infrastructure/logging/NullLogger.js';
-import { ScriptedMailSource, buildTestContainer, makeMessage } from '../helpers/applicationFakes.js';
+import { FakeClock, ScriptedMailSource, buildTestContainer, makeMessage } from '../helpers/applicationFakes.js';
+import { createJsonPersistence } from '../../src/infrastructure/persistence/json/createJsonPersistence.js';
 import { httpError } from '../helpers/gmailFakes.js';
 
 const MESSAGES = [
@@ -137,6 +138,42 @@ describe('Gmail labels: sync, manual assignment and printed label', () => {
     assert.deepEqual(printAudit.map((e) => `${e.actor}:${e.action}`).sort(), ['Ana:print.marked', 'Luis:print.unmarked']);
   });
 
+  it('replaces old labels when the prefix or printed label is renamed, and deletes them from Gmail', async () => {
+    const labelPort = new FakeLabelPort();
+    const deleted = [];
+    labelPort.deleteLabels = async (names) => {
+      deleted.push(...names);
+      return names;
+    };
+    const persistence = createJsonPersistence({ directory: null, clock: new FakeClock() });
+    const make = (env) =>
+      buildTestContainer({
+        mailSource: new ScriptedMailSource(() => ({ letters: MESSAGES, deletedMessageIds: [], nextCursor: 'h-1', isFullListing: true })),
+        persistence,
+        env: { GMAIL_LABELS_ENABLED: 'true', ...env },
+        overrides: { labelPort },
+      });
+
+    const first = await make({ GMAIL_LABEL_PREFIX: 'Retiro', GMAIL_PRINTED_LABEL: 'Impreso' });
+    await first.container.useCases.syncMailbox.execute();
+    await first.container.useCases.updatePrintStatus.setLetterPrinted({ messageId: 'u1', printed: true, actor: 'Ana' });
+    assert.deepEqual(labelPort.labelsOf('u1'), ['Impreso', 'Retiro/Juan Pérez']);
+
+    // Same database, new names (what saving the settings does after reloading the container).
+    const second = await make({ GMAIL_LABEL_PREFIX: '', GMAIL_PRINTED_LABEL: 'Hecho' });
+    const summary = await second.container.useCases.syncMailLabels.execute({ actor: 'Luis' });
+
+    assert.deepEqual(labelPort.labelsOf('u1'), ['Hecho', 'Juan Pérez']); // old ones gone from the message
+    assert.deepEqual(labelPort.labelsOf('u3'), ['Juan Pérez', 'Lucía Fernández']);
+    assert.deepEqual(deleted.sort(), ['Impreso', 'Retiro/Juan Pérez', 'Retiro/Lucía Fernández']);
+    assert.deepEqual(summary.deletedLabels.sort(), deleted.sort());
+
+    // Nothing left to do afterwards.
+    const calls = labelPort.calls;
+    await second.container.useCases.syncMailLabels.execute({ actor: 'Luis' });
+    assert.equal(labelPort.calls, calls);
+  });
+
   it('rejects printing a letter that has no participant', async () => {
     const { container } = await labelledContainer();
     await container.useCases.syncMailbox.execute();
@@ -227,8 +264,20 @@ function fakeGmailLabels({ labels = [], modifyErrors = {}, createError = null } 
           state.lists += 1;
           return { data: { labels: state.labels } };
         },
+        async patch({ id, requestBody }) {
+          state.patches = [...(state.patches ?? []), { id, ...requestBody }];
+          return { data: {} };
+        },
+        async get({ id }) {
+          return { data: { id, messagesTotal: state.totals?.[id] ?? 0 } };
+        },
+        async delete({ id }) {
+          state.deletes = [...(state.deletes ?? []), id];
+          state.labels = state.labels.filter((label) => label.id !== id);
+        },
         async create({ requestBody }) {
           state.creates += 1;
+          state.created = [...(state.created ?? []), requestBody];
           if (createError) {
             // Another process created it first.
             state.labels.push({ id: `L${state.labels.length + 1}`, name: requestBody.name });
@@ -261,19 +310,37 @@ describe('GmailLabelService', () => {
       { messageId: 'b', add: ['Retiro/Ana'], remove: ['Retiro/Antiguo'] },
     ]);
     assert.deepEqual(results.map((r) => r.ok), [true, true]);
-    assert.equal(gmail.state.creates, 1); // Retiro/Ana only; Impreso was reused
-    assert.deepEqual(gmail.state.modifies.find((m) => m.id === 'a').addLabelIds.sort(), ['L1', 'L2']);
+    assert.equal(gmail.state.creates, 2); // parent "Retiro" and "Retiro/Ana"; Impreso was reused
+    assert.deepEqual(gmail.state.modifies.find((m) => m.id === 'a').addLabelIds.sort(), ['L1', 'L3']);
     // A removed label that does not exist in Gmail is simply skipped.
     assert.deepEqual(gmail.state.modifies.find((m) => m.id === 'b').removeLabelIds, []);
 
     await labels.applyChanges([{ messageId: 'c', add: ['Retiro/Ana'], remove: [] }]);
-    assert.equal(gmail.state.creates, 1);
+    assert.equal(gmail.state.creates, 2);
     assert.equal(gmail.state.lists, 1); // cached
+  });
+
+  it('creates the printed label in green and turns an existing one green once', async () => {
+    const fresh = fakeGmailLabels();
+    await new GmailLabelService({ gmail: fresh, logger: new NullLogger(), printedLabel: 'Impreso', retry: { retries: 0 } }).applyChanges([
+      { messageId: 'a', add: ['Impreso', 'Ana'], remove: [] },
+    ]);
+    const printed = fresh.state.created.find((l) => l.name === 'Impreso');
+    assert.deepEqual(printed.color, { backgroundColor: '#16a766', textColor: '#ffffff' });
+    assert.equal(fresh.state.created.find((l) => l.name === 'Ana').color, undefined);
+    assert.equal(fresh.state.patches, undefined);
+
+    const existing = fakeGmailLabels({ labels: [{ id: 'L9', name: 'impreso' }] });
+    const labels = new GmailLabelService({ gmail: existing, logger: new NullLogger(), printedLabel: 'Impreso', retry: { retries: 0 } });
+    await labels.applyChanges([{ messageId: 'a', add: ['Impreso'], remove: [] }]);
+    await labels.applyChanges([{ messageId: 'b', add: ['Impreso'], remove: [] }]);
+    assert.equal(existing.state.patches.length, 1);
+    assert.equal(existing.state.patches[0].color.backgroundColor, '#16a766');
   });
 
   it('recovers when another process creates the label first (409)', async () => {
     const gmail = fakeGmailLabels({ createError: httpError(409) });
-    const results = await service(gmail).applyChanges([{ messageId: 'a', add: ['Retiro/Ana'], remove: [] }]);
+    const results = await service(gmail).applyChanges([{ messageId: 'a', add: ['Ana'], remove: [] }]);
     assert.equal(results[0].ok, true);
     assert.equal(gmail.state.labels.length, 1); // no duplicate
   });
@@ -287,6 +354,38 @@ describe('GmailLabelService', () => {
     assert.equal(results[0].ok, false);
     assert.match(results[0].error, /ya no existe/);
     assert.equal(results[1].ok, true);
+  });
+
+  it('creates the parent label so participant labels nest under it', async () => {
+    const gmail = fakeGmailLabels();
+    const labels = new GmailLabelService({ gmail: gmail, logger: new NullLogger(), parentLabel: 'Retiro', retry: { retries: 0 } });
+    await labels.applyChanges([{ messageId: 'a', add: ['Retiro/Ana', 'Retiro/Luis'], remove: [] }]);
+    assert.deepEqual(gmail.state.labels.map((l) => l.name), ['Retiro', 'Retiro/Ana', 'Retiro/Luis']); // parent once, first
+    // Even with no new children, a missing parent is created on first use.
+    const orphan = fakeGmailLabels({ labels: [{ id: 'L1', name: 'Retiro/Ana' }] });
+    await new GmailLabelService({ gmail: orphan, logger: new NullLogger(), parentLabel: 'Retiro', retry: { retries: 0 } }).applyChanges([
+      { messageId: 'a', add: ['Retiro/Ana'], remove: [] },
+    ]);
+    assert.ok(orphan.state.labels.some((l) => l.name === 'Retiro'));
+  });
+
+  it('deletes the old parent label when it ends up empty, but keeps one that has messages', async () => {
+    const labels = [{ id: 'P', name: 'Retiro' }, { id: 'C', name: 'Retiro/Ana' }];
+    const empty = fakeGmailLabels({ labels: [...labels] });
+    assert.deepEqual(await new GmailLabelService({ gmail: empty, logger: new NullLogger() }).deleteLabels(['Retiro/Ana']), ['Retiro/Ana', 'Retiro']);
+    const used = fakeGmailLabels({ labels: [...labels] });
+    used.state.totals = { P: 7 };
+    assert.deepEqual(await new GmailLabelService({ gmail: used, logger: new NullLogger() }).deleteLabels(['Retiro/Ana']), ['Retiro/Ana']);
+  });
+
+  it('deletes retired labels by name and ignores the ones that do not exist', async () => {
+    const gmail = fakeGmailLabels({ labels: [{ id: 'L1', name: 'Retiro/Ana' }] });
+    gmail.users.labels.delete = async ({ id }) => {
+      gmail.state.labels = gmail.state.labels.filter((label) => label.id !== id);
+    };
+    const labels = service(gmail);
+    assert.deepEqual(await labels.deleteLabels(['retiro/ana', 'Nunca existió']), ['retiro/ana']);
+    assert.equal(gmail.state.labels.length, 0);
   });
 
   it('maps authentication, permission and connection failures to clear errors', async () => {

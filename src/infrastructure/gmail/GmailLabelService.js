@@ -3,6 +3,18 @@ import { mapGmailError } from './gmailErrors.js';
 import { httpStatusOf, mapWithConcurrency, withRetry } from './retry.js';
 
 /**
+ * "A/B/C" → ["A", "A/B"].
+ * @param {string} name
+ */
+function ancestorsOf(name) {
+  const parts = name.split('/');
+  return parts.slice(0, -1).map((_, index) => parts.slice(0, index + 1).join('/'));
+}
+
+/** Gmail palette green (white text), used for the printed label so it stands out. */
+export const PRINTED_LABEL_COLOR = Object.freeze({ backgroundColor: '#16a766', textColor: '#ffffff' });
+
+/**
  * Gmail adapter of MailLabelPort (users.labels + users.messages.modify).
  *
  * - Labels are looked up by name (Gmail names are case-insensitive) in a cache filled with
@@ -22,16 +34,24 @@ export class GmailLabelService {
   #concurrency;
   /** @type {Map<string, string> | null} */
   #cache = null;
+  #printedKey;
+  #printedColored = false;
+  #parentName;
+  #parentEnsured = false;
 
   /**
    * @param {{
    *   gmail: import('googleapis').gmail_v1.Gmail,
    *   logger: import('../../application/ports/LoggerPort.js').LoggerPort,
    *   concurrency?: number,
+   *   parentLabel?: string | null,  Parent label of the participant labels (the prefix): created so they nest under it.
+   *   printedLabel?: string | null,  Name of the printed label: created (or updated) in green.
    *   retry?: import('./retry.js').RetryOptions,
    * }} options
    */
-  constructor({ gmail, logger, concurrency = 5, retry = {} }) {
+  constructor({ gmail, logger, concurrency = 5, printedLabel = null, parentLabel = null, retry = {} }) {
+    this.#parentName = parentLabel || null;
+    this.#printedKey = printedLabel ? GmailLabelService.#key(printedLabel) : null;
     this.#gmail = gmail;
     this.#logger = logger;
     this.#concurrency = concurrency;
@@ -66,22 +86,50 @@ export class GmailLabelService {
   }
 
   /**
+   * An existing printed label (created by hand or by an older version) is turned green once per run.
+   * Failing to color it never blocks labelling.
+   * @param {string} name
+   * @param {string} id
+   */
+  async #colorPrinted(name, id) {
+    if (this.#printedColored || GmailLabelService.#key(name) !== this.#printedKey) return;
+    this.#printedColored = true;
+    try {
+      await this.#call(() => this.#gmail.users.labels.patch({ userId: 'me', id, requestBody: { color: PRINTED_LABEL_COLOR } }));
+    } catch (error) {
+      this.#logger.warn({ err: describeError(error), label: name }, 'Could not color the printed label');
+    }
+  }
+
+  /**
    * @param {string} name
    * @returns {Promise<string>} Label id (existing or just created).
    */
   async #ensure(name) {
+    // A nested name ("Parent/Child") only shows under its parent in Gmail if the parent exists: create it first.
+    const slash = name.lastIndexOf('/');
+    if (slash > 0) await this.#ensure(name.slice(0, slash));
     const cache = this.#cache ?? (await this.#loadLabels());
     const known = cache.get(GmailLabelService.#key(name));
-    if (known) return known;
+    if (known) {
+      await this.#colorPrinted(name, known);
+      return known;
+    }
     try {
       const created = await this.#call(() =>
         this.#gmail.users.labels.create({
           userId: 'me',
-          requestBody: { name, labelListVisibility: 'labelShow', messageListVisibility: 'show' },
+          requestBody: {
+            name,
+            labelListVisibility: 'labelShow',
+            messageListVisibility: 'show',
+            ...(GmailLabelService.#key(name) === this.#printedKey ? { color: PRINTED_LABEL_COLOR } : {}),
+          },
         }),
       );
       const id = /** @type {string} */ (created.data.id);
       cache.set(GmailLabelService.#key(name), id);
+      if (GmailLabelService.#key(name) === this.#printedKey) this.#printedColored = true;
       this.#logger.info({ label: name }, 'Gmail label created');
       return id;
     } catch (error) {
@@ -94,12 +142,57 @@ export class GmailLabelService {
   }
 
   /**
+   * Deletes user labels by name (a name that does not exist is skipped).
+   * @param {string[]} names
+   * @returns {Promise<string[]>} Names deleted.
+   */
+  async deleteLabels(names) {
+    const cache = await this.#loadLabels();
+    const deleted = [];
+    for (const name of names) {
+      const id = cache.get(GmailLabelService.#key(name));
+      if (!id) continue;
+      try {
+        await this.#call(() => this.#gmail.users.labels.delete({ userId: 'me', id }));
+      } catch (error) {
+        if (httpStatusOf(error) !== 404) throw error;
+      }
+      cache.delete(GmailLabelService.#key(name));
+      deleted.push(name);
+      this.#logger.info({ label: name }, 'Gmail label deleted (no longer used)');
+    }
+    // A parent label left without children is deleted too, but only when it carries no messages
+    // (it may be a label of the user's own).
+    const parents = [...new Set(deleted.flatMap((name) => ancestorsOf(name)))].sort((a, b) => b.length - a.length);
+    for (const parent of parents) {
+      const key = GmailLabelService.#key(parent);
+      const id = cache.get(key);
+      if (!id || [...cache.keys()].some((other) => other.startsWith(`${key}/`))) continue;
+      const info = await this.#call(() => this.#gmail.users.labels.get({ userId: 'me', id }));
+      if (Number(info.data.messagesTotal ?? 1) !== 0) continue;
+      try {
+        await this.#call(() => this.#gmail.users.labels.delete({ userId: 'me', id }));
+      } catch (error) {
+        if (httpStatusOf(error) !== 404) throw error;
+      }
+      cache.delete(key);
+      deleted.push(parent);
+      this.#logger.info({ label: parent }, 'Empty parent Gmail label deleted');
+    }
+    return deleted;
+  }
+
+  /**
    * @param {import('../../application/ports/MailLabelPort.js').LabelChange[]} changes
    * @returns {Promise<import('../../application/ports/MailLabelPort.js').LabelChangeResult[]>}
    */
   async applyChanges(changes) {
     if (changes.length === 0) return [];
     // Resolve every label once, sequentially (creation must not race with itself).
+    if (this.#parentName && !this.#parentEnsured) {
+      await this.#ensure(this.#parentName);
+      this.#parentEnsured = true;
+    }
     const names = [...new Set(changes.flatMap((change) => change.add))];
     /** @type {Map<string, string>} */
     const ids = new Map();

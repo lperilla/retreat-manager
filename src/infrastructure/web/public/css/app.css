@@ -508,3 +508,8 @@ button.letter-seen:focus-visible { outline: 2px solid var(--ui-accent); outline-
   .docx-document { background: none !important; }
   a { color: inherit !important; text-decoration: none !important; }
 }
+
+/* Settings: (i) help button next to each field label. */
+.info-btn { text-decoration: none; line-height: 1; font-size: 1rem; }
+.info-btn:focus-visible { outline: 2px solid currentColor; border-radius: 50%; }
+.popover { max-width: 360px; }

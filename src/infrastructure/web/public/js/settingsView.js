@@ -11,7 +11,7 @@ const TEXT_FIELDS = ['labelPrefix', 'printedLabel', 'query', 'startDate', 'label
 const NUMBER_FIELDS = ['requestsPerSecond', 'concurrency', 'syncIntervalMinutes'];
 const FIELD_NAMES = {
   labelsEnabled: 'Activar etiquetas de Gmail',
-  labelPrefix: 'Prefijo de las etiquetas',
+  labelPrefix: 'Etiqueta padre de los participantes',
   printedLabel: 'Etiqueta de cartas impresas',
   query: 'Búsqueda de Gmail',
   startDate: 'Leer desde el día',
@@ -21,6 +21,54 @@ const FIELD_NAMES = {
   syncIntervalMinutes: 'Buscar cartas nuevas cada (minutos)',
 };
 
+/**
+ * Help shown from the (i) button next to each field: what it is, what it does and an example.
+ * @type {Record<string, string>}
+ */
+const HELP = {
+  labelsEnabled:
+    'Qué es: un interruptor general. Qué hace: si está activado, la aplicación crea en Gmail una etiqueta por participante y la pone en sus correos; también pone la etiqueta de «impresas» cuando se imprimen. Para qué sirve: poder ver y filtrar las cartas directamente en Gmail. Necesita un permiso más amplio de Gmail: tras activarlo ejecuta npm run auth una vez.',
+  labelPrefix:
+    'Qué es: la etiqueta padre bajo la que se agrupan todas las etiquetas de participante. Qué hace: la aplicación crea esa etiqueta en Gmail y cuelga de ella una etiqueta por participante, como una carpeta. Ejemplo: con «Retiro» verás «Retiro» y dentro «María García», «Juan Pérez»…; vacío, las etiquetas de participante quedan sueltas. Al cambiarla, las antiguas se quitan de los correos y se borran de Gmail.',
+  printedLabel:
+    'Qué es: el nombre de la etiqueta que se añade a una carta cuando está impresa. Qué hace: se pone al marcarla como impresa (o al exportar marcando como impresas) y se quita si la desmarcas. Para qué sirve: distinguir en Gmail lo que ya se imprimió de lo que falta.',
+  query:
+    'Qué es: una búsqueda de Gmail que limita qué correos se tratan como cartas. Qué hace: solo se leen los mensajes que cumplan la búsqueda. Ejemplos: «to:cartas@ejemplo.com» o «-from:noreply@». Vacío = todos los correos recibidos (salvo spam, papelera y borradores). Si lo cambias, la siguiente sincronización vuelve a leer todo el buzón.',
+  startDate:
+    'Qué es: el primer día cuyos correos se leen. Qué hace: ignora todo lo recibido antes de esa fecha. Para qué sirve: no importar correos de retiros anteriores y hacer más rápida la primera sincronización. Vacío = sin límite. Si lo cambias, la siguiente sincronización vuelve a leer todo el buzón.',
+  labelId:
+    'Qué es: el identificador interno de una etiqueta que ya existe en Gmail (algo como Label_1234567890). Qué hace: si lo pones, solo se leen los correos que tengan esa etiqueta, y la búsqueda de arriba se ignora. Para qué sirve: leer solo una carpeta concreta del buzón. Vacío = no se usa.',
+  requestsPerSecond:
+    'Qué es: el número máximo de correos que se descargan de Gmail por segundo. Qué hace: reparte las descargas para no superar el límite por minuto de Gmail. Para qué sirve: evitar el error «Quota exceeded» en sincronizaciones grandes. Si aparece, bájalo (por ejemplo a 5). 0 = sin límite.',
+  concurrency:
+    'Qué es: cuántos correos se descargan a la vez. Qué hace: más descargas simultáneas acaban antes pero gastan más cuota de Gmail. Para qué sirve: ajustar la velocidad; si Gmail se queja de cuota, bájalo a 2.',
+  syncIntervalMinutes:
+    'Qué es: cada cuántos minutos la aplicación busca cartas nuevas sola. Qué hace: lanza una sincronización incremental automática con esa frecuencia. Ejemplo: 15 = cada 15 minutos. 0 = solo cuando pulsas «Buscar cartas nuevas». Este cambio se aplica al reiniciar la aplicación.',
+};
+
+/** Adds an (i) button after each field label that opens its help (closes when clicking elsewhere). */
+function addHelpButtons() {
+  const bootstrap = /** @type {any} */ (window).bootstrap;
+  for (const [key, text] of Object.entries(HELP)) {
+    const label = document.querySelector(`label[for="set-${key}"]`);
+    if (!label || label.querySelector('.info-btn')) continue;
+    const name = FIELD_NAMES[/** @type {keyof typeof FIELD_NAMES} */ (key)];
+    const button = h('button', {
+      type: 'button',
+      class: 'btn btn-link btn-sm p-0 ms-1 align-baseline info-btn',
+      'aria-label': `Qué es «${name}»`,
+      'data-bs-toggle': 'popover',
+      'data-bs-trigger': 'focus',
+      'data-bs-placement': 'top',
+      'data-bs-title': name,
+      'data-bs-content': text,
+      text: 'ⓘ',
+    });
+    label.append(button);
+    bootstrap?.Popover.getOrCreateInstance(button);
+  }
+}
+
 /** @type {any} */
 let loaded = null;
 
@@ -29,7 +77,7 @@ const field = (key) => /** @type {HTMLInputElement} */ ($(`#set-${key}`));
 
 function showPrefixExample() {
   const prefix = field('labelPrefix').value.trim();
-  $('#set-labelPrefix-example').textContent = `Ejemplo de etiqueta: «${prefix ? `${prefix}/` : ''}María García»`;
+  $('#set-labelPrefix-example').textContent = prefix ? `En Gmail: «${prefix}» y dentro «María García»` : 'En Gmail: «María García» (sin etiqueta padre)';
 }
 
 /**
@@ -116,6 +164,7 @@ async function waitForRestart() {
 }
 
 export function initSettings() {
+  addHelpButtons();
   field('labelPrefix').addEventListener('input', showPrefixExample);
   $('#settings-reset').addEventListener('click', () => {
     if (loaded) fill(loaded);
@@ -136,7 +185,7 @@ export function initSettings() {
         fill(saved);
         $('#settings-status').textContent = 'Guardado.';
         const pending = (saved.restartPending ?? []).length > 0;
-        toast(pending ? 'Configuración guardada. Hay cambios que necesitan reiniciar.' : saved.reloaded ? 'Configuración guardada y aplicada.' : 'Configuración guardada.');
+        toast(saved.labelsUpdating ? 'Configuración guardada. Las etiquetas de Gmail se están actualizando; las antiguas se quitarán.' : pending ? 'Configuración guardada. Hay cambios que necesitan reiniciar.' : saved.reloaded ? 'Configuración guardada y aplicada.' : 'Configuración guardada.');
       } catch (error) {
         toastError(error);
       }
