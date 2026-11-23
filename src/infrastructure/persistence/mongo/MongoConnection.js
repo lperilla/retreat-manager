@@ -1,5 +1,3 @@
-import { MongoClient } from 'mongodb';
-
 import { describeError } from '../../../application/services/errorDescription.js';
 import { AppError } from '../../../domain/errors.js';
 
@@ -40,7 +38,7 @@ export function inspectMongoUri(uri) {
  *   appName?: string,
  *   serverSelectionTimeoutMS?: number,
  * }} options
- * @returns {Promise<{ client: MongoClient, db: import('mongodb').Db }>}
+ * @returns {Promise<{ client: import('mongodb').MongoClient, db: import('mongodb').Db }>}
  */
 export async function connectMongo({ uri, dbName, logger, appName = 'retreat-manager', serverSelectionTimeoutMS = 5000 }) {
   if (!uri) {
@@ -62,6 +60,8 @@ export async function connectMongo({ uri, dbName, logger, appName = 'retreat-man
     logger.warn({ target }, 'MongoDB is not on a loopback address; make sure it is not exposed publicly');
   }
 
+  // Loaded only when MongoDB is the chosen storage (the desktop app uses JSON files).
+  const { MongoClient } = await import('mongodb');
   const client = new MongoClient(uri, { appName, serverSelectionTimeoutMS, ignoreUndefined: true });
   try {
     await client.connect();

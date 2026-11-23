@@ -196,7 +196,8 @@ La dirección usa la **IP** del servidor, que el router asigna y **puede cambiar
 
 - **La aplicación del servidor debe estar abierta** para que los demás puedan entrar. Si la cierras, los demás verán un error hasta que la vuelvas a abrir.
 - **Evita que el servidor se duerma** durante el retiro: en Windows, Configuración → Sistema → Energía → **Suspender: Nunca** (al menos enchufado). En Ubuntu, Configuración → Energía → **Suspender automáticamente: desactivado**.
-- Al cerrar la ventana, la aplicación se detiene ordenadamente y guarda todo.
+- **Para que arranque minimizada** (el servidor sigue funcionando y la ventana queda en la barra de tareas), añade `--minimized` al acceso directo: botón derecho en el acceso directo → Propiedades → Destino, y al final `"…\Retreat Manager.exe" --minimized`. Si copias ese acceso directo a la carpeta de Inicio de Windows (`Win + R` → `shell:startup`), arranca con el ordenador.
+- Al cerrar la ventana, la aplicación se detiene ordenadamente y guarda todo. Minimízala en lugar de cerrarla.
 - Solo puede haber una aplicación abierta a la vez en el servidor: si la abres otra vez, se muestra la que ya estaba abierta.
 
 ## Dónde se guardan los datos y copias de seguridad
