@@ -3,6 +3,7 @@ import { basename } from 'node:path';
 
 import express from 'express';
 
+import { describeError } from '../../../application/services/errorDescription.js';
 import { normalizeActor } from '../../../application/services/MailChangeRecorder.js';
 import { loadConfig } from '../../../composition/config.js';
 import { AppError } from '../../../domain/errors.js';
@@ -223,7 +224,20 @@ export function createApiRouter({ runtime, limiters }) {
     const { reloaded } = await runtime.reload(next);
     await writeSettingsEnv(file, saved);
     runtime.logger.info({ actor: actorOf(req), reloaded }, 'Settings saved from the dashboard');
-    res.json({ ...(await settingsView()), reloaded });
+    // New label names (or labels just enabled): replace the old labels in Gmail in the background,
+    // removing them from the messages and deleting the ones nobody uses any more.
+    const before = current.gmail.labels;
+    const after = next.gmail.labels;
+    const labelsChanged =
+      after.enabled && (!before.enabled || before.participantPrefix !== after.participantPrefix || before.printedLabel !== after.printedLabel);
+    const labelsUpdating = reloaded && labelsChanged;
+    if (labelsUpdating) {
+      runtime.container.useCases.syncMailLabels
+        .execute({ actor: actorOf(req) })
+        .then((summary) => runtime.logger.info({ applied: summary.applied, deletedLabels: summary.deletedLabels }, 'Gmail labels updated after a settings change'))
+        .catch((error) => runtime.logger.warn({ err: describeError(error) }, 'Gmail labels not updated after a settings change'));
+    }
+    res.json({ ...(await settingsView()), reloaded, labelsUpdating });
   });
 
   // Mailbox: letters with labels, print state and Gmail trace --------------------

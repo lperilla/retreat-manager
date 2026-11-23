@@ -16,6 +16,9 @@ import { definePort } from './definePort.js';
  *
  * @typedef {Object} MailLabelPort
  * @property {(changes: LabelChange[]) => Promise<LabelChangeResult[]>} applyChanges
+ * @property {(names: string[]) => Promise<string[]>} [deleteLabels]
+ *   Optional: deletes labels that no message of the app uses any more (renamed prefix / printed label).
+ *   Returns the names actually deleted.
  *   Throws AppError (GMAIL_AUTH_ERROR, GMAIL_INSUFFICIENT_PERMISSIONS, GMAIL_UNAVAILABLE) when the whole call cannot proceed.
  */
 export const MailLabelPort = definePort('MailLabelPort', ['applyChanges']);

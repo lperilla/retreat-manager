@@ -120,7 +120,7 @@ export class ListMailUseCase {
       const desired = desiredLabels({ letter, participantsById, printStatusById, prefix: this.#prefix });
       if (printedFilter !== undefined && desired.printed !== printedFilter) continue;
       const state = stateById.get(letter.messageId) ?? null;
-      const applied = [...(state?.labels ?? []), ...(state?.printed ? [this.#printedLabel] : [])];
+      const applied = [...(state?.labels ?? []), ...(state?.printed ? [state.printedLabel ?? this.#printedLabel] : [])];
       // The label filter matches what the message has (or should have) in Gmail.
       const shown = new Set([...applied, ...desired.labels, ...(desired.printed ? [this.#printedLabel] : [])]);
       if (labelKey && ![...shown].some((name) => normalizeText(name) === labelKey)) continue;
