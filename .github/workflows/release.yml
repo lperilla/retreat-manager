@@ -1,0 +1,64 @@
+name: Release
+
+# Builds the desktop installers (Windows .exe, Linux .deb and .AppImage) with the same
+# Docker-based script used locally, and publishes them when a v* tag is pushed.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch: # manual run: builds and uploads the artifacts, does not publish
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write # needed to create the GitHub release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read package version
+        id: version
+        run: echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Check the tag matches package.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          if [ "${GITHUB_REF_NAME}" != "v${{ steps.version.outputs.value }}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package.json version ${{ steps.version.outputs.value }}" >&2
+            exit 1
+          fi
+
+      - name: Build installers (Docker + Wine)
+        run: ./scripts/build-desktop.sh all
+
+      - name: Check the artifacts and write checksums
+        working-directory: dist
+        run: |
+          v='${{ steps.version.outputs.value }}'
+          files=("RetreatManager-Setup-$v.exe" "retreat-manager_${v}_amd64.deb" "RetreatManager-$v-x86_64.AppImage")
+          for f in "${files[@]}"; do test -f "$f" || { echo "Missing $f" >&2; exit 1; }; done
+          sha256sum "${files[@]}" | tee SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ steps.version.outputs.value }}
+          path: |
+            dist/RetreatManager-Setup-${{ steps.version.outputs.value }}.exe
+            dist/retreat-manager_${{ steps.version.outputs.value }}_amd64.deb
+            dist/RetreatManager-${{ steps.version.outputs.value }}-x86_64.AppImage
+            dist/SHA256SUMS
+          if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/RetreatManager-Setup-${{ steps.version.outputs.value }}.exe
+            dist/retreat-manager_${{ steps.version.outputs.value }}_amd64.deb
+            dist/RetreatManager-${{ steps.version.outputs.value }}-x86_64.AppImage
+            dist/SHA256SUMS
+          generate_release_notes: true
