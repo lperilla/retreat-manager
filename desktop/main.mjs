@@ -4,7 +4,7 @@
  * install). The other computers, tablets and phones use a web browser with the address this
  * app shows (window title, notification at start and Archivo → Datos de conexión).
  */
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { hostname, networkInterfaces } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -161,8 +161,8 @@ function buildMenu() {
 function showSplash() {
   if (START_MINIMIZED) return;
   splash = new BrowserWindow({
-    width: 380,
-    height: 160,
+    width: 440,
+    height: 260,
     frame: false,
     resizable: false,
     movable: true,
@@ -171,10 +171,24 @@ function showSplash() {
     icon: ICON,
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
   });
-  const html =
-    '<body style="margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
-    'font:16px system-ui,sans-serif;background:#1b4965;color:#fff"><b style="font-size:20px">Retreat Manager</b>' +
-    '<span style="margin-top:10px;opacity:.85">Iniciando el servidor…</span></body>';
+  let logo = '';
+  try {
+    logo = `<img src="data:image/png;base64,${readFileSync(ICON).toString('base64')}" width="72" height="72" alt="">`;
+  } catch {
+    // The banner works without the logo.
+  }
+  const html = `<!doctype html><meta charset="utf-8"><style>
+    html,body{margin:0;height:100%}
+    body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;
+      border:1px solid #2f6f94;font-family:'Segoe UI',system-ui,sans-serif;color:#fff;-webkit-app-region:drag;
+      background:linear-gradient(160deg,#1b4965,#12304a)}
+    h1{margin:10px 0 0;font-size:24px;font-weight:600}
+    p{margin:0;font-size:14px;opacity:.85}
+    small{position:absolute;bottom:10px;right:14px;opacity:.55;font-size:12px}
+    .bar{width:260px;height:4px;margin-top:18px;border-radius:2px;background:rgba(255,255,255,.2);overflow:hidden}
+    .bar i{display:block;width:40%;height:100%;border-radius:2px;background:#9fd3f0;animation:run 1.2s ease-in-out infinite}
+    @keyframes run{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
+  </style>${logo}<h1>${TITLE}</h1><p>Iniciando el servidor…</p><div class="bar"><i></i></div><small>v${app.getVersion()}</small>`;
   void splash.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   splash.once('ready-to-show', () => splash?.show());
   splash.on('closed', () => {
