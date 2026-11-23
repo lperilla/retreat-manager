@@ -7,6 +7,9 @@ import { describeError } from '../../../application/services/errorDescription.js
 import { normalizeActor } from '../../../application/services/MailChangeRecorder.js';
 import { loadConfig } from '../../../composition/config.js';
 import { AppError } from '../../../domain/errors.js';
+import { startGmailAuthorization } from '../../gmail/authorizeGmail.js';
+import { openBrowser } from '../../gmail/openBrowser.js';
+import { isServerComputer, requireServerComputer } from '../middleware/serverOnly.js';
 import {
   SETTING_FIELDS,
   readSettingsEnv,
@@ -31,17 +34,21 @@ function queryString(value) {
  * @param {{
  *   runtime: import('../WebRuntime.js').WebRuntime,
  *   limiters: { sync: import('express').RequestHandler, exports: import('express').RequestHandler, attachments: import('express').RequestHandler },
+ *   openUrl?: (url: string) => void,  Opens a URL in the browser of the server computer (Gmail consent).
  * }} options
  * @returns {import('express').Router}
  */
-export function createApiRouter({ runtime, limiters }) {
+export function createApiRouter({ runtime, limiters, openUrl = openBrowser }) {
   const router = express.Router();
+  /** Gmail consent in progress (one at a time). @type {{ authUrl: string } | null} */
+  let authorization = null;
   const useCases = () => runtime.container.useCases;
   // Who is making the change: header sent by the dashboard (there is one shared access token, no accounts).
   const actorOf = (/** @type {import('express').Request} */ req) => normalizeActor(req.get('x-actor') ?? req.body?.actor);
 
-  router.get('/app-info', (_req, res) => {
-    res.json(runtime.info());
+  router.get('/app-info', (req, res) => {
+    // serverComputer: the Configuración screen is only offered on the server computer.
+    res.json({ ...runtime.info(), serverComputer: isServerComputer(req) });
   });
 
   router.post('/demo/enable', async (_req, res) => {
@@ -157,7 +164,7 @@ export function createApiRouter({ runtime, limiters }) {
 
   // Settings (Configuración) -----------------------------------------------------
   /** What the screen needs: effective values plus a warning when the Gmail token lacks the label permission. */
-  const settingsView = async () => {
+  const settingsView = async (/** @type {import('express').Request} */ req) => {
     const config = runtime.config;
     let tokenHasLabelScope = null;
     try {
@@ -179,14 +186,41 @@ export function createApiRouter({ runtime, limiters }) {
       canRestart: runtime.canRestart,
       demoMode,
       tokenHasLabelScope,
+      canAuthorizeHere: !demoMode,
+      authorizing: authorization !== null,
     };
   };
 
-  router.get('/settings', async (_req, res) => {
-    res.json(await settingsView());
+  // The whole screen is for the server computer only (the Gmail consent also comes back to
+  // 127.0.0.1, so it could not work from another device anyway).
+  const serverOnly = requireServerComputer();
+
+  router.get('/settings', serverOnly, async (req, res) => {
+    res.json(await settingsView(req));
   });
 
-  router.post('/restart', limiters.sync, async (req, res) => {
+  // Gmail consent from the dashboard (instead of `npm run auth`): opens Google's page in the
+  // browser of the server computer; when the user accepts, the token is saved and the mail
+  // source is rebuilt with it. Only from the server computer itself.
+  router.post('/gmail/authorize', serverOnly, limiters.sync, async (req, res) => {
+    if (runtime.containerOrNull?.config.demoMode) throw new AppError('VALIDATION_ERROR', 409, 'En el modo demostración no se usa Gmail.');
+    if (!authorization) {
+      const started = await startGmailAuthorization({ config: runtime.config, openUrl });
+      authorization = { authUrl: started.authUrl };
+      started.done
+        .then(async ({ hasRefreshToken }) => {
+          runtime.logger.info({ actor: actorOf(req), hasRefreshToken }, 'Gmail authorized from the dashboard');
+          await runtime.reconnectMailSource();
+        })
+        .catch((error) => runtime.logger.warn({ err: describeError(error) }, 'Gmail authorization from the dashboard did not finish'))
+        .finally(() => {
+          authorization = null;
+        });
+    }
+    res.json({ authUrl: authorization.authUrl });
+  });
+
+  router.post('/restart', serverOnly, limiters.sync, async (req, res) => {
     if (!runtime.canRestart) throw new AppError('RESTART_UNAVAILABLE', 409);
     runtime.logger.info({ actor: actorOf(req) }, 'Restart requested from the dashboard');
     res.status(202).json({ restarting: true });
@@ -194,7 +228,7 @@ export function createApiRouter({ runtime, limiters }) {
     res.on('finish', () => setTimeout(() => runtime.requestRestart(), 300));
   });
 
-  router.put('/settings', async (req, res) => {
+  router.put('/settings', serverOnly, async (req, res) => {
     const file = settingsPath(runtime.config.dataDir);
     const saved = { ...readSettingsEnv(file), ...settingsInputToEnv(req.body?.values ?? {}) };
     // The same rules as the environment: an invalid value is rejected before anything is saved.
@@ -237,7 +271,7 @@ export function createApiRouter({ runtime, limiters }) {
         .then((summary) => runtime.logger.info({ applied: summary.applied, deletedLabels: summary.deletedLabels }, 'Gmail labels updated after a settings change'))
         .catch((error) => runtime.logger.warn({ err: describeError(error) }, 'Gmail labels not updated after a settings change'));
     }
-    res.json({ ...(await settingsView()), reloaded, labelsUpdating });
+    res.json({ ...(await settingsView(req)), reloaded, labelsUpdating });
   });
 
   // Mailbox: letters with labels, print state and Gmail trace --------------------
@@ -279,7 +313,7 @@ export function createApiRouter({ runtime, limiters }) {
     res.json(await useCases().syncMailLabels.execute({ actor: actorOf(req), messageIds, force: req.body?.force === true }));
   });
 
-  router.post('/mail/labels/reset', limiters.sync, async (req, res) => {
+  router.post('/mail/labels/reset', serverOnly, limiters.sync, async (req, res) => {
     res.json(await useCases().syncMailLabels.reset({ actor: actorOf(req) }));
   });
 

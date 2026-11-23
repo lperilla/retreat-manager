@@ -2,33 +2,12 @@
  * `npm run auth`: OAuth consent flow (gmail.readonly, or gmail.modify when GMAIL_LABELS_ENABLED=true). Writes token.json.
  * Requires credentials.json (Google Cloud → OAuth client ID → Desktop app).
  */
-import { spawn } from 'node:child_process';
-
 import { describeError } from '../application/services/errorDescription.js';
 import { OAuth2, createGmailClient } from '../infrastructure/gmail/googleClient.js';
 import { gmailScopesFor, readClientSecrets, writeTokenFile } from '../infrastructure/gmail/oauthClient.js';
 import { runLoopbackAuthorization } from '../infrastructure/gmail/oauthFlow.js';
+import { openBrowser } from '../infrastructure/gmail/openBrowser.js';
 import { loadEnvironment } from './bootstrap.js';
-
-/**
- * Best-effort: open the consent page in the default browser.
- * @param {string} url
- */
-function openBrowser(url) {
-  const command =
-    process.platform === 'win32'
-      ? { file: 'rundll32', args: ['url.dll,FileProtocolHandler', url] }
-      : process.platform === 'darwin'
-        ? { file: 'open', args: [url] }
-        : { file: 'xdg-open', args: [url] };
-  try {
-    const child = spawn(command.file, command.args, { stdio: 'ignore', detached: true });
-    child.on('error', () => {});
-    child.unref();
-  } catch {
-    // The URL is printed anyway.
-  }
-}
 
 async function main() {
   const config = loadEnvironment();

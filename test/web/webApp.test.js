@@ -125,6 +125,16 @@ describe('mailbox API (labels, print marks, audit)', () => {
 });
 
 describe('settings API', () => {
+  it('offers Configuración to the server computer and refuses the Gmail permission in demo mode', async () => {
+    const app = await startApp();
+    // Tests connect through 127.0.0.1: this is the server computer.
+    assert.equal((await (await app.fetch('/api/app-info')).json()).serverComputer, true);
+    const settings = await (await app.fetch('/api/settings')).json();
+    assert.equal(settings.canAuthorizeHere, false); // demo mode does not use Gmail
+    const authorize = await app.post('/api/gmail/authorize', {});
+    assert.equal(authorize.status, 409);
+  });
+
   it('saves valid settings to data/settings.json, rejects invalid ones and keeps secrets out', async () => {
     const app = await startApp({ env: { DATA_DIR: join(exportDir, 'settings-data') } });
     const initial = await (await app.fetch('/api/settings')).json();
