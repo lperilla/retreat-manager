@@ -1,4 +1,4 @@
-# Instalar el servidor de «Gestión del retiro»
+# Instalar el servidor de Retreat Manager
 
 Esta guía es para la persona que va a preparar el ordenador **servidor**. No hace falta saber programar. Se hace **una sola vez**, en **un solo ordenador**. Calcula unos 30 minutos la primera vez, casi todos en el paso 1 (Google).
 
@@ -31,7 +31,7 @@ Los demás (otros ordenadores, tablets y móviles) no instalan nada: entran con 
                     ▼
    ┌──────────────────────────────────┐
    │  ORDENADOR SERVIDOR              │
-   │  App «Gestión del retiro»        │   guarda las cartas, los participantes,
+   │  App «Retreat Manager»           │   guarda las cartas, los participantes,
    │  (siempre abierta en el retiro)  │   las asignaciones y lo impreso
    └──────────────────────────────────┘
           ▲            ▲            ▲
@@ -52,9 +52,9 @@ Los demás (otros ordenadores, tablets y móviles) no instalan nada: entran con 
 - **Conexión a internet** en el servidor (para leer Gmail).
 - **Una red local** (Wi‑Fi o cable) a la que se conecten también los demás dispositivos.
 - **El instalador**:
-  - Windows: `Gestion-del-retiro-Instalador-<versión>.exe`.
-  - Linux (Ubuntu, Debian, Mint): `Gestion-del-retiro-<versión>-linux-x64.deb`.
-  - Otras distribuciones de Linux: `Gestion-del-retiro-<versión>-linux-x64.AppImage`.
+  - Windows: `RetreatManager-Setup-<versión>.exe`.
+  - Linux (Ubuntu, Debian, Mint): `retreat-manager_<versión>_amd64.deb`.
+  - Otras distribuciones de Linux: `RetreatManager-<versión>-x86_64.AppImage`.
 
 ## Paso 1. Preparar el acceso a Gmail en Google Cloud
 
@@ -76,7 +76,7 @@ Google exige registrar la aplicación antes de dejarle leer un buzón. Se hace u
 ### 1.3 Pantalla de consentimiento
 
 1. Menú ☰ → **Google Auth Platform** (o **APIs y servicios → Pantalla de consentimiento de OAuth**) → **Comenzar**.
-2. **Información de la aplicación**: nombre `Gestión del retiro` y tu correo de asistencia → **Siguiente**.
+2. **Información de la aplicación**: nombre `Retreat Manager` y tu correo de asistencia → **Siguiente**.
 3. **Audiencia**:
    - Si el buzón es de **Google Workspace** (correo de tu organización), elige **Interno**. Es lo mejor: el permiso no caduca.
    - Si es una cuenta **@gmail.com**, elige **Externo**.
@@ -96,7 +96,7 @@ Con `gmail.readonly` la aplicación **no puede enviar, borrar ni cambiar** ning�
 ### 1.5 Crear el cliente y descargar `credentials.json`
 
 1. **Google Auth Platform** → **Clientes** → **Crear cliente**.
-2. **Tipo de aplicación: Aplicación de escritorio**. Nombre: `Gestión del retiro` → **Crear**.
+2. **Tipo de aplicación: Aplicación de escritorio**. Nombre: `Retreat Manager` → **Crear**.
 3. En la ventana que aparece pulsa **Descargar JSON**.
 4. Guarda ese archivo en un sitio que encuentres (por ejemplo, el Escritorio). Puedes renombrarlo a `credentials.json`, aunque no es obligatorio.
 
@@ -106,20 +106,20 @@ Con `gmail.readonly` la aplicación **no puede enviar, borrar ni cambiar** ning�
 
 ### En Windows
 
-1. Haz doble clic en **`Gestion-del-retiro-Instalador-<versión>.exe`**.
+1. Haz doble clic en **`RetreatManager-Setup-<versión>.exe`**.
 2. Si Windows muestra **«Windows protegió su PC»**, pulsa **Más información** → **Ejecutar de todas formas**. Aparece porque el instalador no está firmado con un certificado comercial; no es un virus.
 3. Sigue el asistente: **Siguiente** → elige la carpeta (la propuesta vale) → **Instalar** → **Finalizar**.
-4. Quedan accesos directos en el **Escritorio** y en el **menú Inicio**: «Gestión del retiro».
+4. Quedan accesos directos en el **Escritorio** y en el **menú Inicio**: «Retreat Manager».
 
 ### En Linux (Ubuntu, Debian, Linux Mint)
 
-1. Haz doble clic en **`Gestion-del-retiro-<versión>-linux-x64.deb`**. Se abre el Centro de aplicaciones (o el instalador de paquetes): pulsa **Instalar** e introduce tu contraseña.
-   - Si no se abre, en una terminal, desde la carpeta donde esté el archivo: `sudo apt install ./Gestion-del-retiro-<versión>-linux-x64.deb`.
-2. Ábrela desde el menú de aplicaciones: «Gestión del retiro».
+1. Haz doble clic en **`retreat-manager_<versión>_amd64.deb`**. Se abre el Centro de aplicaciones (o el instalador de paquetes): pulsa **Instalar** e introduce tu contraseña.
+   - Si no se abre, en una terminal, desde la carpeta donde esté el archivo: `sudo apt install ./retreat-manager_<versión>_amd64.deb`.
+2. Ábrela desde el menú de aplicaciones: «Retreat Manager».
 
 ### En otras distribuciones de Linux (AppImage)
 
-1. Botón derecho sobre **`Gestion-del-retiro-<versión>-linux-x64.AppImage`** → **Propiedades** → **Permisos** → marca **Permitir ejecutar el archivo como programa** (o en una terminal: `chmod +x Gestion-del-retiro-*.AppImage`).
+1. Botón derecho sobre **`RetreatManager-<versión>-x86_64.AppImage`** → **Propiedades** → **Permisos** → marca **Permitir ejecutar el archivo como programa** (o en una terminal: `chmod +x RetreatManager-*.AppImage`).
 2. Doble clic para abrirla.
 3. Si no arranca y menciona **FUSE**, instala `libfuse2` (en Ubuntu reciente: `sudo apt install libfuse2t64`).
 
@@ -129,7 +129,7 @@ No necesitas instalar nada más (ni Node.js, ni bases de datos, ni Docker).
 
 ### 3.1 Abrir la aplicación
 
-Abre **Gestión del retiro** desde el Escritorio.
+Abre **Retreat Manager** desde el Escritorio.
 
 ### 3.2 Conectar Gmail
 
@@ -137,7 +137,7 @@ Abre **Gestión del retiro** desde el Escritorio.
    - Si aún no lo tienes, pulsa **Más tarde**: la aplicación se abre y podrás probarla con **datos de demostración**. Después conectas Gmail desde **Archivo → Conectar con Gmail…**.
 2. Pulsa **Continuar**: se abre el navegador.
 3. Inicia sesión con la **cuenta del buzón de las cartas**.
-4. Si aparece **«Google no ha verificado esta aplicación»**, pulsa **Avanzado** → **Ir a Gestión del retiro (no seguro)**. Es normal: la «aplicación» es la tuya, creada en el paso 1, y Google solo verifica las que se publican para todo el mundo.
+4. Si aparece **«Google no ha verificado esta aplicación»**, pulsa **Avanzado** → **Ir a Retreat Manager (no seguro)**. Es normal: la «aplicación» es la tuya, creada en el paso 1, y Google solo verifica las que se publican para todo el mundo.
 5. Marca los permisos que pide y pulsa **Continuar**.
 6. El navegador dice «Autorización completada». Vuelve a la aplicación: verás **«Gmail conectado»**.
 
@@ -159,7 +159,7 @@ Además, la red Wi‑Fi del servidor debe estar marcada como **privada**: Config
 
 El servidor **anuncia siempre la dirección** a la que se conectan los demás:
 
-- En el **título de la ventana**: «Gestión del retiro — los demás entran en http://192.168.1.20:3000».
+- En el **título de la ventana**: «Retreat Manager — los demás entran en http://192.168.1.20:3000».
 - En una **notificación** de Windows cada vez que se abre la aplicación.
 - En **Archivo → Cómo entran los demás (dirección y código)**, con botones para **copiar la dirección** y **copiar el código de acceso**.
 
@@ -203,11 +203,11 @@ La dirección usa la **IP** del servidor, que el router asigna y **puede cambiar
 
 Todo está en la carpeta de datos del usuario que usa la aplicación:
 
-- **Windows:** `C:\Users\<tu usuario>\AppData\Roaming\Gestión del retiro`
-- **Linux:** `~/.config/Gestión del retiro` (carpeta oculta dentro de tu carpeta personal)
+- **Windows:** `C:\Users\<tu usuario>\AppData\Roaming\Retreat Manager`
+- **Linux:** `~/.config/Retreat Manager` (carpeta oculta dentro de tu carpeta personal)
 
 ```
-Gestión del retiro\
+Retreat Manager\
 ├── desktop.json         código de acceso
 └── server\
     ├── credentials.json  cliente de Google (paso 1)
@@ -220,15 +220,15 @@ Gestión del retiro\
 
 Ábrela con **Archivo → Abrir carpeta de datos**.
 
-**Copia de seguridad:** cierra la aplicación y copia la carpeta `Gestión del retiro` entera a un USB o a otro disco. Para recuperarla, cierra la aplicación y pon la copia en el mismo sitio.
+**Copia de seguridad:** cierra la aplicación y copia la carpeta `Retreat Manager` entera a un USB o a otro disco. Para recuperarla, cierra la aplicación y pon la copia en el mismo sitio.
 
 **Cerrar el retiro:** desde el panel, al cerrar el retiro se borran los datos personales (cartas, participantes, adjuntos y exportaciones). También se borran solos pasados los días de retención configurados. Los correos originales siguen en Gmail: bórralos allí si ya no los necesitas.
 
 ## Actualizar y desinstalar
 
 - **Actualizar:** ejecuta el instalador de la versión nueva con la aplicación cerrada. Los datos se conservan.
-- **Desinstalar:** en Windows, Configuración → Aplicaciones → «Gestión del retiro» → Desinstalar. En Linux, desde el Centro de aplicaciones o con `sudo apt remove retreat-manager`; con AppImage basta con borrar el archivo. **Los datos no se borran** (por si reinstalas). Para borrarlos, elimina la carpeta de datos (ver [dónde se guardan](#dónde-se-guardan-los-datos-y-copias-de-seguridad)).
-- **Cambiar de ordenador servidor:** instala la aplicación en el nuevo, ábrela una vez y ciérrala, y copia encima la carpeta `Gestión del retiro` del antiguo (con la aplicación cerrada en los dos). La dirección cambiará: avisa a los demás.
+- **Desinstalar:** en Windows, Configuración → Aplicaciones → «Retreat Manager» → Desinstalar. En Linux, desde el Centro de aplicaciones o con `sudo apt remove retreat-manager`; con AppImage basta con borrar el archivo. **Los datos no se borran** (por si reinstalas). Para borrarlos, elimina la carpeta de datos (ver [dónde se guardan](#dónde-se-guardan-los-datos-y-copias-de-seguridad)).
+- **Cambiar de ordenador servidor:** instala la aplicación en el nuevo, ábrela una vez y ciérrala, y copia encima la carpeta `Retreat Manager` del antiguo (con la aplicación cerrada en los dos). La dirección cambiará: avisa a los demás.
 
 ## Opcional: usar MongoDB
 
@@ -257,7 +257,7 @@ En ese mismo `.env` puedes cambiar otras opciones avanzadas, como `PORT=3001` si
 1. Comprueba que **la aplicación del servidor está abierta**.
 2. Comprueba que el dispositivo está en la **misma red** (misma Wi‑Fi). Las redes de **invitados** suelen aislar los dispositivos entre sí: usa la red principal.
 3. Mira la dirección actual en el título de la ventana del servidor: puede que la IP haya cambiado (ver [Que la dirección no cambie](#que-la-dirección-no-cambie)).
-4. Prueba la dirección **desde el propio servidor**, en su navegador. Si allí funciona y fuera no, es el **cortafuegos**: Configuración → Privacidad y seguridad → Seguridad de Windows → **Firewall y protección de red** → **Permitir una aplicación a través del firewall** → **Cambiar la configuración** → marca «Gestión del retiro» en **Privada**. Si no está en la lista, **Permitir otra aplicación** y busca `Gestión del retiro.exe` en la carpeta de instalación.
+4. Prueba la dirección **desde el propio servidor**, en su navegador. Si allí funciona y fuera no, es el **cortafuegos**: Configuración → Privacidad y seguridad → Seguridad de Windows → **Firewall y protección de red** → **Permitir una aplicación a través del firewall** → **Cambiar la configuración** → marca «Retreat Manager» en **Privada**. Si no está en la lista, **Permitir otra aplicación** y busca `Retreat Manager.exe` en la carpeta de instalación.
 5. Comprueba que la red del servidor es **Privada** ([paso 3.3](#33-permitir-el-acceso-desde-la-red-cortafuegos-de-windows)).
 
 ### «El puerto 3000 ya está en uso»
@@ -266,7 +266,7 @@ Otro programa usa ese puerto, o la aplicación ya está abierta (mira la barra d
 
 ### Gmail rechaza la autenticación / dejan de llegar cartas
 
-Con cuentas @gmail.com en modo de prueba, el permiso caduca cada 7 días ([paso 1.3](#13-pantalla-de-consentimiento)). Ve a **Archivo → Conectar con Gmail…** y repite la autorización. Si sigue fallando, en <https://myaccount.google.com/permissions> quita el acceso de «Gestión del retiro» y vuelve a conectar.
+Con cuentas @gmail.com en modo de prueba, el permiso caduca cada 7 días ([paso 1.3](#13-pantalla-de-consentimiento)). Ve a **Archivo → Conectar con Gmail…** y repite la autorización. Si sigue fallando, en <https://myaccount.google.com/permissions> quita el acceso de «Retreat Manager» y vuelve a conectar.
 
 ### «Quota exceeded» al buscar cartas
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Builds the desktop packages of the server app inside electron-builder's official Docker image,
 # so the build does not depend on the Node.js, Wine or 7-Zip installed on this computer:
-#   - Linux:   dist/Gestion-del-retiro-<version>-linux-x64.deb and .AppImage
-#   - Windows: dist/Gestion-del-retiro-Instalador-<version>.exe (NSIS, built with Wine)
+#   - Linux:   dist/retreat-manager_<version>_amd64.deb and dist/RetreatManager-<version>-x86_64.AppImage
+#   - Windows: dist/RetreatManager-Setup-<version>.exe (NSIS, built with Wine in a Linux container)
 #
 # Usage (on a Linux computer with Docker):  ./scripts/build-desktop.sh [linux|windows|all]
 set -euo pipefail

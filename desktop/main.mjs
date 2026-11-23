@@ -16,7 +16,7 @@ import { applyDefaults, clientUrls, lanAddresses, loadDesktopConfig, newAccessTo
 import { authorizeGmail } from './gmailAuth.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const TITLE = 'Gestión del retiro';
+const TITLE = 'Retreat Manager';
 const ICON = join(HERE, '..', 'build', 'icon.png');
 
 const home = () => join(app.getPath('userData'), 'server');

@@ -1,10 +1,10 @@
 {
   "name": "retreat-manager",
-  "productName": "Gestión del retiro",
+  "productName": "Retreat Manager",
   "version": "0.1.0",
   "description": "Dashboard, batch exporter and printing system for retreat letters received in a shared Gmail inbox.",
   "author": {
-    "name": "Gestión del retiro"
+    "name": "Retreat Manager"
   },
   "private": true,
   "type": "module",
@@ -46,8 +46,8 @@
   },
   "build": {
     "appId": "com.retreat.manager",
-    "productName": "Gestión del retiro",
-    "copyright": "Gestión del retiro",
+    "productName": "Retreat Manager",
+    "copyright": "Retreat Manager",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -69,7 +69,7 @@
         }
       ],
       "icon": "build/icon.png",
-      "artifactName": "Gestion-del-retiro-Instalador-${version}.${ext}"
+      "artifactName": "RetreatManager-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -77,8 +77,9 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Gestión del retiro",
-      "language": "1034"
+      "shortcutName": "Retreat Manager",
+      "language": "1034",
+      "artifactName": "RetreatManager-Setup-${version}.${ext}"
     },
     "linux": {
       "target": [
@@ -97,15 +98,19 @@
       ],
       "icon": "build/icon.png",
       "category": "Office",
-      "maintainer": "Gestion del retiro <noreply@retreat-manager.local>",
-      "synopsis": "Gestión del retiro: cartas, participantes, habitaciones y mesas",
-      "artifactName": "Gestion-del-retiro-${version}-linux-${arch}.${ext}",
+      "maintainer": "Retreat Manager <noreply@retreat-manager.local>",
+      "synopsis": "Retreat Manager: cartas, participantes, habitaciones y mesas de un retiro",
+      "artifactName": "RetreatManager-${version}-${arch}.${ext}",
       "desktop": {
         "entry": {
-          "Name": "Gestión del retiro",
-          "StartupWMClass": "Gestión del retiro"
+          "Name": "Retreat Manager",
+          "StartupWMClass": "Retreat Manager"
         }
-      }
+      },
+      "executableName": "retreat-manager"
+    },
+    "deb": {
+      "artifactName": "retreat-manager_${version}_${arch}.${ext}"
     }
   }
 }

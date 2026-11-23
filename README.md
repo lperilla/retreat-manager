@@ -414,7 +414,7 @@ El menú **Configuración** permite cambiar y guardar sin editar `.env`: las eti
 
 Para usuarios finales, el servidor se distribuye como una aplicación de Windows (Electron) que arranca el servidor dentro de la propia app: sin Node.js, sin MongoDB y sin terminal. Los demás dispositivos entran con el navegador. Guías: [instalar el servidor](docs/INSTALACION-SERVIDOR.md) y [usuarios](docs/GUIA-USUARIOS.md).
 
-- Datos en `%APPDATA%\Gestión del retiro\server` (`RETREAT_HOME`), en archivos JSON por defecto. Un `.env` en esa carpeta tiene prioridad (por ejemplo `PERSISTENCE=mongo` y `MONGODB_URI`, o `PORT`).
+- Datos en `%APPDATA%\Retreat Manager\server` (`RETREAT_HOME`), en archivos JSON por defecto. Un `.env` en esa carpeta tiene prioridad (por ejemplo `PERSISTENCE=mongo` y `MONGODB_URI`, o `PORT`).
 - Escucha en la red local con un código de acceso generado la primera vez; la dirección para los demás aparece en el título de la ventana, en una notificación al arrancar y en **Archivo → Cómo entran los demás**.
 - **Archivo → Conectar con Gmail** hace lo mismo que `npm run auth`, eligiendo `credentials.json` con un diálogo.
 - Registro en `server\logs\servidor.log`.
@@ -431,7 +431,7 @@ npm run dist
 ./scripts/build-desktop.sh all
 ```
 
-`npm run desktop` la abre sin empaquetar. `npm run dist` genera en Windows `dist\Gestion-del-retiro-Instalador-<versión>.exe`, y `npm run dist:linux` en Linux genera el `.deb` y el `.AppImage`. `scripts/build-desktop.sh` genera los de Linux y Windows desde un Linux con Docker, dentro de la imagen oficial `electronuserland/builder:wine`, sin necesitar Node.js, Wine ni 7-Zip en el equipo. Con `RETREAT_DESKTOP_DATA=<carpeta>` usa otra carpeta de datos (para probar sin tocar los datos reales). El paso del instalador usa 7-Zip, que algunas políticas de seguridad corporativas bloquean: en ese caso genera el instalador en un equipo sin esa restricción.
+`npm run desktop` la abre sin empaquetar. `npm run dist` genera en Windows `dist\RetreatManager-Setup-<versión>.exe`, y `npm run dist:linux` en Linux genera el `.deb` y el `.AppImage`. `scripts/build-desktop.sh` genera los de Linux y Windows desde un Linux con Docker, dentro de la imagen oficial `electronuserland/builder:wine`, sin necesitar Node.js, Wine ni 7-Zip en el equipo. Con `RETREAT_DESKTOP_DATA=<carpeta>` usa otra carpeta de datos (para probar sin tocar los datos reales). El paso del instalador usa 7-Zip, que algunas políticas de seguridad corporativas bloquean: en ese caso genera el instalador en un equipo sin esa restricción.
 
 ## Panel en la red local
 

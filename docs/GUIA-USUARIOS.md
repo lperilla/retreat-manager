@@ -1,4 +1,4 @@
-# Entrar en «Gestión del retiro» desde tu ordenador, tablet o móvil
+# Entrar en Retreat Manager desde tu ordenador, tablet o móvil
 
 No tienes que instalar nada. Solo necesitas un navegador (Chrome, Edge, Safari, Firefox…) y dos datos que te da quien preparó el servidor:
 
