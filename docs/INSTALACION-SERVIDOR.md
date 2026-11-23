@@ -47,11 +47,14 @@ Los demás (otros ordenadores, tablets y móviles) no instalan nada: entran con 
 
 ## Qué necesitas
 
-- **Un ordenador con Windows 10 u 11 (64 bits)** que esté encendido mientras se trabaje con las cartas. Sirve uno normal, no tiene que ser potente. Mejor si tiene usuario con contraseña: guarda cartas personales.
+- **Un ordenador con Windows 10 u 11 (64 bits), o con Linux (Ubuntu, Debian, Linux Mint… de 64 bits)**, que esté encendido mientras se trabaje con las cartas. Sirve uno normal, no tiene que ser potente. Mejor si tiene usuario con contraseña: guarda cartas personales.
 - **La cuenta de Gmail** donde llegan las cartas, y su contraseña. Lo recomendable es una cuenta solo para el retiro, por ejemplo `cartas.retiro.2026@gmail.com`.
 - **Conexión a internet** en el servidor (para leer Gmail).
 - **Una red local** (Wi‑Fi o cable) a la que se conecten también los demás dispositivos.
-- **El instalador**: `Gestion-del-retiro-Instalador-<versión>.exe`.
+- **El instalador**:
+  - Windows: `Gestion-del-retiro-Instalador-<versión>.exe`.
+  - Linux (Ubuntu, Debian, Mint): `Gestion-del-retiro-<versión>-linux-x64.deb`.
+  - Otras distribuciones de Linux: `Gestion-del-retiro-<versión>-linux-x64.AppImage`.
 
 ## Paso 1. Preparar el acceso a Gmail en Google Cloud
 
@@ -101,10 +104,24 @@ Con `gmail.readonly` la aplicación **no puede enviar, borrar ni cambiar** ning�
 
 ## Paso 2. Instalar la aplicación
 
+### En Windows
+
 1. Haz doble clic en **`Gestion-del-retiro-Instalador-<versión>.exe`**.
 2. Si Windows muestra **«Windows protegió su PC»**, pulsa **Más información** → **Ejecutar de todas formas**. Aparece porque el instalador no está firmado con un certificado comercial; no es un virus.
 3. Sigue el asistente: **Siguiente** → elige la carpeta (la propuesta vale) → **Instalar** → **Finalizar**.
 4. Quedan accesos directos en el **Escritorio** y en el **menú Inicio**: «Gestión del retiro».
+
+### En Linux (Ubuntu, Debian, Linux Mint)
+
+1. Haz doble clic en **`Gestion-del-retiro-<versión>-linux-x64.deb`**. Se abre el Centro de aplicaciones (o el instalador de paquetes): pulsa **Instalar** e introduce tu contraseña.
+   - Si no se abre, en una terminal, desde la carpeta donde esté el archivo: `sudo apt install ./Gestion-del-retiro-<versión>-linux-x64.deb`.
+2. Ábrela desde el menú de aplicaciones: «Gestión del retiro».
+
+### En otras distribuciones de Linux (AppImage)
+
+1. Botón derecho sobre **`Gestion-del-retiro-<versión>-linux-x64.AppImage`** → **Propiedades** → **Permisos** → marca **Permitir ejecutar el archivo como programa** (o en una terminal: `chmod +x Gestion-del-retiro-*.AppImage`).
+2. Doble clic para abrirla.
+3. Si no arranca y menciona **FUSE**, instala `libfuse2` (en Ubuntu reciente: `sudo apt install libfuse2t64`).
 
 No necesitas instalar nada más (ni Node.js, ni bases de datos, ni Docker).
 
@@ -133,6 +150,8 @@ La primera vez, Windows puede preguntar si permites que la aplicación se comuni
 - Pulsa **Permitir acceso**. Si te pide contraseña de administrador, introdúcela.
 
 Si no aparece la pregunta y los demás no pueden entrar, consulta [Los demás no pueden entrar](#los-demás-no-pueden-entrar).
+
+**En Linux** no aparece ninguna pregunta. En Ubuntu el cortafuegos (`ufw`) viene desactivado y no hay que hacer nada. Si lo tienes activado, permite el puerto con `sudo ufw allow 3000/tcp`.
 
 Además, la red Wi‑Fi del servidor debe estar marcada como **privada**: Configuración → Red e Internet → Wi‑Fi (o Ethernet) → tu red → **Tipo de perfil de red: Privada**.
 
@@ -176,16 +195,19 @@ La dirección usa la **IP** del servidor, que el router asigna y **puede cambiar
 ## Uso diario
 
 - **La aplicación del servidor debe estar abierta** para que los demás puedan entrar. Si la cierras, los demás verán un error hasta que la vuelvas a abrir.
-- **Evita que el servidor se duerma** durante el retiro: Configuración → Sistema → Energía → **Suspender: Nunca** (al menos enchufado).
+- **Evita que el servidor se duerma** durante el retiro: en Windows, Configuración → Sistema → Energía → **Suspender: Nunca** (al menos enchufado). En Ubuntu, Configuración → Energía → **Suspender automáticamente: desactivado**.
 - Al cerrar la ventana, la aplicación se detiene ordenadamente y guarda todo.
 - Solo puede haber una aplicación abierta a la vez en el servidor: si la abres otra vez, se muestra la que ya estaba abierta.
 
 ## Dónde se guardan los datos y copias de seguridad
 
-Todo está en la carpeta de datos del usuario de Windows que usa la aplicación:
+Todo está en la carpeta de datos del usuario que usa la aplicación:
+
+- **Windows:** `C:\Users\<tu usuario>\AppData\Roaming\Gestión del retiro`
+- **Linux:** `~/.config/Gestión del retiro` (carpeta oculta dentro de tu carpeta personal)
 
 ```
-C:\Users\<tu usuario>\AppData\Roaming\Gestión del retiro\
+Gestión del retiro\
 ├── desktop.json         código de acceso
 └── server\
     ├── credentials.json  cliente de Google (paso 1)
@@ -205,7 +227,7 @@ C:\Users\<tu usuario>\AppData\Roaming\Gestión del retiro\
 ## Actualizar y desinstalar
 
 - **Actualizar:** ejecuta el instalador de la versión nueva con la aplicación cerrada. Los datos se conservan.
-- **Desinstalar:** Configuración → Aplicaciones → «Gestión del retiro» → Desinstalar. **Los datos no se borran** (por si reinstalas). Para borrarlos, elimina la carpeta `C:\Users\<tu usuario>\AppData\Roaming\Gestión del retiro`.
+- **Desinstalar:** en Windows, Configuración → Aplicaciones → «Gestión del retiro» → Desinstalar. En Linux, desde el Centro de aplicaciones o con `sudo apt remove retreat-manager`; con AppImage basta con borrar el archivo. **Los datos no se borran** (por si reinstalas). Para borrarlos, elimina la carpeta de datos (ver [dónde se guardan](#dónde-se-guardan-los-datos-y-copias-de-seguridad)).
 - **Cambiar de ordenador servidor:** instala la aplicación en el nuevo, ábrela una vez y ciérrala, y copia encima la carpeta `Gestión del retiro` del antiguo (con la aplicación cerrada en los dos). La dirección cambiará: avisa a los demás.
 
 ## Opcional: usar MongoDB

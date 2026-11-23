@@ -427,7 +427,11 @@ npm run desktop
 npm run dist
 ```
 
-`npm run desktop` la abre sin empaquetar; `npm run dist` genera `dist\Gestion-del-retiro-Instalador-<versión>.exe`. Con `RETREAT_DESKTOP_DATA=<carpeta>` usa otra carpeta de datos (para probar sin tocar los datos reales). El paso del instalador usa 7-Zip, que algunas políticas de seguridad corporativas bloquean: en ese caso genera el instalador en un equipo sin esa restricción.
+```bash
+./scripts/build-desktop.sh all
+```
+
+`npm run desktop` la abre sin empaquetar. `npm run dist` genera en Windows `dist\Gestion-del-retiro-Instalador-<versión>.exe`, y `npm run dist:linux` en Linux genera el `.deb` y el `.AppImage`. `scripts/build-desktop.sh` genera los de Linux y Windows desde un Linux con Docker, dentro de la imagen oficial `electronuserland/builder:wine`, sin necesitar Node.js, Wine ni 7-Zip en el equipo. Con `RETREAT_DESKTOP_DATA=<carpeta>` usa otra carpeta de datos (para probar sin tocar los datos reales). El paso del instalador usa 7-Zip, que algunas políticas de seguridad corporativas bloquean: en ese caso genera el instalador en un equipo sin esa restricción.
 
 ## Panel en la red local
 
