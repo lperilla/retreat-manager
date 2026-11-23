@@ -1,7 +1,12 @@
 name: CI
 
-# Validates every pull request (and main): installs from the lockfile, runs the tests and
-# checks that the desktop app still packages.
+# Validates every pull request (and main) in sequential phases. Each phase starts only if the
+# previous one passed:
+#   1. Install   - clean install from the lockfile
+#   2. Compile   - syntax check of every JavaScript file of the project
+#   3. Test      - full test suite
+#   4. Package   - desktop installers for Linux and Windows
+# The final "CI" job is the single check to require before merging.
 on:
   pull_request:
   push:
@@ -15,8 +20,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  install:
+    name: 1. Install
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Clean install from package-lock.json
+        run: npm ci --no-audit --no-fund
+
+  compile:
+    name: 2. Compile
+    needs: install
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Syntax check of every JavaScript file
+        run: |
+          fail=0; n=0
+          while IFS= read -r f; do
+            n=$((n+1))
+            node --check "$f" || { echo "::error file=$f::syntax error"; fail=1; }
+          done < <(git ls-files '*.js' '*.mjs' '*.cjs')
+          echo "Checked $n files"
+          exit $fail
+
   test:
-    name: Tests
+    name: 3. Test
+    needs: compile
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -28,10 +69,11 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm test
 
-  package:
-    name: Package desktop app
+  package-linux:
+    name: 4. Package Linux (.deb, .AppImage)
+    needs: test
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,7 +81,36 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --no-audit --no-fund
-      # Unpacked build only (no installers): catches broken packaging config or missing files.
-      - run: npx electron-builder --linux dir --x64
-      - name: Check the asar is present
-        run: test -f dist/linux-unpacked/resources/app.asar
+      - run: npm run dist:linux -- --publish never
+      - name: Check the artifacts and the asar
+        run: |
+          ls -lh dist/*.deb dist/*.AppImage
+          test -f dist/linux-unpacked/resources/app.asar
+
+  package-windows:
+    name: 4. Package Windows (.exe)
+    needs: test
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run dist -- --publish never
+      - name: Check the installer
+        shell: bash
+        run: ls -lh dist/RetreatManager-Setup-*.exe
+
+  # Single check to require in branch protection: green only if every phase passed.
+  ci:
+    name: CI
+    if: always()
+    needs: [install, compile, test, package-linux, package-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "${{ join(needs.*.result, ' ') }}"
+          [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}" = "false" ]
