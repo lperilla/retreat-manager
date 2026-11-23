@@ -1,7 +1,7 @@
 {
   "name": "retreat-manager",
   "productName": "Retreat Manager",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Dashboard, batch exporter and printing system for retreat letters received in a shared Gmail inbox.",
   "author": {
     "name": "Retreat Manager"
