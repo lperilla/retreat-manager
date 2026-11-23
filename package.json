@@ -1,5 +1,6 @@
 {
   "name": "retreat-manager",
+  "productName": "Gestión del retiro",
   "version": "0.1.0",
   "description": "Dashboard, batch exporter and printing system for retreat letters received in a shared Gmail inbox.",
   "private": true,
@@ -14,7 +15,9 @@
     "test": "node --test \"test/**/*.test.js\"",
     "db:purge": "node src/entrypoints/purge.js",
     "demo:walkthrough": "node scripts/demo-walkthrough.js",
-    "seed:gmail": "node scripts/seed-gmail.js"
+    "seed:gmail": "node scripts/seed-gmail.js",
+    "desktop": "electron desktop/main.mjs",
+    "dist": "electron-builder --win --x64"
   },
   "dependencies": {
     "dotenv": "18.0.9",
@@ -31,5 +34,47 @@
   },
   "overrides": {
     "uuid": "11.1.1"
+  },
+  "main": "desktop/main.mjs",
+  "devDependencies": {
+    "electron": "43.2.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.retreat.manager",
+    "productName": "Gestión del retiro",
+    "copyright": "Gestión del retiro",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "asar": false,
+    "files": [
+      "desktop/**/*",
+      "src/**/*",
+      "package.json",
+      "!**/*.md"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "Gestion-del-retiro-Instalador-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Gestión del retiro",
+      "language": "1034"
+    }
   }
 }

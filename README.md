@@ -18,6 +18,8 @@ El panel **nunca lee Gmail directamente**: todo se lee de la base de datos local
 
 ---
 
+> **¿Vas a instalarlo para un retiro y no eres programador?** Usa la app de escritorio: [Instalar el servidor](docs/INSTALACION-SERVIDOR.md) y, para los demás, la [guía para usuarios](docs/GUIA-USUARIOS.md) (entran desde el navegador, también en tablet y móvil).
+
 ## Índice
 
 1. [Requisitos](#requisitos)
@@ -408,6 +410,25 @@ El menú **Configuración** permite cambiar y guardar sin editar `.env`: las eti
 - No incluye secretos: el código de acceso, la base de datos y las credenciales de Google siguen en `.env`.
 - Si activas las etiquetas y el acceso a Gmail es de solo lectura, el panel avisa de que hay que ejecutar `npm run auth`.
 
+## App de escritorio (servidor)
+
+Para usuarios finales, el servidor se distribuye como una aplicación de Windows (Electron) que arranca el servidor dentro de la propia app: sin Node.js, sin MongoDB y sin terminal. Los demás dispositivos entran con el navegador. Guías: [instalar el servidor](docs/INSTALACION-SERVIDOR.md) y [usuarios](docs/GUIA-USUARIOS.md).
+
+- Datos en `%APPDATA%\Gestión del retiro\server` (`RETREAT_HOME`), en archivos JSON por defecto. Un `.env` en esa carpeta tiene prioridad (por ejemplo `PERSISTENCE=mongo` y `MONGODB_URI`, o `PORT`).
+- Escucha en la red local con un código de acceso generado la primera vez; la dirección para los demás aparece en el título de la ventana, en una notificación al arrancar y en **Archivo → Cómo entran los demás**.
+- **Archivo → Conectar con Gmail** hace lo mismo que `npm run auth`, eligiendo `credentials.json` con un diálogo.
+- Registro en `server\logs\servidor.log`.
+
+```powershell
+npm run desktop
+```
+
+```powershell
+npm run dist
+```
+
+`npm run desktop` la abre sin empaquetar; `npm run dist` genera `dist\Gestion-del-retiro-Instalador-<versión>.exe`. Con `RETREAT_DESKTOP_DATA=<carpeta>` usa otra carpeta de datos (para probar sin tocar los datos reales). El paso del instalador usa 7-Zip, que algunas políticas de seguridad corporativas bloquean: en ese caso genera el instalador en un equipo sin esa restricción.
+
 ## Panel en la red local
 
 Para usar el panel desde otros dispositivos del retiro (por ejemplo, una tableta en secretaría):
@@ -420,7 +441,7 @@ Para usar el panel desde otros dispositivos del retiro (por ejemplo, una tableta
 
 2. Al arrancar, el registro muestra las direcciones disponibles (`http://192.168.1.20:3000`, …) y un aviso claro de que el panel está **expuesto en la red local**.
 3. En Windows, permite Node.js en el cortafuegos **solo para redes privadas**.
-4. Cada persona entra con el código de acceso. La sesión dura 12 horas en una cookie protegida que no contiene el código.
+4. Cada persona entra con el código de acceso. La sesión dura 30 días en una cookie protegida que no contiene el código.
 
 El panel usa **HTTP sin cifrar**: úsalo solo en una red de confianza (nunca en una wifi abierta) y vuelve a `HOST=127.0.0.1` al terminar.
 

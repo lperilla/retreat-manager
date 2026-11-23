@@ -42,11 +42,14 @@ export class PinoLogger {
   }
 
   /**
-   * @param {{ level?: string, destination?: 'stdout' | 'stderr', bindings?: Record<string, unknown> }} [options]
+   * @param {{ level?: string, destination?: 'stdout' | 'stderr', file?: string | null, bindings?: Record<string, unknown> }} [options]
+   *        `file` writes the log lines to that file (created with its folders) instead of the console.
    * @returns {PinoLogger}
    */
-  static create({ level = 'info', destination = 'stdout', bindings = {} } = {}) {
-    const stream = pino.destination({ dest: destination === 'stderr' ? 2 : 1, sync: true });
+  static create({ level = 'info', destination = 'stdout', file = null, bindings = {} } = {}) {
+    const stream = file
+      ? pino.destination({ dest: file, sync: true, mkdir: true })
+      : pino.destination({ dest: destination === 'stderr' ? 2 : 1, sync: true });
     const logger = pino(
       {
         level,
