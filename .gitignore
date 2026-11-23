@@ -16,3 +16,6 @@ exports/
 
 # Demo videos (recorded for sharing, not source)
 *.mp4
+
+# Desktop installer output
+dist/

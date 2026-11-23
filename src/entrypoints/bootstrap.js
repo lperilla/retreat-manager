@@ -18,11 +18,13 @@ export const PROJECT_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
 /**
  * Loads `.env` silently and parses the config.
- * `RETREAT_ENV_FILE` may point to another env file.
+ * `RETREAT_ENV_FILE` may point to another env file. `RETREAT_HOME` moves the base folder of
+ * `.env`, `data/`, `credentials.json` and the other relative paths (the desktop app keeps them
+ * in the user's profile instead of the install folder).
  * @param {{ env?: Record<string, string | undefined>, rootDir?: string }} [options]
  * @returns {Readonly<import('../composition/config.js').AppConfig>}
  */
-export function loadEnvironment({ env = process.env, rootDir = PROJECT_ROOT } = {}) {
+export function loadEnvironment({ env = process.env, rootDir = env.RETREAT_HOME || PROJECT_ROOT } = {}) {
   const envFile = env.RETREAT_ENV_FILE || join(rootDir, '.env');
   dotenv.config({ path: envFile, quiet: true, processEnv: /** @type {Record<string, string>} */ (env) });
   // Settings saved from the dashboard (data/settings.json) override the same variables of .env.

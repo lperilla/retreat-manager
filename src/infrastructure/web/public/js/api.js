@@ -53,6 +53,7 @@ function query(params) {
 export const api = {
   appInfo: () => request('/api/app-info'),
   settings: () => request('/api/settings'),
+  resetLabels: () => request('/api/mail/labels/reset', { method: 'POST' }),
   restart: () => request('/api/restart', { method: 'POST' }),
   saveSettings: (/** @type {Record<string, unknown>} */ values) => request('/api/settings', { method: 'PUT', body: { values } }),
   enableDemo: () => request('/api/demo/enable', { method: 'POST' }),

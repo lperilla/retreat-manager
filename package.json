@@ -1,7 +1,11 @@
 {
   "name": "retreat-manager",
+  "productName": "Retreat Manager",
   "version": "0.1.0",
   "description": "Dashboard, batch exporter and printing system for retreat letters received in a shared Gmail inbox.",
+  "author": {
+    "name": "Retreat Manager"
+  },
   "private": true,
   "type": "module",
   "engines": {
@@ -14,7 +18,10 @@
     "test": "node --test \"test/**/*.test.js\"",
     "db:purge": "node src/entrypoints/purge.js",
     "demo:walkthrough": "node scripts/demo-walkthrough.js",
-    "seed:gmail": "node scripts/seed-gmail.js"
+    "seed:gmail": "node scripts/seed-gmail.js",
+    "desktop": "electron desktop/main.mjs",
+    "dist": "electron-builder --win nsis --x64",
+    "dist:linux": "electron-builder --linux deb AppImage --x64"
   },
   "dependencies": {
     "dotenv": "18.0.9",
@@ -31,5 +38,92 @@
   },
   "overrides": {
     "uuid": "11.1.1"
+  },
+  "main": "desktop/main.mjs",
+  "devDependencies": {
+    "electron": "43.8.12",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.retreat.manager",
+    "productName": "Retreat Manager",
+    "copyright": "Retreat Manager",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "asar": false,
+    "files": [
+      "desktop/**/*",
+      "src/**/*",
+      "package.json",
+      "!**/*.md"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "RetreatManager-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Retreat Manager",
+      "language": "1034",
+      "artifactName": "RetreatManager-Setup-${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Office",
+      "maintainer": "Retreat Manager <noreply@retreat-manager.local>",
+      "synopsis": "Retreat Manager: cartas, participantes, habitaciones y mesas de un retiro",
+      "artifactName": "RetreatManager-${version}-${arch}.${ext}",
+      "desktop": {
+        "entry": {
+          "Name": "Retreat Manager",
+          "StartupWMClass": "Retreat Manager"
+        }
+      },
+      "executableName": "retreat-manager"
+    },
+    "deb": {
+      "artifactName": "retreat-manager_${version}_${arch}.${ext}",
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0",
+        "libasound2t64 | libasound2",
+        "libgbm1"
+      ]
+    }
   }
 }

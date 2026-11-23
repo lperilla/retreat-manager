@@ -97,6 +97,29 @@ describe('Gmail labels: sync, manual assignment and printed label', () => {
     assert.equal(forced.applied, 3);
   });
 
+  it('reset deletes the labels Gmail has under the prefix (even unknown ones) and applies them again', async () => {
+    const { container, labelPort } = await labelledContainer();
+    await container.useCases.syncMailbox.execute();
+    // A stale label from a previous install, unknown to the local state, plus a label of the user's own.
+    labelPort.gmailLabels = ['Retiro/Antigua', 'Trabajo'];
+    labelPort.listLabelNames = async () => labelPort.gmailLabels;
+    labelPort.deleteLabels = async (names) => {
+      labelPort.deletedNames = names;
+      for (const set of labelPort.messages.values()) names.forEach((n) => set.delete(n));
+      return names;
+    };
+    labelPort.messages.get('u1').add('Retiro/Antigua');
+
+    const summary = await container.useCases.syncMailLabels.reset({ actor: 'Ana' });
+
+    assert.ok(labelPort.deletedNames.includes('Retiro/Antigua'));
+    assert.ok(labelPort.deletedNames.includes('Retiro/Juan Pérez'));
+    assert.equal(labelPort.deletedNames.includes('Trabajo'), false);
+    assert.equal(summary.applied, 3);
+    assert.deepEqual(labelPort.labelsOf('u1'), ['Retiro/Juan Pérez']);
+    assert.deepEqual(labelPort.labelsOf('u3'), ['Retiro/Juan Pérez', 'Retiro/Lucía Fernández']);
+  });
+
   it('applies the participant label on manual correction and moves it on reassignment, tracing the user', async () => {
     const { container, labelPort } = await labelledContainer();
     await container.useCases.syncMailbox.execute();

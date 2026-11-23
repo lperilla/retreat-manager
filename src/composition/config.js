@@ -167,7 +167,7 @@ export function loadConfig(env = process.env, { rootDir = process.cwd() } = {}) 
       credentialsPath: path('GOOGLE_CREDENTIALS_PATH', './credentials.json'),
       tokenPath: path('GOOGLE_TOKEN_PATH', './token.json'),
       concurrency: number(env, 'GMAIL_CONCURRENCY', 5, { min: 1, max: 20 }),
-      requestsPerSecond: number(env, 'GMAIL_MAX_REQUESTS_PER_SECOND', 10, { min: 0, max: 100 }),
+      requestsPerSecond: number(env, 'GMAIL_MAX_REQUESTS_PER_SECOND', 5, { min: 0, max: 100 }),
       labels: Object.freeze({
         enabled: bool(env, 'GMAIL_LABELS_ENABLED', false),
         participantPrefix: labelName('GMAIL_LABEL_PREFIX', optionalText(env, 'GMAIL_LABEL_PREFIX', '')),

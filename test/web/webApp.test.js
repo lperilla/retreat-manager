@@ -143,7 +143,7 @@ describe('settings API', () => {
     assert.equal(body.canRestart, false); // not started through start.cmd
     assert.deepEqual(
       { prefix: body.defaults.labelPrefix, printed: body.defaults.printedLabel, rps: body.defaults.requestsPerSecond, conc: body.defaults.concurrency, interval: body.defaults.syncIntervalMinutes, labels: body.defaults.labelsEnabled },
-      { prefix: '', printed: 'Impreso', rps: 10, conc: 5, interval: 0, labels: false },
+      { prefix: '', printed: 'Impreso', rps: 5, conc: 5, interval: 0, labels: false },
     );
     const refused = await app.post('/api/restart', {});
     assert.equal(refused.status, 409);

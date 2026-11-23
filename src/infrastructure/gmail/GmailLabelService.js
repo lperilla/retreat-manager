@@ -142,12 +142,24 @@ export class GmailLabelService {
   }
 
   /**
+   * Names of all user labels currently in Gmail.
+   * @returns {Promise<string[]>}
+   */
+  async listLabelNames() {
+    const response = await this.#call(() => this.#gmail.users.labels.list({ userId: 'me' }));
+    return (response.data.labels ?? []).filter((l) => l.name && (l.type ?? 'user') === 'user').map((l) => /** @type {string} */ (l.name));
+  }
+
+  /**
    * Deletes user labels by name (a name that does not exist is skipped).
    * @param {string[]} names
    * @returns {Promise<string[]>} Names deleted.
    */
   async deleteLabels(names) {
     const cache = await this.#loadLabels();
+    // Deleted labels (parent, printed) must be created again by the next applyChanges.
+    this.#parentEnsured = false;
+    this.#printedColored = false;
     const deleted = [];
     for (const name of names) {
       const id = cache.get(GmailLabelService.#key(name));

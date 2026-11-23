@@ -78,7 +78,11 @@ export class GmailMailSource {
     this.#retry = {
       ...retry,
       onRetry: (/** @type {{ attempt: number, delayMs: number, status: number | null }} */ info) =>
-        this.#logger.warn(info, 'Gmail API call failed; retrying'),
+        {
+          // Every worker pauses while one of them waits out a quota error.
+          if (info.status === 403 || info.status === 429) this.#nextSlot = Math.max(this.#nextSlot, Date.now() + info.delayMs);
+          this.#logger.warn(info, 'Gmail API call failed; retrying');
+        },
     };
   }
 
@@ -236,10 +240,10 @@ export class GmailMailSource {
    */
   /** Spaces message downloads evenly so a full sync does not burst past Gmail's quota. */
   async #pace() {
-    if (this.#minGapMs === 0) return;
     const now = Date.now();
     const slot = Math.max(now, this.#nextSlot);
     this.#nextSlot = slot + this.#minGapMs;
+    // (with no pacing configured, nextSlot still carries the quota cooldown)
     if (slot > now) await new Promise((resolve) => setTimeout(resolve, slot - now));
   }
 

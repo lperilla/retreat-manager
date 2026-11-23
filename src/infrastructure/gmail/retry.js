@@ -32,6 +32,20 @@ export function isRetryable(error) {
 }
 
 /**
+ * Per-minute quota errors ("Quota exceeded ... Units per minute per user"): waiting less than
+ * the quota window is pointless.
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+export function isQuotaError(error) {
+  const status = httpStatusOf(error);
+  if (status !== 403 && status !== 429) return false;
+  const reasons = /** @type {any} */ (error)?.response?.data?.error?.errors ?? /** @type {any} */ (error)?.errors ?? [];
+  if (Array.isArray(reasons) && reasons.some((r) => r?.reason === 'rateLimitExceeded' || r?.reason === 'userRateLimitExceeded')) return true;
+  return status === 429 || /quota exceeded|rate limit/i.test(String(/** @type {any} */ (error)?.message ?? ''));
+}
+
+/**
  * Retry-After header (seconds or HTTP date) in milliseconds.
  * @param {unknown} error
  * @param {() => number} now
@@ -52,6 +66,8 @@ function retryAfterMs(error, now) {
  * @property {number} [retries]      Extra attempts after the first one (default 5).
  * @property {number} [baseDelayMs]  First backoff delay (default 500 ms).
  * @property {number} [maxDelayMs]   Upper bound for one delay (default 30 s).
+ * @property {number} [quotaDelayMs]  Minimum wait after a per-minute quota error (default 20 s).
+ * @property {number} [quotaRetries]  Retries allowed for quota errors (default 10).
  * @property {(ms: number) => Promise<unknown>} [sleep]
  * @property {() => number} [random] 0..1, used for jitter.
  * @property {() => number} [now]
@@ -71,6 +87,8 @@ export async function withRetry(operation, options = {}) {
     retries = 5,
     baseDelayMs = 500,
     maxDelayMs = 30_000,
+    quotaDelayMs = 20_000,
+    quotaRetries = 10,
     sleep = (ms) => delay(ms),
     random = Math.random,
     now = Date.now,
@@ -80,10 +98,12 @@ export async function withRetry(operation, options = {}) {
     try {
       return await operation();
     } catch (error) {
-      if (attempt >= retries || !isRetryable(error)) throw error;
+      const quota = isQuotaError(error);
+      if (attempt >= (quota ? Math.max(retries, quotaRetries) : retries) || !isRetryable(error)) throw error;
       const exponential = Math.min(maxDelayMs, baseDelayMs * 2 ** attempt);
       const hinted = retryAfterMs(error, now);
-      const delayMs = Math.min(maxDelayMs, hinted ?? Math.round(exponential / 2 + random() * (exponential / 2)));
+      let delayMs = Math.min(maxDelayMs, hinted ?? Math.round(exponential / 2 + random() * (exponential / 2)));
+      if (quota && hinted === null) delayMs = Math.max(delayMs, quotaDelayMs);
       onRetry?.({ attempt: attempt + 1, delayMs, status: httpStatusOf(error) });
       await sleep(delayMs);
     }

@@ -3,7 +3,8 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { AppError } from '../../../domain/errors.js';
 
 export const SESSION_COOKIE = 'retreat_session';
-const SESSION_MAX_AGE_SECONDS = 12 * 60 * 60;
+// 30 days: on tablets and phones the code is typed once, not every day.
+const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
 /**
  * Constant-time string comparison (both sides hashed to a fixed length first).
