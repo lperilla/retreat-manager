@@ -1,6 +1,6 @@
 # Gestión del retiro
 
-Aplicación web para organizar un retiro: **cartas** que las familias envían a los participantes (a un buzón de Gmail), **participantes** (datos, contacto de emergencia, alimentación y accesibilidad), **habitaciones** y **mesas**. Antes se llamaba *retreat-mail-mcp · Cartas del retiro*; el repositorio y la carpeta conservan por ahora el nombre anterior.
+Aplicación web para organizar un retiro: **cartas** que las familias envían a los participantes (a un buzón de Gmail), **participantes** (datos, contacto de emergencia, alimentación y accesibilidad), **habitaciones** y **mesas**. El proyecto se llama **retreat-manager** (antes *retreat-mail-mcp · Cartas del retiro*).
 
 **Cartas**
 

@@ -3,6 +3,9 @@
   "productName": "Gestión del retiro",
   "version": "0.1.0",
   "description": "Dashboard, batch exporter and printing system for retreat letters received in a shared Gmail inbox.",
+  "author": {
+    "name": "Gestión del retiro"
+  },
   "private": true,
   "type": "module",
   "engines": {
@@ -17,7 +20,8 @@
     "demo:walkthrough": "node scripts/demo-walkthrough.js",
     "seed:gmail": "node scripts/seed-gmail.js",
     "desktop": "electron desktop/main.mjs",
-    "dist": "electron-builder --win --x64"
+    "dist": "electron-builder --win nsis --x64",
+    "dist:linux": "electron-builder --linux deb AppImage --x64"
   },
   "dependencies": {
     "dotenv": "18.0.9",
@@ -75,6 +79,33 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Gestión del retiro",
       "language": "1034"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Office",
+      "maintainer": "Gestion del retiro <noreply@retreat-manager.local>",
+      "synopsis": "Gestión del retiro: cartas, participantes, habitaciones y mesas",
+      "artifactName": "Gestion-del-retiro-${version}-linux-${arch}.${ext}",
+      "desktop": {
+        "entry": {
+          "Name": "Gestión del retiro",
+          "StartupWMClass": "Gestión del retiro"
+        }
+      }
     }
   }
 }
