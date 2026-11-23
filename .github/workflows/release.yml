@@ -1,6 +1,6 @@
 name: Release
 
-# Builds the desktop installers and publishes them when a v* tag is pushed:
+# Builds the desktop installers and, when a v* tag is pushed, creates a draft release with them:
 #   - Windows .exe on a native Windows runner (NSIS needs no Wine there)
 #   - Linux .deb and .AppImage on Ubuntu, with the same Docker script used locally
 on:
@@ -82,10 +82,25 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
-      - name: Publish release
+      - name: Write the draft release notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          v='${{ steps.version.outputs.value }}'
+          sed "s/{{VERSION}}/$v/g" .github/release-notes.md > notes.md
+          python3 - "$v" <<'PY2'
+          import sys
+          notes = open('notes.md').read().replace('{{SHA256SUMS}}', open('dist/SHA256SUMS').read().strip())
+          open('notes.md', 'w').write(notes)
+          PY2
+
+      # Created as a draft: write the "Novedades" and "Estado" sections, then publish it by hand.
+      - name: Create draft release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          draft: true
+          name: Retreat Manager ${{ steps.version.outputs.value }}
+          body_path: notes.md
           files: |
             dist/RetreatManager-Setup-${{ steps.version.outputs.value }}.exe
             dist/retreat-manager_${{ steps.version.outputs.value }}_amd64.deb
