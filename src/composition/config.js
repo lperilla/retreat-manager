@@ -15,7 +15,7 @@ const PERSISTENCE_KINDS = Object.freeze(['mongo', 'json']);
  * @property {string|null} accessToken
  * @property {boolean} demoMode
  * @property {{ minConfidence: number, bodyScanChars: number }} assignment
- * @property {{ query: string, labelId: string | null, startDate: string | null, startAt: Date | null, credentialsPath: string, tokenPath: string, concurrency: number }} gmail
+ * @property {{ query: string, labelId: string | null, startDate: string | null, startAt: Date | null, credentialsPath: string, tokenPath: string, concurrency: number, requestsPerSecond: number, labels: { enabled: boolean, participantPrefix: string, printedLabel: string } }} gmail
  *           `startDate` (YYYY-MM-DD, local day in `timeZone`) → `startAt`: first instant of that day.
  * @property {string}  exportDir
  * @property {string}  cacheDir
@@ -51,6 +51,18 @@ function text(env, name, fallback) {
 }
 
 /**
+ * Like `text`, but an empty value is kept (it means "none"); only a missing variable uses the fallback.
+ * @param {Record<string, string | undefined>} env
+ * @param {string} name
+ * @param {string} fallback
+ * @returns {string}
+ */
+function optionalText(env, name, fallback) {
+  const value = env[name];
+  return value === undefined ? fallback : value.trim();
+}
+
+/**
  * @param {Record<string, string | undefined>} env
  * @param {string} name
  * @param {boolean} fallback
@@ -78,6 +90,18 @@ function number(env, name, fallback, { min, max, integer = true }) {
   if (!Number.isFinite(value) || value < min || value > max || (integer && !Number.isInteger(value))) {
     throw invalid(name, `must be ${integer ? 'an integer' : 'a number'} between ${min} and ${max}`);
   }
+  return value;
+}
+
+/**
+ * Gmail label name (not empty, at most 100 characters, no commas or control characters).
+ * @param {string} name
+ * @param {string} value
+ * @returns {string}
+ */
+function labelName(name, value) {
+  if (value === '') return value;
+  if (value.length > 100 || /[,\u0000-\u001f]/.test(value)) throw invalid(name, 'must be a label name of at most 100 characters without commas');
   return value;
 }
 
@@ -143,6 +167,12 @@ export function loadConfig(env = process.env, { rootDir = process.cwd() } = {}) 
       credentialsPath: path('GOOGLE_CREDENTIALS_PATH', './credentials.json'),
       tokenPath: path('GOOGLE_TOKEN_PATH', './token.json'),
       concurrency: number(env, 'GMAIL_CONCURRENCY', 5, { min: 1, max: 20 }),
+      requestsPerSecond: number(env, 'GMAIL_MAX_REQUESTS_PER_SECOND', 10, { min: 0, max: 100 }),
+      labels: Object.freeze({
+        enabled: bool(env, 'GMAIL_LABELS_ENABLED', false),
+        participantPrefix: labelName('GMAIL_LABEL_PREFIX', optionalText(env, 'GMAIL_LABEL_PREFIX', '')),
+        printedLabel: labelName('GMAIL_PRINTED_LABEL', text(env, 'GMAIL_PRINTED_LABEL', 'Impreso')),
+      }),
     }),
     exportDir: path('EXPORT_DIR', './exports'),
     cacheDir: path('CACHE_DIR', './cache'),

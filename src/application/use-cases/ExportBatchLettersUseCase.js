@@ -39,6 +39,7 @@ export class ExportBatchLettersUseCase {
   #printStatuses;
   #clock;
   #timeZone;
+  #changes;
   #logger;
 
   /**
@@ -49,10 +50,12 @@ export class ExportBatchLettersUseCase {
    *   printStatusRepository: import('../ports/PrintStatusRepositoryPort.js').PrintStatusRepositoryPort,
    *   clock: import('../ports/ClockPort.js').ClockPort,
    *   logger: import('../ports/LoggerPort.js').LoggerPort,
+   *   changes?: import('../services/MailChangeRecorder.js').MailChangeRecorder | null,
    *   timeZone?: string,
    * }} deps
    */
-  constructor({ preparePrintView, renderers, exportStorage, printStatusRepository, clock, logger, timeZone }) {
+  constructor({ preparePrintView, renderers, exportStorage, printStatusRepository, clock, logger, timeZone, changes = null }) {
+    this.#changes = changes;
     this.#preparePrintView = preparePrintView;
     this.#renderers = new Map(renderers.map((renderer) => [renderer.format, renderer]));
     this.#storage = exportStorage;
@@ -75,6 +78,7 @@ export class ExportBatchLettersUseCase {
    *   includeAttachments?: boolean,
    *   originalFormat?: boolean,
    *   afterDate?: string | null,
+   *   actor?: string,
    * }} input
    */
   async execute(input) {
@@ -106,6 +110,13 @@ export class ExportBatchLettersUseCase {
           markLettersPrinted(current.get(section.participant.id), section.participant.id, section.letters.map((l) => l.messageId), now, section.letters),
         ),
       );
+      await this.#changes?.record({
+        actor: input.actor,
+        action: 'print.marked',
+        messageIds: payload.sections.flatMap((section) => section.letters.map((l) => l.messageId)),
+        participantIds,
+        details: { via: 'export', format },
+      });
     }
 
     this.#logger.info(

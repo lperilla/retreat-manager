@@ -20,6 +20,7 @@ export class ReviewAssignmentUseCase {
   #participants;
   #strategy;
   #clock;
+  #changes;
 
   /**
    * @param {{
@@ -28,14 +29,16 @@ export class ReviewAssignmentUseCase {
    *   participantRepository: import('../ports/ParticipantRepositoryPort.js').ParticipantRepositoryPort,
    *   assignmentStrategy: import('../../domain/services/assignment.js').ContentAssignmentStrategy,
    *   clock: import('../ports/ClockPort.js').ClockPort,
+   *   changes?: import('../services/MailChangeRecorder.js').MailChangeRecorder | null,
    * }} deps
    */
-  constructor({ letterStore, overrideRepository, participantRepository, assignmentStrategy, clock }) {
+  constructor({ letterStore, overrideRepository, participantRepository, assignmentStrategy, clock, changes = null }) {
     this.#letters = letterStore;
     this.#overrides = overrideRepository;
     this.#participants = participantRepository;
     this.#strategy = assignmentStrategy;
     this.#clock = clock;
+    this.#changes = changes;
   }
 
   /**
@@ -81,26 +84,26 @@ export class ReviewAssignmentUseCase {
 
   /**
    * Assigns (or reassigns) a letter to one or more participants.
-   * @param {{ messageId: string, participantIds: string[] }} input
+   * @param {{ messageId: string, participantIds: string[], actor?: string }} input
    */
   async assign(input) {
     const requested = requireStringArray(input?.participantIds, 'participantIds', { max: 50 });
     const participants = await this.#participants.findAll();
     const participantIds = resolveSelection(requested, participants);
-    return this.#saveOverride(input.messageId, participantIds, participants);
+    return this.#saveOverride(input.messageId, participantIds, participants, input.actor, 'assignment.set');
   }
 
   /**
    * "Dejar sin asignar": the letter belongs to nobody (leaves the review queue, never dropped).
-   * @param {{ messageId: string }} input
+   * @param {{ messageId: string, actor?: string }} input
    */
   async leaveUnassigned(input) {
-    return this.#saveOverride(input?.messageId, [], await this.#participants.findAll());
+    return this.#saveOverride(input?.messageId, [], await this.#participants.findAll(), input?.actor, 'assignment.unassigned');
   }
 
   /**
    * Removes the manual decision and lets the heuristics decide again.
-   * @param {{ messageId: string }} input
+   * @param {{ messageId: string, actor?: string }} input
    */
   async resetToAutomatic(input) {
     const letter = await this.#requireLetter(input?.messageId);
@@ -110,15 +113,19 @@ export class ReviewAssignmentUseCase {
       { subject: letter.subject, body: letter.cleanBody, from: letter.from },
       participants,
     );
-    return this.#applyAssignment(letter, assignment, participants);
+    const view = await this.#applyAssignment(letter, assignment, participants);
+    await this.#changes?.record({ actor: input?.actor, action: 'assignment.reset', messageIds: [letter.messageId], participantIds: assignment.participantIds });
+    return view;
   }
 
   /**
    * @param {unknown} messageIdInput
    * @param {string[]} participantIds
    * @param {import('../../domain/entities/Participant.js').Participant[]} participants
+   * @param {unknown} actor
+   * @param {string} action
    */
-  async #saveOverride(messageIdInput, participantIds, participants) {
+  async #saveOverride(messageIdInput, participantIds, participants, actor, action) {
     const letter = await this.#requireLetter(messageIdInput);
     const override = createAssignmentOverride({
       messageId: letter.messageId,
@@ -126,7 +133,9 @@ export class ReviewAssignmentUseCase {
       updatedAt: this.#clock.now(),
     });
     await this.#overrides.save(override);
-    return this.#applyAssignment(letter, applyAssignmentOverride(letter.assignment, override), participants);
+    const view = await this.#applyAssignment(letter, applyAssignmentOverride(letter.assignment, override), participants);
+    await this.#changes?.record({ actor, action, messageIds: [letter.messageId], participantIds });
+    return view;
   }
 
   /**

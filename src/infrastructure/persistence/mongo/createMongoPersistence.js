@@ -1,6 +1,8 @@
 import { connectMongo } from './MongoConnection.js';
 import { ensureIndexes } from './indexes.js';
 import { MongoAssignmentOverrideRepository } from './MongoAssignmentOverrideRepository.js';
+import { MongoAuditLogRepository } from './MongoAuditLogRepository.js';
+import { MongoLabelStateRepository } from './MongoLabelStateRepository.js';
 import { MongoLetterStoreRepository } from './MongoLetterStoreRepository.js';
 import { MongoPrintStatusRepository } from './MongoPrintStatusRepository.js';
 import { MongoSyncStateRepository } from './MongoSyncStateRepository.js';
@@ -29,6 +31,8 @@ export function buildMongoRepositories(db, { clock }) {
     tableAssignments: new MongoAssignmentRepository(db, { collection: AC.TABLE_ASSIGNMENTS }),
     printStatusRepository: new MongoPrintStatusRepository(db),
     overrideRepository: new MongoAssignmentOverrideRepository(db),
+    labelStateRepository: new MongoLabelStateRepository(db),
+    auditLogRepository: new MongoAuditLogRepository(db),
   };
 }
 

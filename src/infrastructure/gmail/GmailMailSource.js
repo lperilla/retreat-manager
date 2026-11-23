@@ -2,6 +2,7 @@ import { CursorExpiredError } from '../../application/ports/MailSourcePort.js';
 import { describeError } from '../../application/services/errorDescription.js';
 import { AppError } from '../../domain/errors.js';
 import { extractMessageContent, headerMap } from './bodyExtractor.js';
+import { mapGmailError } from './gmailErrors.js';
 import { httpStatusOf, mapWithConcurrency, withRetry } from './retry.js';
 
 const PAGE_SIZE = 500;
@@ -36,12 +37,21 @@ const EXCLUDED_LABELS = new Set(['DRAFT', 'SPAM', 'TRASH']);
  * @implements {import('../../application/ports/MailSourcePort.js').MailSourcePort}
  */
 export class GmailMailSource {
+  /**
+   * Label adapter sharing this connection; set by createGmailMailSource only when label
+   * synchronization is enabled.
+   * @type {import('../../application/ports/MailLabelPort.js').MailLabelPort | null}
+   */
+  labelPort = null;
+
   /** @type {GmailClient} */
   #gmail;
   #query;
   #labelId;
   #startAt;
   #concurrency;
+  #minGapMs;
+  #nextSlot = 0;
   #retry;
   #logger;
 
@@ -52,11 +62,13 @@ export class GmailMailSource {
    *   labelId?: string | null,
    *   startAt?: Date | null,
    *   concurrency?: number,
+   *   requestsPerSecond?: number,  Pacing of message downloads (0 = unlimited), to stay under Gmail's per-minute quota.
    *   retry?: import('./retry.js').RetryOptions,
    *   logger: import('../../application/ports/LoggerPort.js').LoggerPort,
    * }} options
    */
-  constructor({ gmail, query = '', labelId = null, startAt = null, concurrency = 5, retry = {}, logger }) {
+  constructor({ gmail, query = '', labelId = null, startAt = null, concurrency = 5, requestsPerSecond = 0, retry = {}, logger }) {
+    this.#minGapMs = requestsPerSecond > 0 ? Math.ceil(1000 / requestsPerSecond) : 0;
     this.#gmail = gmail;
     this.#query = query.trim();
     this.#labelId = labelId || null;
@@ -75,8 +87,14 @@ export class GmailMailSource {
    * @param {() => Promise<T>} call
    * @returns {Promise<T>}
    */
-  #call(call) {
-    return withRetry(call, this.#retry);
+  async #call(call) {
+    try {
+      return await withRetry(call, this.#retry);
+    } catch (error) {
+      // Authentication, permission and connection failures get a clear message; anything
+      // else (e.g. 404 for an expired history id) is handled by the caller as before.
+      throw mapGmailError(error) ?? error;
+    }
   }
 
   /**
@@ -216,9 +234,19 @@ export class GmailMailSource {
    * @param {string[]} ids
    * @returns {Promise<Array<{ raw: any, letter: import('../../application/ports/MailSourcePort.js').IncomingMessage } | null>>}
    */
+  /** Spaces message downloads evenly so a full sync does not burst past Gmail's quota. */
+  async #pace() {
+    if (this.#minGapMs === 0) return;
+    const now = Date.now();
+    const slot = Math.max(now, this.#nextSlot);
+    this.#nextSlot = slot + this.#minGapMs;
+    if (slot > now) await new Promise((resolve) => setTimeout(resolve, slot - now));
+  }
+
   #fetchMessages(ids) {
     return mapWithConcurrency(ids, this.#concurrency, async (id) => {
       try {
+        await this.#pace();
         const response = await this.#call(() => this.#gmail.users.messages.get({ userId: 'me', id, format: 'full' }));
         return { raw: response.data, letter: toIncomingMessage(response.data) };
       } catch (error) {

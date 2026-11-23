@@ -9,6 +9,8 @@ export const COLLECTIONS = Object.freeze({
   TABLE_ASSIGNMENTS: 'table_assignments',
   ASSIGNMENT_OVERRIDES: 'assignment_overrides',
   PRINT_STATUS: 'print_status',
+  MAIL_LABEL_STATES: 'mail_label_states',
+  AUDIT_LOG: 'audit_log',
   SYNC_STATE: 'sync_state',
   SYNC_RUNS: 'sync_runs',
 });

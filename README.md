@@ -33,12 +33,14 @@ El panel **nunca lee Gmail directamente**: todo se lee de la base de datos local
 11. [Exportación en lote](#exportación-en-lote)
 12. [Impresión](#impresión)
 13. [Sincronización incremental](#sincronización-incremental)
-14. [Panel en la red local](#panel-en-la-red-local)
-15. [Arquitectura hexagonal](#arquitectura-hexagonal)
-16. [Tests](#tests)
-17. [Privacidad, retención y borrado](#privacidad-retención-y-borrado)
-18. [Variables de entorno](#variables-de-entorno)
-19. [Solución de problemas](#solución-de-problemas)
+14. [Etiquetas de Gmail](#etiquetas-de-gmail)
+15. [Configuración desde el panel](#configuración-desde-el-panel)
+16. [Panel en la red local](#panel-en-la-red-local)
+17. [Arquitectura hexagonal](#arquitectura-hexagonal)
+18. [Tests](#tests)
+19. [Privacidad, retención y borrado](#privacidad-retención-y-borrado)
+20. [Variables de entorno](#variables-de-entorno)
+21. [Solución de problemas](#solución-de-problemas)
 
 ---
 
@@ -159,7 +161,7 @@ Los índices se crean solos al arrancar. Se usan estas colecciones: `letters`, `
 
 ## Configuración OAuth2 en Google Cloud
 
-La aplicación pide **un único permiso: `gmail.readonly`** (lectura). No puede enviar, borrar ni modificar correo.
+Por defecto la aplicación pide **un único permiso: `gmail.readonly`** (lectura). No puede enviar, borrar ni modificar correo. Solo si activas las [etiquetas de Gmail](#etiquetas-de-gmail) (`GMAIL_LABELS_ENABLED=true`), `npm run auth` pide en su lugar **`gmail.modify`**, el mínimo que permite leer y cambiar etiquetas de los mensajes (no envía ni borra correo definitivamente); añádelo en **Acceso a datos** y repite `npm run auth`.
 
 1. Entra en <https://console.cloud.google.com/> con una cuenta que pueda administrar el proyecto y **crea un proyecto** (por ejemplo, «Cartas retiro»).
 2. **APIs y servicios → Biblioteca** → busca **Gmail API** → **Habilitar**.
@@ -380,6 +382,29 @@ Las cartas que llegan con un PDF adjunto no se pueden incrustar en el paquete HT
 - **Sincronización automática**: `SYNC_INTERVAL_MINUTES` > 0. Solo la programa el panel web.
 - Reintentos con espera exponencial ante límites de Gmail (429) o errores temporales (5xx), y descargas en paralelo limitadas (`GMAIL_CONCURRENCY`).
 
+## Etiquetas de Gmail
+
+Opcional (`GMAIL_LABELS_ENABLED=true`, desactivado por defecto). La base de datos sigue siendo la fuente de verdad: la aplicación refleja en Gmail a quién pertenece cada correo y si ya se imprimió.
+
+- **Una etiqueta por participante**: por defecto solo el nombre (`María García`). Si quieres agruparlas, pon un prefijo opcional en `GMAIL_LABEL_PREFIX` (con `Retiro` quedan como `Retiro/María García`). Y una etiqueta **`Impreso`** (`GMAIL_PRINTED_LABEL`). Se reutilizan si ya existen (Gmail no distingue mayúsculas) y nunca se duplican, ni siquiera si otro proceso las crea a la vez.
+- **Cuándo se aplican**: tras cada sincronización del buzón, al asignar o reasignar una carta, al marcarla o desmarcarla como impresa y al exportar «marcando como impresas». También a mano: `POST /api/mail/labels/sync` (`{ "force": true }` reaplica todo).
+- **Idempotente**: se guarda qué etiquetas tiene cada mensaje (`mail_label_states`: etiquetas, impreso, fecha de sincronización, usuario y último error). Una segunda sincronización sin cambios no llama a Gmail; si una carta cambia de participante, se quita la etiqueta anterior y se pone la nueva. Si un mensaje falla, queda el error guardado y se reintenta en la siguiente pasada.
+- **Solo cartas asignadas** reciben etiqueta; las que están «Por revisar» esperan a que alguien las asigne. Una carta para varios participantes lleva todas sus etiquetas y `Impreso` cuando está impresa para todos.
+- **Auditoría** (`audit_log`, siempre activa): quién (cabecera `X-Actor`, o `staff` si no se envía; `sync` en las automáticas), cuándo y qué cambió en cada carta. Consulta: `GET /api/mail/audit?messageId=…`.
+- **Consulta y filtros**: `GET /api/mail?participantId=&label=&sender=&from=YYYY-MM-DD&to=YYYY-MM-DD&printed=true|false&hasAttachments=true|false&limit=&offset=`. Cada mensaje indica sus etiquetas, si Gmail está al día y el último error.
+- **Marcar a mano**: `POST /api/mail/:messageId/printed` con `{ "printed": true|false }`; la corrección de participante usa los endpoints de revisión (`/api/review/:messageId/assign`).
+- **Errores claros**: credenciales caducadas (`GMAIL_AUTH_ERROR`), permiso insuficiente (`GMAIL_INSUFFICIENT_PERMISSIONS`, repite `npm run auth` con las etiquetas activadas) y red o cuota (`GMAIL_UNAVAILABLE`). Un fallo de etiquetas nunca estropea el cambio guardado en la base de datos.
+
+## Configuración desde el panel
+
+El menú **Configuración** permite cambiar y guardar sin editar `.env`: las etiquetas de Gmail (activar, prefijo opcional, nombre de la etiqueta de impresas), qué correos se leen (búsqueda, día de inicio, id de etiqueta), el ritmo de descarga y el intervalo de la sincronización automática.
+
+- Se guarda en `data/settings.json` y **tiene prioridad sobre `.env`**. Borrar ese archivo devuelve los valores de `.env`.
+- Se aplica al guardar, sin reiniciar (no se puede mientras hay una sincronización en curso). El intervalo automático (y todo en modo demostración) se aplica al reiniciar: la pantalla lo avisa con los campos afectados y un botón **Reiniciar ahora**, que solo está disponible si la aplicación se arrancó con `start.cmd` / `start.sh`; si no, hay que pararla y arrancarla a mano.
+- Debajo de cada campo se ve su valor por defecto, y el botón **Valores por defecto** rellena el formulario con ellos (no se guardan hasta pulsar Guardar).
+- No incluye secretos: el código de acceso, la base de datos y las credenciales de Google siguen en `.env`.
+- Si activas las etiquetas y el acceso a Gmail es de solo lectura, el panel avisa de que hay que ejecutar `npm run auth`.
+
 ## Panel en la red local
 
 Para usar el panel desde otros dispositivos del retiro (por ejemplo, una tableta en secretaría):
@@ -564,6 +589,10 @@ Todas están en `.env.example`, comentadas.
 | `GOOGLE_CREDENTIALS_PATH` | `./credentials.json` | Cliente OAuth (Aplicación de escritorio). |
 | `GOOGLE_TOKEN_PATH` | `./token.json` | Token que escribe `npm run auth`. |
 | `GMAIL_CONCURRENCY` | `5` | Descargas simultáneas. |
+| `GMAIL_MAX_REQUESTS_PER_SECOND` | `10` | Ritmo máximo de descargas (0 = sin límite). Bájalo si Gmail responde «Quota exceeded». |
+| `GMAIL_LABELS_ENABLED` | `false` | Activa las etiquetas de Gmail (pide el permiso `gmail.modify`). |
+| `GMAIL_LABEL_PREFIX` | vacío | Prefijo opcional de las etiquetas de participante (`Prefijo/Nombre`). Vacío = solo el nombre. |
+| `GMAIL_PRINTED_LABEL` | `Impreso` | Etiqueta que se añade a las cartas impresas. |
 | `EXPORT_DIR` | `./exports` | Carpeta de exportaciones. |
 | `CACHE_DIR` | `./cache` | Caché de adjuntos. |
 | `MAX_ATTACHMENT_MB` | `15` | Tamaño máximo de adjunto que se procesa. |

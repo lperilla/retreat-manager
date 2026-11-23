@@ -49,6 +49,8 @@ export async function purgeData({ persistence, includeParticipants = false, dire
   const letters = await persistence.letterStore.deleteAll();
   const overrides = await persistence.overrideRepository.deleteAll();
   const printStatuses = await persistence.printStatusRepository.deleteAll();
+  await persistence.labelStateRepository.deleteAll();
+  await persistence.auditLogRepository.deleteAll();
   await persistence.syncStateRepository.deleteAll();
   const participants = includeParticipants ? await persistence.participantRepository.deleteAll() : null;
 

@@ -1,12 +1,12 @@
 /**
- * `npm run auth`: OAuth consent flow (scope gmail.readonly only). Writes token.json.
+ * `npm run auth`: OAuth consent flow (gmail.readonly, or gmail.modify when GMAIL_LABELS_ENABLED=true). Writes token.json.
  * Requires credentials.json (Google Cloud → OAuth client ID → Desktop app).
  */
 import { spawn } from 'node:child_process';
 
 import { describeError } from '../application/services/errorDescription.js';
 import { OAuth2, createGmailClient } from '../infrastructure/gmail/googleClient.js';
-import { GMAIL_SCOPES, readClientSecrets, writeTokenFile } from '../infrastructure/gmail/oauthClient.js';
+import { gmailScopesFor, readClientSecrets, writeTokenFile } from '../infrastructure/gmail/oauthClient.js';
 import { runLoopbackAuthorization } from '../infrastructure/gmail/oauthFlow.js';
 import { loadEnvironment } from './bootstrap.js';
 
@@ -39,12 +39,15 @@ async function main() {
   }
 
   const oauthClient = new OAuth2(secrets.clientId, secrets.clientSecret);
-  process.stdout.write(`Requesting access with scope: ${GMAIL_SCOPES.join(' ')}\n`);
+  // Read-only by default; gmail.modify (read + labels) only when label sync is enabled.
+  const scopes = gmailScopesFor({ labels: config.gmail.labels.enabled });
+  process.stdout.write(`Requesting access with scope: ${scopes.join(' ')}\n`);
 
   const { code, codeVerifier, redirectUri } = await runLoopbackAuthorization({
     oauthClient,
     openUrl: openBrowser,
-    onUrl: (url) => process.stdout.write(`\nOpen this URL in your browser to authorize read-only Gmail access:\n\n${url}\n\nWaiting for the authorization (5 minutes)...\n`),
+    scopes,
+    onUrl: (url) => process.stdout.write(`\nOpen this URL in your browser to authorize Gmail access:\n\n${url}\n\nWaiting for the authorization (5 minutes)...\n`),
   });
 
   const { tokens } = await oauthClient.getToken({ code, codeVerifier, redirect_uri: redirectUri });

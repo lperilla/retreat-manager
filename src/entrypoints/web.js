@@ -1,6 +1,10 @@
 /**
  * Web entrypoint: dashboard + JSON API. The only entrypoint that schedules automatic syncs.
  */
+import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describeError } from '../application/services/errorDescription.js';
 import { createContainer } from '../composition/container.js';
 import { PinoLogger } from '../infrastructure/logging/PinoLogger.js';
@@ -9,7 +13,7 @@ import { assertWebSecurity, listAccessUrls } from '../infrastructure/web/securit
 import { RetentionScheduler } from '../infrastructure/web/RetentionScheduler.js';
 import { SyncScheduler } from '../infrastructure/web/SyncScheduler.js';
 import { WebRuntime } from '../infrastructure/web/WebRuntime.js';
-import { loadEnvironment } from './bootstrap.js';
+import { PROJECT_ROOT, loadEnvironment } from './bootstrap.js';
 
 async function main() {
   const config = loadEnvironment();
@@ -21,6 +25,25 @@ async function main() {
     logger,
     createContainer: (effectiveConfig) => createContainer({ config: effectiveConfig, role: 'web', overrides: { logger } }),
   });
+
+  // Restarting from the dashboard is only possible when start.cmd / start.sh launched this process
+  // (it records the PID in .run/web.json); then the same script stops and starts it again.
+  try {
+    const info = JSON.parse(readFileSync(join(PROJECT_ROOT, '.run', 'web.json'), 'utf8'));
+    if (info.pid === process.pid) {
+      runtime.setRestartHandler(() => {
+        const child = spawn(process.execPath, [join(PROJECT_ROOT, 'scripts', 'manage.js'), 'restart', '--no-open', '--no-mongo'], {
+          cwd: PROJECT_ROOT,
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: true,
+        });
+        child.unref();
+      });
+    }
+  } catch {
+    // Not started through start.cmd: no restart button.
+  }
 
   const scheduler = new SyncScheduler({
     intervalMinutes: config.sync.intervalMinutes,

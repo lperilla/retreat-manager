@@ -23,7 +23,9 @@ export function isRetryable(error) {
   if (status === 429 || (status !== null && status >= 500)) return true;
   if (status === 403) {
     const reasons = /** @type {any} */ (error)?.response?.data?.error?.errors ?? /** @type {any} */ (error)?.errors ?? [];
-    return Array.isArray(reasons) && reasons.some((reason) => RETRYABLE_403_REASONS.has(reason?.reason));
+    if (Array.isArray(reasons) && reasons.some((reason) => RETRYABLE_403_REASONS.has(reason?.reason))) return true;
+    // Per-minute quotas ("Quota exceeded for quota metric ...") may come without a reason code.
+    return /quota exceeded|rate limit/i.test(String(/** @type {any} */ (error)?.message ?? ''));
   }
   const code = /** @type {any} */ (error)?.code;
   return typeof code === 'string' && RETRYABLE_NETWORK_CODES.has(code);
