@@ -231,7 +231,7 @@ describe('Gmail labels: sync, manual assignment and printed label', () => {
 
     await assert.rejects(container.useCases.syncMailLabels.execute({ actor: 'Ana' }), (error) => {
       assert.equal(error.code, 'GMAIL_INSUFFICIENT_PERMISSIONS');
-      assert.match(error.message, /npm run auth/);
+      assert.match(error.message, /Conceder permiso/);
       return true;
     });
 

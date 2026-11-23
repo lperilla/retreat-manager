@@ -153,6 +153,22 @@ export class WebRuntime {
     return { reloaded: true };
   }
 
+  /**
+   * After Gmail has been (re)authorized: rebuilds the container so the mail source uses the new
+   * token. In setup mode (no Gmail before) it creates the container for the first time.
+   * Demo mode is left as it is.
+   * @returns {Promise<{ reloaded: boolean }>}
+   */
+  async reconnectMailSource() {
+    if (this.#container?.config.demoMode) return { reloaded: false };
+    if (this.#container) return this.reload(this.#config);
+    const container = await this.#createContainer(this.#config);
+    this.#container = container;
+    this.#logger.info('Gmail connected from the dashboard');
+    for (const listener of this.#listeners) listener(container);
+    return { reloaded: true };
+  }
+
   /** Public, non-sensitive information for the UI. */
   info() {
     const container = this.#container;

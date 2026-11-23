@@ -175,12 +175,12 @@ Cada dispositivo pide el código una vez y lo recuerda **30 días**.
 
 ## Paso 5. Preparar el retiro
 
-Todo esto se hace en el panel, desde el servidor o desde cualquier navegador:
+Los participantes se pueden gestionar desde el servidor o desde cualquier navegador. La **Configuración** solo aparece en el servidor (en la aplicación): los demás dispositivos no la ven.
 
 1. **Participantes**: añádelos a mano o impórtalos desde Excel.
-2. **Configuración** (menú superior):
+2. **Configuración** (menú superior, solo en el servidor):
    - **Qué correos se leen**: si el buzón es solo para el retiro, déjalo vacío. Si es compartido, pon una búsqueda de Gmail (por ejemplo `to:cartas.retiro.2026@gmail.com`) o el día desde el que leer.
-   - **Etiquetas de Gmail** (opcional): ver [paso 1.4](#14-permisos-acceso-a-datos). Al activarlas, repite **Archivo → Conectar con Gmail…** para dar el permiso nuevo.
+   - **Etiquetas de Gmail** (opcional): ver [paso 1.4](#14-permisos-acceso-a-datos). Al activarlas y guardar, aparece el botón **Conceder permiso**: púlsalo, acepta en la página de Google que se abre y vuelve a la aplicación.
    - **Buscar cartas nuevas cada (minutos)**: por ejemplo `15` para que se recojan solas.
    - Cada campo tiene un botón ⓘ que explica qué hace.
 3. Pulsa **Buscar cartas nuevas** arriba a la derecha.
@@ -266,7 +266,7 @@ Otro programa usa ese puerto, o la aplicación ya está abierta (mira la barra d
 
 ### Gmail rechaza la autenticación / dejan de llegar cartas
 
-Con cuentas @gmail.com en modo de prueba, el permiso caduca cada 7 días ([paso 1.3](#13-pantalla-de-consentimiento)). Ve a **Archivo → Conectar con Gmail…** y repite la autorización. Si sigue fallando, en <https://myaccount.google.com/permissions> quita el acceso de «Retreat Manager» y vuelve a conectar.
+Con cuentas @gmail.com en modo de prueba, el permiso caduca cada 7 días ([paso 1.3](#13-pantalla-de-consentimiento)). En el servidor, ve a **Configuración → Conceder permiso** (si aparece) o a **Archivo → Conectar con Gmail…**, y repite la autorización. Si sigue fallando, en <https://myaccount.google.com/permissions> quita el acceso de «Retreat Manager» y vuelve a conectar.
 
 ### «Quota exceeded» al buscar cartas
 
@@ -274,7 +274,7 @@ Gmail limita las descargas por minuto. Espera un par de minutos y vuelve a busca
 
 ### «El permiso concedido no permite modificar etiquetas»
 
-Activaste las etiquetas de Gmail pero el permiso es de solo lectura. Añade `gmail.modify` en Google Cloud ([paso 1.4](#14-permisos-acceso-a-datos)) y repite **Archivo → Conectar con Gmail…**.
+Activaste las etiquetas de Gmail pero el permiso es de solo lectura. Añade `gmail.modify` en Google Cloud ([paso 1.4](#14-permisos-acceso-a-datos)) y, en el servidor, pulsa **Configuración → Conceder permiso**.
 
 ### Otro error
 

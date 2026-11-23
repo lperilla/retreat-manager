@@ -204,6 +204,9 @@ function showSetup() {
 async function start() {
   $('#demo-banner').hidden = !state.info.demoMode;
   $('#logout-item').hidden = !state.info.accessControl;
+  // Configuración: only on the server computer.
+  const settingsLink = document.querySelector('[data-nav="settings"]');
+  if (settingsLink) /** @type {HTMLElement} */ (settingsLink.closest('li') ?? settingsLink).hidden = !state.info.serverComputer;
   await refreshSyncStatus();
   await route({ focus: false });
 }

@@ -408,7 +408,8 @@ El menú **Configuración** permite cambiar y guardar sin editar `.env`: las eti
 - Se aplica al guardar, sin reiniciar (no se puede mientras hay una sincronización en curso). El intervalo automático (y todo en modo demostración) se aplica al reiniciar: la pantalla lo avisa con los campos afectados y un botón **Reiniciar ahora**, que solo está disponible si la aplicación se arrancó con `start.cmd` / `start.sh`; si no, hay que pararla y arrancarla a mano.
 - Debajo de cada campo se ve su valor por defecto, y el botón **Valores por defecto** rellena el formulario con ellos (no se guardan hasta pulsar Guardar).
 - No incluye secretos: el código de acceso, la base de datos y las credenciales de Google siguen en `.env`.
-- Si activas las etiquetas y el acceso a Gmail es de solo lectura, el panel avisa de que hay que ejecutar `npm run auth`.
+- **Solo en el ordenador servidor**: la pantalla (y su API: `/api/settings`, `/api/restart`, `/api/gmail/authorize`, `/api/mail/labels/reset`) solo responde a peticiones desde `127.0.0.1` / `::1`, es decir, la app de escritorio o un navegador en ese mismo ordenador abierto en `localhost`. En los demás dispositivos el menú no aparece y la API responde `SETTINGS_SERVER_ONLY` (403).
+- Si activas las etiquetas y el acceso a Gmail es de solo lectura, aparece **Conceder permiso**: abre la página de Google en el navegador del servidor (el mismo flujo que `npm run auth`, con PKCE y respuesta en `127.0.0.1`), guarda el token y reconecta Gmail sin reiniciar.
 
 ## App de escritorio (servidor)
 

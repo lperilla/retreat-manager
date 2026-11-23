@@ -266,6 +266,9 @@
     <!-- Settings -->
     <section id="view-settings" class="app-view" hidden aria-labelledby="settings-title">
       <h1 class="h3 mb-3" id="settings-title">Configuración</h1>
+      <div class="alert alert-info" id="settings-remote" role="status" hidden>
+        La configuración solo está disponible en el <strong>ordenador servidor</strong>, en la aplicación Retreat Manager.
+      </div>
       <form id="settings-form" class="card" novalidate>
         <div class="card-body">
           <div class="alert alert-warning" id="settings-demo" role="status" hidden>
@@ -282,10 +285,12 @@
           <div class="form-check form-switch mb-3">
             <input class="form-check-input" type="checkbox" role="switch" id="set-labelsEnabled">
             <label class="form-check-label" for="set-labelsEnabled">Activar etiquetas de Gmail</label>
-            <div class="form-text">Necesita el permiso de modificar etiquetas: tras activarlo, ejecuta <code>npm run auth</code> una vez.</div>
+            <div class="form-text">Necesita permiso para modificar etiquetas en Gmail: tras activarlo y guardar, pulsa «Conceder permiso».</div>
           </div>
           <div class="alert alert-warning" id="settings-scope" role="alert" hidden>
-            El acceso actual a Gmail es solo de lectura. Ejecuta <code>npm run auth</code> en el ordenador del servidor para conceder el permiso de etiquetas.
+            <p class="mb-2">El acceso actual a Gmail es <strong>solo de lectura</strong>: para poner etiquetas hace falta tu permiso.</p>
+            <button type="button" class="btn btn-sm btn-warning" id="settings-authorize">Conceder permiso</button>
+            <p class="small mb-0 mt-2" id="settings-authorize-status" role="status" aria-live="polite"></p>
           </div>
           <div class="mb-3">
             <button type="button" class="btn btn-sm btn-outline-danger" id="settings-labels-reset">Inicializar etiquetas</button>

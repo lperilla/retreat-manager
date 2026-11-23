@@ -2,9 +2,11 @@
  * "Configuración": Gmail label options, which mail is read and the sync pace.
  * Values are saved on the server (data/settings.json) and applied without restarting,
  * except the ones listed in `restartPending`, which need a restart (offered from here).
+ * Only available on the server computer: other devices see a notice instead.
  */
 import { api } from './api.js';
 import { $, h, withBusy } from './dom.js';
+import { state } from './state.js';
 import { confirmDialog, toast, toastError } from './ui.js';
 
 const TEXT_FIELDS = ['labelPrefix', 'printedLabel', 'query', 'startDate', 'labelId'];
@@ -27,7 +29,7 @@ const FIELD_NAMES = {
  */
 const HELP = {
   labelsEnabled:
-    'Qué es: un interruptor general. Qué hace: si está activado, la aplicación crea en Gmail una etiqueta por participante y la pone en sus correos; también pone la etiqueta de «impresas» cuando se imprimen. Para qué sirve: poder ver y filtrar las cartas directamente en Gmail. Necesita un permiso más amplio de Gmail: tras activarlo ejecuta npm run auth una vez.',
+    'Qué es: un interruptor general. Qué hace: si está activado, la aplicación crea en Gmail una etiqueta por participante y la pone en sus correos; también pone la etiqueta de «impresas» cuando se imprimen. Para qué sirve: poder ver y filtrar las cartas directamente en Gmail. Necesita un permiso más amplio de Gmail: tras activarlo y guardar, pulsa «Conceder permiso» (aparece en esta pantalla).',
   labelPrefix:
     'Qué es: la etiqueta padre bajo la que se agrupan todas las etiquetas de participante. Qué hace: la aplicación crea esa etiqueta en Gmail y cuelga de ella una etiqueta por participante, como una carpeta. Ejemplo: con «Retiro» verás «Retiro» y dentro «María García», «Juan Pérez»…; vacío, las etiquetas de participante quedan sueltas. Al cambiarla, las antiguas se quitan de los correos y se borran de Gmail.',
   printedLabel:
@@ -126,6 +128,7 @@ function fill(data) {
   for (const key of NUMBER_FIELDS) field(key).value = String(values[key] ?? '');
   $('#settings-demo').hidden = !data.demoMode;
   $('#settings-scope').hidden = !(values.labelsEnabled && data.tokenHasLabelScope === false);
+  /** @type {HTMLButtonElement} */ ($('#settings-authorize')).hidden = !data.canAuthorizeHere;
   $('#settings-status').textContent = '';
   showDefaults(data.defaults);
   showRestart(data);
@@ -133,7 +136,45 @@ function fill(data) {
 }
 
 export async function loadSettings() {
-  fill(await api.settings());
+  const server = Boolean(state.info?.serverComputer);
+  $('#settings-remote').hidden = server;
+  $('#settings-form').hidden = !server;
+  if (server) fill(await api.settings());
+}
+
+/**
+ * "Conceder permiso": the server opens Google's page in its own browser; this page waits until
+ * the new permission is saved (up to 5 minutes).
+ */
+async function authorizeGmail() {
+  const status = $('#settings-authorize-status');
+  const button = /** @type {HTMLButtonElement} */ ($('#settings-authorize'));
+  button.disabled = true;
+  try {
+    const { authUrl } = await api.authorizeGmail();
+    status.replaceChildren(
+      'Se ha abierto el navegador: inicia sesión con la cuenta de Gmail de las cartas y acepta los permisos. Si no se ha abierto, ',
+      h('a', { href: authUrl, target: '_blank', rel: 'noopener', text: 'abre este enlace' }),
+      '.',
+    );
+    for (let waited = 0; waited < 300; waited += 2) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const data = await api.settings();
+      if (data.tokenHasLabelScope) {
+        fill(data);
+        status.textContent = '';
+        toast('Permiso concedido: la aplicación ya puede poner etiquetas en Gmail.');
+        return;
+      }
+      if (!data.authorizing) break;
+    }
+    status.textContent = 'No se ha recibido el permiso. Vuelve a pulsar «Conceder permiso» y acepta en la página de Google.';
+  } catch (error) {
+    status.textContent = '';
+    toastError(error);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function collect() {
@@ -191,6 +232,7 @@ export function initSettings() {
       }
     });
   });
+  $('#settings-authorize').addEventListener('click', () => void authorizeGmail());
   $('#settings-labels-reset').addEventListener('click', () => {
     void (async () => {
       const accepted = await confirmDialog({
